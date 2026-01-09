@@ -9,15 +9,22 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 
-export function LoginForm() {
+interface LoginFormProps {
+  loginType?: "admin" | "production"
+}
+
+export function LoginForm({ loginType = "admin" }: LoginFormProps) {
   const router = useRouter()
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault()
-    // Simulate login - redirect to kitchen dashboard
-    router.push("/kitchen/dashboard")
+    if (loginType === "admin") {
+      router.push("/admin/plate-colors")
+    } else {
+      router.push("/production/planning")
+    }
   }
 
   return (
@@ -41,8 +48,10 @@ export function LoginForm() {
             </svg>
           </div>
         </div>
-        <CardTitle className="text-2xl font-bold">Sushi Production System</CardTitle>
-        <CardDescription>Sign in to access the production dashboard</CardDescription>
+        <CardTitle className="text-2xl font-bold">
+          {loginType === "admin" ? "Admin & Production Access" : "Production Access"}
+        </CardTitle>
+        <CardDescription>Sign in with your username and password</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleLogin} className="space-y-4">

@@ -12,6 +12,7 @@ import { ArrowLeft, CheckCircle, XCircle } from "lucide-react"
 
 export function ConveyorScreen() {
   const { toast } = useToast()
+  const [selectedColor, setSelectedColor] = useState<string | null>(null)
 
   // Mock active production items
   const [items, setItems] = useState<ProductionItem[]>([
@@ -53,6 +54,8 @@ export function ConveyorScreen() {
     },
   ])
 
+  const filteredItems = selectedColor ? items.filter((item) => item.plateColor === selectedColor) : items
+
   const handleMarkSold = (itemId: string, sushiName: string) => {
     setItems((prev) => prev.filter((item) => item.id !== itemId))
     toast({
@@ -70,6 +73,21 @@ export function ConveyorScreen() {
     })
   }
 
+  const colorOptions = [
+    { label: "All Colors", value: null },
+    { label: "Green", value: "green" },
+    { label: "Blue", value: "blue" },
+    { label: "Red", value: "red" },
+    { label: "Black", value: "black" },
+  ]
+
+  const colorStyles: Record<string, { bg: string; text: string }> = {
+    green: { bg: "bg-emerald-100", text: "text-emerald-700" },
+    blue: { bg: "bg-blue-100", text: "text-blue-700" },
+    red: { bg: "bg-red-100", text: "text-red-700" },
+    black: { bg: "bg-gray-200", text: "text-gray-900" },
+  }
+
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
       {/* Header */}
@@ -83,20 +101,40 @@ export function ConveyorScreen() {
         </Link>
         <h1 className="text-3xl md:text-4xl font-bold">Conveyor Control</h1>
         <p className="text-muted-foreground mt-1">
-          Active plates on conveyor: <span className="font-semibold text-foreground">{items.length}</span>
+          Active plates on conveyor: <span className="font-semibold text-foreground">{filteredItems.length}</span>
         </p>
       </div>
 
+      <div className="mb-8 flex flex-wrap gap-2">
+        {colorOptions.map((option) => (
+          <Button
+            key={option.value || "all"}
+            onClick={() => setSelectedColor(option.value)}
+            className={`${
+              selectedColor === option.value
+                ? option.value
+                  ? `${colorStyles[option.value].bg} ${colorStyles[option.value].text}`
+                  : "bg-foreground text-background"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            {option.label}
+          </Button>
+        ))}
+      </div>
+
       {/* Items List */}
-      {items.length === 0 ? (
+      {filteredItems.length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center">
-            <p className="text-muted-foreground text-lg">No active plates on conveyor</p>
+            <p className="text-muted-foreground text-lg">
+              {items.length === 0 ? "No active plates on conveyor" : "No plates with selected color"}
+            </p>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-4">
-          {items.map((item) => (
+          {filteredItems.map((item) => (
             <Card key={item.id}>
               <CardContent className="p-6">
                 <div className="flex flex-col lg:flex-row lg:items-center gap-6">
