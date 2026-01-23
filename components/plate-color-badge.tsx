@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils"
 
-export type PlateColor = "green" | "blue" | "red" | "black"
+export type PlateColor = "white" | "blue" | "pink" | "black" | "red" | "gold" | "choco motive" | "yellow" | "silver"
 
 interface PlateColorBadgeProps {
   color: PlateColor
@@ -8,10 +8,15 @@ interface PlateColorBadgeProps {
 }
 
 const colorStyles: Record<PlateColor, string> = {
-  green: "bg-emerald-500 text-white",
+  white: "bg-gray-100 text-gray-900 border border-gray-300",
   blue: "bg-blue-500 text-white",
-  red: "bg-red-500 text-white",
+  pink: "bg-pink-500 text-white",
   black: "bg-zinc-900 text-white",
+  red: "bg-red-500 text-white",
+  gold: "bg-yellow-500 text-gray-900",
+  "choco motive": "bg-amber-900 text-white",
+  yellow: "bg-yellow-400 text-gray-900",
+  silver: "bg-gray-400 text-white",
 }
 
 export function PlateColorBadge({ color, className }: PlateColorBadgeProps) {

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { PlateColorBadge } from "@/components/plate-color-badge"
 import { ExpirationCountdown } from "@/components/expiration-countdown"
 import type { ProductionItem } from "@/lib/types"
+import { plateColors } from "@/lib/mock-data"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
 import { ArrowLeft, CheckCircle, XCircle } from "lucide-react"
@@ -20,7 +21,7 @@ export function ConveyorScreen() {
       id: "1",
       sushiId: "1",
       sushiName: "California Roll",
-      plateColor: "green",
+      plateColor: "white",
       productionTime: new Date(Date.now() - 30 * 60 * 1000), // 30 min ago
       shelfLifeMinutes: 120,
       status: "active",
@@ -38,7 +39,7 @@ export function ConveyorScreen() {
       id: "3",
       sushiId: "5",
       sushiName: "Spicy Tuna Roll",
-      plateColor: "red",
+      plateColor: "pink",
       productionTime: new Date(Date.now() - 15 * 60 * 1000), // 15 min ago
       shelfLifeMinutes: 90,
       status: "active",
@@ -47,7 +48,7 @@ export function ConveyorScreen() {
       id: "4",
       sushiId: "7",
       sushiName: "Rainbow Roll",
-      plateColor: "black",
+      plateColor: "gold",
       productionTime: new Date(Date.now() - 60 * 60 * 1000), // 60 min ago
       shelfLifeMinutes: 75,
       status: "active",
@@ -80,21 +81,6 @@ export function ConveyorScreen() {
     })
   }
 
-  const colorOptions = [
-    { label: "All Colors", value: null },
-    { label: "Green", value: "green" },
-    { label: "Blue", value: "blue" },
-    { label: "Red", value: "red" },
-    { label: "Black", value: "black" },
-  ]
-
-  const colorStyles: Record<string, { bg: string; text: string }> = {
-    green: { bg: "bg-emerald-100", text: "text-emerald-700" },
-    blue: { bg: "bg-blue-100", text: "text-blue-700" },
-    red: { bg: "bg-red-100", text: "text-red-700" },
-    black: { bg: "bg-gray-200", text: "text-gray-900" },
-  }
-
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
       {/* Header */}
@@ -113,19 +99,21 @@ export function ConveyorScreen() {
       </div>
 
       <div className="mb-8 flex flex-wrap gap-2">
-        {colorOptions.map((option) => (
+        <Button
+          variant={selectedColor === null ? "default" : "outline"}
+          onClick={() => setSelectedColor(null)}
+          className="px-4 py-2"
+        >
+          All Colors
+        </Button>
+        {plateColors.map((plate) => (
           <Button
-            key={option.value || "all"}
-            onClick={() => setSelectedColor(option.value)}
-            className={`${
-              selectedColor === option.value
-                ? option.value
-                  ? `${colorStyles[option.value].bg} ${colorStyles[option.value].text}`
-                  : "bg-foreground text-background"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
-            }`}
+            key={plate.id}
+            variant={selectedColor === plate.name ? "default" : "outline"}
+            onClick={() => setSelectedColor(plate.name)}
+            className="px-4 py-2 capitalize"
           >
-            {option.label}
+            {plate.name}
           </Button>
         ))}
       </div>

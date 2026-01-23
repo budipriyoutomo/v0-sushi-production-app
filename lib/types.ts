@@ -1,4 +1,4 @@
-export type PlateColor = "green" | "blue" | "red" | "black"
+export type PlateColor = "white" | "blue" | "pink" | "black" | "red" | "gold" | "choco motive" | "yellow" | "silver"
 
 export interface PlateColorConfig {
   id: string

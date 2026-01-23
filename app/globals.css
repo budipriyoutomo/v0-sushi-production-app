@@ -26,10 +26,15 @@
   --ring: oklch(0.6 0.15 195);
 
   /* Plate colors */
-  --plate-green: oklch(0.65 0.15 140);
+  --plate-white: oklch(0.98 0 0);
   --plate-blue: oklch(0.55 0.2 240);
-  --plate-red: oklch(0.55 0.22 25);
+  --plate-pink: oklch(0.7 0.2 335);
   --plate-black: oklch(0.25 0 0);
+  --plate-red: oklch(0.55 0.22 25);
+  --plate-gold: oklch(0.75 0.2 80);
+  --plate-choco: oklch(0.45 0.15 35);
+  --plate-yellow: oklch(0.85 0.2 85);
+  --plate-silver: oklch(0.65 0.05 240);
 
   --radius: 0.5rem;
 }
@@ -110,10 +115,15 @@
   --color-sidebar-ring: var(--sidebar-ring);
 
   /* Custom plate color utilities */
-  --color-plate-green: var(--plate-green);
+  --color-plate-white: var(--plate-white);
   --color-plate-blue: var(--plate-blue);
-  --color-plate-red: var(--plate-red);
+  --color-plate-pink: var(--plate-pink);
   --color-plate-black: var(--plate-black);
+  --color-plate-red: var(--plate-red);
+  --color-plate-gold: var(--plate-gold);
+  --color-plate-choco: var(--plate-choco);
+  --color-plate-yellow: var(--plate-yellow);
+  --color-plate-silver: var(--plate-silver);
 }
 
 @layer base {

@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { PlateColorBadge } from "@/components/plate-color-badge"
 import { QuantityCalculator } from "@/components/quantity-calculator"
-import { sushiMenus } from "@/lib/mock-data"
+import { sushiMenus, plateColors } from "@/lib/mock-data"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
 import { ArrowLeft, Plus } from "lucide-react"
@@ -46,8 +46,6 @@ export function ProduceScreen() {
 
   const filteredSushi = selectedColor ? sushiMenus.filter((sushi) => sushi.plateColor === selectedColor) : sushiMenus
 
-  const colors = ["green", "blue", "red", "black"]
-
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
       {/* Header */}
@@ -71,24 +69,14 @@ export function ProduceScreen() {
         >
           All Colors
         </Button>
-        {colors.map((color) => (
+        {plateColors.map((plate) => (
           <Button
-            key={color}
-            variant={selectedColor === color ? "default" : "outline"}
-            onClick={() => setSelectedColor(color)}
-            className={`px-4 py-2 capitalize ${
-              selectedColor === color
-                ? color === "green"
-                  ? "bg-green-600 hover:bg-green-700"
-                  : color === "blue"
-                    ? "bg-blue-600 hover:bg-blue-700"
-                    : color === "red"
-                      ? "bg-red-600 hover:bg-red-700"
-                      : "bg-gray-800 hover:bg-gray-900"
-                : ""
-            }`}
+            key={plate.id}
+            variant={selectedColor === plate.name ? "default" : "outline"}
+            onClick={() => setSelectedColor(plate.name)}
+            className="px-4 py-2 capitalize"
           >
-            {color}
+            {plate.name}
           </Button>
         ))}
       </div>
