@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { PlateColorBadge } from "@/components/plate-color-badge"
+import { QuantityCalculator } from "@/components/quantity-calculator"
 import { sushiMenus } from "@/lib/mock-data"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
@@ -13,18 +14,34 @@ export function ProduceScreen() {
   const { toast } = useToast()
   const [producing, setProducing] = useState<string | null>(null)
   const [selectedColor, setSelectedColor] = useState<string | null>(null)
+  const [calculatorOpen, setCalculatorOpen] = useState(false)
+  const [selectedItem, setSelectedItem] = useState<{ id: string; name: string } | null>(null)
 
   const handleProduce = (sushiId: string, sushiName: string) => {
-    setProducing(sushiId)
+    setSelectedItem({ id: sushiId, name: sushiName })
+    setCalculatorOpen(true)
+  }
+
+  const handleConfirmQuantity = (quantity: number) => {
+    if (!selectedItem) return
+
+    setProducing(selectedItem.id)
+    setCalculatorOpen(false)
 
     // Simulate production
     setTimeout(() => {
       toast({
-        title: "Plate Produced",
-        description: `Successfully produced 1x ${sushiName}`,
+        title: "Plates Produced",
+        description: `Successfully produced ${quantity}x ${selectedItem.name}`,
       })
       setProducing(null)
+      setSelectedItem(null)
     }, 500)
+  }
+
+  const handleCancelCalculator = () => {
+    setCalculatorOpen(false)
+    setSelectedItem(null)
   }
 
   const filteredSushi = selectedColor ? sushiMenus.filter((sushi) => sushi.plateColor === selectedColor) : sushiMenus
@@ -115,6 +132,16 @@ export function ProduceScreen() {
         <div className="text-center py-12">
           <p className="text-muted-foreground">No items available for this color</p>
         </div>
+      )}
+
+      {/* Quantity Calculator */}
+      {selectedItem && (
+        <QuantityCalculator
+          open={calculatorOpen}
+          itemName={selectedItem.name}
+          onConfirm={handleConfirmQuantity}
+          onCancel={handleCancelCalculator}
+        />
       )}
     </div>
   )

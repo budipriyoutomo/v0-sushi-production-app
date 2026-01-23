@@ -56,6 +56,13 @@ export function ConveyorScreen() {
 
   const filteredItems = selectedColor ? items.filter((item) => item.plateColor === selectedColor) : items
 
+  // Sort by time remaining (expiring soon first)
+  const sortedItems = [...filteredItems].sort((a, b) => {
+    const timeRemainingA = a.shelfLifeMinutes - Math.floor((Date.now() - a.productionTime.getTime()) / 60000)
+    const timeRemainingB = b.shelfLifeMinutes - Math.floor((Date.now() - b.productionTime.getTime()) / 60000)
+    return timeRemainingA - timeRemainingB
+  })
+
   const handleMarkSold = (itemId: string, sushiName: string) => {
     setItems((prev) => prev.filter((item) => item.id !== itemId))
     toast({
@@ -123,8 +130,8 @@ export function ConveyorScreen() {
         ))}
       </div>
 
-      {/* Items List */}
-      {filteredItems.length === 0 ? (
+      {/* Items Grid */}
+      {sortedItems.length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center">
             <p className="text-muted-foreground text-lg">
@@ -133,50 +140,48 @@ export function ConveyorScreen() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
-          {filteredItems.map((item) => (
-            <Card key={item.id}>
-              <CardContent className="p-6">
-                <div className="flex flex-col lg:flex-row lg:items-center gap-6">
-                  {/* Item Info */}
-                  <div className="flex-1 space-y-3">
-                    <div className="flex items-center gap-3">
-                      <h3 className="text-xl font-semibold">{item.sushiName}</h3>
-                      <PlateColorBadge color={item.plateColor} />
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Produced at: <span className="font-medium">{item.productionTime.toLocaleTimeString()}</span>
-                    </p>
-
-                    {/* Countdown */}
-                    <div className="max-w-md">
-                      <ExpirationCountdown
-                        productionTime={item.productionTime}
-                        shelfLifeMinutes={item.shelfLifeMinutes}
-                      />
-                    </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {sortedItems.map((item) => (
+            <Card key={item.id} className="flex flex-col">
+              <CardContent className="p-4 flex flex-col h-full">
+                {/* Item Info */}
+                <div className="flex-1 space-y-2 mb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h3 className="text-lg font-semibold flex-1">{item.sushiName}</h3>
+                    <PlateColorBadge color={item.plateColor} />
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    {item.productionTime.toLocaleTimeString()}
+                  </p>
 
-                  {/* Actions */}
-                  <div className="flex gap-3 lg:flex-col">
-                    <Button
-                      size="lg"
-                      className="flex-1 lg:flex-none lg:w-40 bg-emerald-600 hover:bg-emerald-700 text-white"
-                      onClick={() => handleMarkSold(item.id, item.sushiName)}
-                    >
-                      <CheckCircle className="w-5 h-5 mr-2" />
-                      Sold
-                    </Button>
-                    <Button
-                      size="lg"
-                      variant="destructive"
-                      className="flex-1 lg:flex-none lg:w-40"
-                      onClick={() => handleMarkWaste(item.id, item.sushiName)}
-                    >
-                      <XCircle className="w-5 h-5 mr-2" />
-                      Waste
-                    </Button>
+                  {/* Countdown */}
+                  <div>
+                    <ExpirationCountdown
+                      productionTime={item.productionTime}
+                      shelfLifeMinutes={item.shelfLifeMinutes}
+                    />
                   </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-2 flex-col">
+                  <Button
+                    size="sm"
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm"
+                    onClick={() => handleMarkSold(item.id, item.sushiName)}
+                  >
+                    <CheckCircle className="w-4 h-4 mr-1" />
+                    Sold
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="w-full text-sm"
+                    onClick={() => handleMarkWaste(item.id, item.sushiName)}
+                  >
+                    <XCircle className="w-4 h-4 mr-1" />
+                    Waste
+                  </Button>
                 </div>
               </CardContent>
             </Card>
