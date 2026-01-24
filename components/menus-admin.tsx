@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { PlateColorBadge, type PlateColor } from "@/components/plate-color-badge"
 import type { SushiMenu } from "@/lib/types"
-import { sushiMenus as initialMenus } from "@/lib/mock-data"
+import { sushiMenus as initialMenus, plateColors } from "@/lib/mock-data"
 import { Plus, Pencil, Trash2 } from "lucide-react"
 import {
   Dialog,
@@ -29,14 +29,14 @@ export function MenusAdmin() {
 
   const [formData, setFormData] = useState({
     name: "",
-    plateColor: "green" as PlateColor,
+    plateColor: (plateColors[0]?.name || "white") as PlateColor,
     shelfLifeMinutes: 90,
     costEstimate: 0,
   })
 
   const handleAdd = () => {
     setEditingItem(null)
-    setFormData({ name: "", plateColor: "green", shelfLifeMinutes: 90, costEstimate: 0 })
+    setFormData({ name: "", plateColor: (plateColors[0]?.name || "white") as PlateColor, shelfLifeMinutes: 90, costEstimate: 0 })
     setIsDialogOpen(true)
   }
 
@@ -156,10 +156,11 @@ export function MenusAdmin() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="green">Green</SelectItem>
-                    <SelectItem value="blue">Blue</SelectItem>
-                    <SelectItem value="red">Red</SelectItem>
-                    <SelectItem value="black">Black</SelectItem>
+                    {plateColors.map((plate) => (
+                      <SelectItem key={plate.id} value={plate.name}>
+                        {plate.name.charAt(0).toUpperCase() + plate.name.slice(1)}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
