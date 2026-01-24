@@ -47,42 +47,42 @@ export function KitchenDashboard() {
       </div>
 
       {/* Production Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
         {mockProductionStats.map((stat) => {
           const status = getStatus(stat.produced, stat.targetToday, stat.expiringSoon)
 
           return (
             <Card key={stat.plateColor} className={cn("border-2", plateColorBg[stat.plateColor])}>
-              <CardContent className="p-6 md:p-8">
-                <div className="flex items-center justify-between mb-6">
-                  <PlateColorBadge color={stat.plateColor} className="text-base px-4 py-1" />
+              <CardContent className="p-3 md:p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <PlateColorBadge color={stat.plateColor} className="text-xs px-2 py-0.5" />
                   <StatusIndicator status={status} />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 md:gap-6">
+                <div className="space-y-2">
                   {/* Target Today */}
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground font-medium">Target Today</p>
-                    <p className="text-4xl md:text-5xl font-bold">{stat.targetToday}</p>
+                  <div className="flex justify-between items-baseline">
+                    <p className="text-xs text-muted-foreground font-medium">Target</p>
+                    <p className="text-xl md:text-2xl font-bold">{stat.targetToday}</p>
                   </div>
 
                   {/* Produced */}
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground font-medium">Produced</p>
-                    <p className="text-4xl md:text-5xl font-bold">{stat.produced}</p>
+                  <div className="flex justify-between items-baseline">
+                    <p className="text-xs text-muted-foreground font-medium">Produced</p>
+                    <p className="text-xl md:text-2xl font-bold">{stat.produced}</p>
                   </div>
 
                   {/* Sold */}
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground font-medium">Sold</p>
-                    <p className="text-4xl md:text-5xl font-bold">{stat.sold}</p>
+                  <div className="flex justify-between items-baseline">
+                    <p className="text-xs text-muted-foreground font-medium">Sold</p>
+                    <p className="text-xl md:text-2xl font-bold">{stat.sold}</p>
                   </div>
 
                   {/* Expiring Soon */}
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground font-medium">Expiring Soon</p>
+                  <div className="flex justify-between items-baseline">
+                    <p className="text-xs text-muted-foreground font-medium">Expiring</p>
                     <p
-                      className={cn("text-4xl md:text-5xl font-bold", {
+                      className={cn("text-xl md:text-2xl font-bold", {
                         "text-red-600": stat.expiringSoon > 5,
                         "text-amber-600": stat.expiringSoon > 2 && stat.expiringSoon <= 5,
                       })}
