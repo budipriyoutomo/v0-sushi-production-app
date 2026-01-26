@@ -80,25 +80,25 @@ export function KitchenDashboard() {
                 <div className="space-y-2">
                   {/* Target Today */}
                   <div className="flex justify-between items-baseline">
-                    <p className="text-muted-foreground font-medium text-base">Target</p>
+                    <p className="text-muted-foreground font-medium text-sm">Target</p>
                     <p className="text-xl md:text-2xl font-bold">{stat.targetToday}</p>
                   </div>
 
                   {/* Produced */}
                   <div className="flex justify-between items-baseline">
-                    <p className="text-muted-foreground font-medium text-base">Produced</p>
+                    <p className="text-muted-foreground font-medium text-sm">Produced</p>
                     <p className="text-xl md:text-2xl font-bold">{stat.produced}</p>
                   </div>
 
                   {/* Sold */}
                   <div className="flex justify-between items-baseline">
-                    <p className="text-muted-foreground font-medium text-base">Sold</p>
+                    <p className="text-muted-foreground font-medium text-sm">Sold</p>
                     <p className="text-xl md:text-2xl font-bold">{stat.sold}</p>
                   </div>
 
                   {/* Expiring Soon */}
                   <div className="flex justify-between items-baseline">
-                    <p className="text-muted-foreground font-medium text-base">Expiring</p>
+                    <p className="text-muted-foreground font-medium text-sm">Expiring</p>
                     <p
                       className={cn("text-xl md:text-2xl font-bold", {
                         "text-red-600": stat.expiringSoon > 5,
