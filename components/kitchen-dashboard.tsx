@@ -1,11 +1,14 @@
 "use client"
 
 import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { PlateColorBadge, type PlateColor } from "@/components/plate-color-badge"
 import { StatusIndicator, type Status } from "@/components/status-indicator"
 import { mockProductionStats } from "@/lib/mock-data"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { LogOut } from "lucide-react"
 
 const plateColorBg: Record<PlateColor, string> = {
   green: "bg-emerald-50 border-emerald-200",
@@ -15,6 +18,12 @@ const plateColorBg: Record<PlateColor, string> = {
 }
 
 export function KitchenDashboard() {
+  const router = useRouter()
+
+  const handleLogout = () => {
+    router.push("/login/kitchen")
+  }
+
   const getStatus = (produced: number, target: number, expiringSoon: number): Status => {
     const percentage = (produced / target) * 100
     if (expiringSoon > 5) return "critical"
@@ -43,6 +52,15 @@ export function KitchenDashboard() {
           >
             Conveyor
           </Link>
+          <Button
+            onClick={handleLogout}
+            variant="destructive"
+            size="sm"
+            className="gap-2"
+          >
+            <LogOut className="w-4 h-4" />
+            Logout
+          </Button>
         </div>
       </div>
 
@@ -62,25 +80,25 @@ export function KitchenDashboard() {
                 <div className="space-y-2">
                   {/* Target Today */}
                   <div className="flex justify-between items-baseline">
-                    <p className="text-xs text-muted-foreground font-medium">Target</p>
+                    <p className="text-muted-foreground font-medium text-base">Target</p>
                     <p className="text-xl md:text-2xl font-bold">{stat.targetToday}</p>
                   </div>
 
                   {/* Produced */}
                   <div className="flex justify-between items-baseline">
-                    <p className="text-xs text-muted-foreground font-medium">Produced</p>
+                    <p className="text-muted-foreground font-medium text-base">Produced</p>
                     <p className="text-xl md:text-2xl font-bold">{stat.produced}</p>
                   </div>
 
                   {/* Sold */}
                   <div className="flex justify-between items-baseline">
-                    <p className="text-xs text-muted-foreground font-medium">Sold</p>
+                    <p className="text-muted-foreground font-medium text-base">Sold</p>
                     <p className="text-xl md:text-2xl font-bold">{stat.sold}</p>
                   </div>
 
                   {/* Expiring Soon */}
                   <div className="flex justify-between items-baseline">
-                    <p className="text-xs text-muted-foreground font-medium">Expiring</p>
+                    <p className="text-muted-foreground font-medium text-base">Expiring</p>
                     <p
                       className={cn("text-xl md:text-2xl font-bold", {
                         "text-red-600": stat.expiringSoon > 5,
