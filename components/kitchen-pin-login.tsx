@@ -12,7 +12,7 @@ export function KitchenPinLogin() {
   const [error, setError] = useState("")
 
   const handleNumberClick = (num: string) => {
-    if (pin.length < 4) {
+    if (pin.length < 6) {
       setPin(pin + num)
       setError("")
     }
@@ -30,10 +30,10 @@ export function KitchenPinLogin() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (pin.length === 4) {
+    if (pin.length === 6) {
       // Simulate PIN validation - in production, verify against database
-      // For demo: PIN 1234 is valid
-      if (pin === "1234") {
+      // For demo: PIN 123456 is valid
+      if (pin === "123456") {
         router.push("/kitchen/dashboard")
       } else {
         setError("Invalid PIN. Please try again.")
@@ -64,16 +64,16 @@ export function KitchenPinLogin() {
           </div>
         </div>
         <CardTitle className="text-2xl font-bold">Kitchen Access</CardTitle>
-        <CardDescription>Enter your 4-digit PIN to continue</CardDescription>
+        <CardDescription>Enter your 6-digit PIN to continue</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* PIN Display */}
           <div className="flex justify-center gap-3 mb-6">
-            {[0, 1, 2, 3].map((index) => (
+            {[0, 1, 2, 3, 4, 5].map((index) => (
               <div
                 key={index}
-                className="w-14 h-14 rounded-lg border-2 border-border flex items-center justify-center text-2xl font-bold bg-muted"
+                className="w-12 h-12 rounded-lg border-2 border-border flex items-center justify-center text-xl font-bold bg-muted"
               >
                 {pin[index] ? "●" : ""}
               </div>
@@ -126,7 +126,7 @@ export function KitchenPinLogin() {
           </div>
 
           {/* Submit Button */}
-          <Button type="submit" className="w-full h-14 text-lg" size="lg" disabled={pin.length !== 4}>
+          <Button type="submit" className="w-full h-14 text-lg" size="lg" disabled={pin.length !== 6}>
             Enter
           </Button>
         </form>
