@@ -1,12 +1,13 @@
 "use client"
 
 import { useState } from "react"
+import Image from "next/image"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { PlateColorBadge } from "@/components/plate-color-badge"
 import { ExpirationCountdown } from "@/components/expiration-countdown"
 import type { ProductionItem } from "@/lib/types"
-import { plateColors } from "@/lib/mock-data"
+import { plateColors, sushiMenus } from "@/lib/mock-data"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
 import { ArrowLeft, CheckCircle, XCircle } from "lucide-react"
@@ -55,7 +56,13 @@ export function ConveyorScreen() {
     },
   ])
 
-  const filteredItems = selectedColor ? items.filter((item) => item.plateColor === selectedColor) : items
+  // Filter out expired items (time remaining <= 0)
+  const activeItems = items.filter((item) => {
+    const timeRemaining = item.shelfLifeMinutes - Math.floor((Date.now() - item.productionTime.getTime()) / 60000)
+    return timeRemaining > 0
+  })
+
+  const filteredItems = selectedColor ? activeItems.filter((item) => item.plateColor === selectedColor) : activeItems
 
   // Sort by time remaining (expiring soon first)
   const sortedItems = [...filteredItems].sort((a, b) => {
@@ -129,51 +136,67 @@ export function ConveyorScreen() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {sortedItems.map((item) => (
-            <Card key={item.id} className="flex flex-col">
-              <CardContent className="p-4 flex flex-col h-full">
-                {/* Item Info */}
-                <div className="flex-1 space-y-2 mb-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h3 className="text-lg font-semibold flex-1">{item.sushiName}</h3>
-                    <PlateColorBadge color={item.plateColor} />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {item.productionTime.toLocaleTimeString()}
-                  </p>
+          {sortedItems.map((item) => {
+            const menuItem = sushiMenus.find((m) => m.id === item.sushiId)
+            return (
+              <Card key={item.id} className="flex flex-col overflow-hidden">
+                <CardContent className="p-3 flex flex-col h-full">
+                  {/* Image */}
+                  {menuItem?.image && (
+                    <div className="relative w-full h-32 bg-muted rounded mb-3 -mx-3 -mt-3">
+                      <Image
+                        src={menuItem.image}
+                        alt={item.sushiName}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 768px) 100%, (max-width: 1024px) 50%, 33%"
+                      />
+                    </div>
+                  )}
 
-                  {/* Countdown */}
-                  <div>
-                    <ExpirationCountdown
-                      productionTime={item.productionTime}
-                      shelfLifeMinutes={item.shelfLifeMinutes}
-                    />
-                  </div>
-                </div>
+                  {/* Item Info */}
+                  <div className="flex-1 space-y-2 mb-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <h3 className="text-lg font-semibold flex-1">{item.sushiName}</h3>
+                      <PlateColorBadge color={item.plateColor} />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {item.productionTime.toLocaleTimeString()}
+                    </p>
 
-                {/* Actions */}
-                <div className="flex gap-2 flex-col">
-                  <Button
-                    size="sm"
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm"
-                    onClick={() => handleMarkSold(item.id, item.sushiName)}
-                  >
-                    <CheckCircle className="w-4 h-4 mr-1" />
-                    Sold
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    className="w-full text-sm"
-                    onClick={() => handleMarkWaste(item.id, item.sushiName)}
-                  >
-                    <XCircle className="w-4 h-4 mr-1" />
-                    Waste
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                    {/* Countdown */}
+                    <div>
+                      <ExpirationCountdown
+                        productionTime={item.productionTime}
+                        shelfLifeMinutes={item.shelfLifeMinutes}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-2 flex-col">
+                    <Button
+                      size="sm"
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm"
+                      onClick={() => handleMarkSold(item.id, item.sushiName)}
+                    >
+                      <CheckCircle className="w-4 h-4 mr-1" />
+                      Sold
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="w-full text-sm"
+                      onClick={() => handleMarkWaste(item.id, item.sushiName)}
+                    >
+                      <XCircle className="w-4 h-4 mr-1" />
+                      Waste
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
         </div>
       )}
     </div>

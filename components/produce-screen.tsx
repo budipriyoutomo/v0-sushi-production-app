@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Image from "next/image"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { PlateColorBadge } from "@/components/plate-color-badge"
@@ -84,11 +85,24 @@ export function ProduceScreen() {
       {/* Sushi Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
         {filteredSushi.map((sushi) => (
-          <Card key={sushi.id} className="hover:shadow-lg transition-shadow">
-            <CardContent className="p-3">
+          <Card key={sushi.id} className="hover:shadow-lg transition-shadow overflow-hidden">
+            <CardContent className="p-2">
               <div className="space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <h3 className="text-xs font-semibold leading-tight line-clamp-2">{sushi.name}</h3>
+                {/* Image */}
+                {sushi.image && (
+                  <div className="relative w-full h-20 bg-muted rounded overflow-hidden">
+                    <Image
+                      src={sushi.image}
+                      alt={sushi.name}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 640px) 100px, (max-width: 768px) 120px, 150px"
+                    />
+                  </div>
+                )}
+
+                <div className="flex items-start justify-between gap-1">
+                  <h3 className="text-xs font-semibold leading-tight line-clamp-2 flex-1">{sushi.name}</h3>
                   <PlateColorBadge color={sushi.plateColor} />
                 </div>
 

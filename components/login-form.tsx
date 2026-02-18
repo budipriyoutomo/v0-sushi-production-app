@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 
 interface LoginFormProps {
-  loginType?: "admin" | "production"
+  loginType?: "admin" | "production" | "operation"
 }
 
 export function LoginForm({ loginType = "admin" }: LoginFormProps) {
@@ -22,8 +22,10 @@ export function LoginForm({ loginType = "admin" }: LoginFormProps) {
     e.preventDefault()
     if (loginType === "admin") {
       router.push("/admin/plate-colors")
-    } else {
+    } else if (loginType === "production") {
       router.push("/production/planning")
+    } else {
+      router.push("/operation/sales-input")
     }
   }
 
@@ -49,7 +51,7 @@ export function LoginForm({ loginType = "admin" }: LoginFormProps) {
           </div>
         </div>
         <CardTitle className="text-2xl font-bold">
-          {loginType === "admin" ? "Admin & Production Access" : "Production Access"}
+          {loginType === "admin" ? "Admin & Production Access" : loginType === "production" ? "Production Access" : "Operations Access"}
         </CardTitle>
         <CardDescription>Sign in with your username and password</CardDescription>
       </CardHeader>

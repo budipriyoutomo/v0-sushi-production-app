@@ -14,6 +14,7 @@ export interface SushiMenu {
   plateColor: PlateColor
   shelfLifeMinutes: number
   costEstimate: number
+  image?: string
 }
 
 export interface ProductionItem {

@@ -13,19 +13,19 @@ export const plateColors: PlateColorConfig[] = [
 ]
 
 export const sushiMenus: SushiMenu[] = [
-  { id: "1", name: "California Roll", plateColor: "white", shelfLifeMinutes: 120, costEstimate: 0.95 },
-  { id: "2", name: "Cucumber Roll", plateColor: "white", shelfLifeMinutes: 120, costEstimate: 0.75 },
-  { id: "3", name: "Salmon Nigiri", plateColor: "blue", shelfLifeMinutes: 90, costEstimate: 1.44 },
-  { id: "4", name: "Tuna Nigiri", plateColor: "blue", shelfLifeMinutes: 90, costEstimate: 1.52 },
-  { id: "5", name: "Spicy Tuna Roll", plateColor: "pink", shelfLifeMinutes: 90, costEstimate: 1.73 },
-  { id: "6", name: "Dragon Roll", plateColor: "pink", shelfLifeMinutes: 90, costEstimate: 1.83 },
-  { id: "7", name: "Rainbow Roll", plateColor: "gold", shelfLifeMinutes: 75, costEstimate: 2.85 },
-  { id: "8", name: "Specialty Platter", plateColor: "gold", shelfLifeMinutes: 75, costEstimate: 3.05 },
-  { id: "9", name: "Black Platter", plateColor: "black", shelfLifeMinutes: 75, costEstimate: 2.65 },
-  { id: "10", name: "Red Platter", plateColor: "red", shelfLifeMinutes: 85, costEstimate: 2.45 },
-  { id: "11", name: "Choco Motive", plateColor: "choco motive", shelfLifeMinutes: 95, costEstimate: 2.35 },
-  { id: "12", name: "Yellow Combo", plateColor: "yellow", shelfLifeMinutes: 110, costEstimate: 1.15 },
-  { id: "13", name: "Silver Platter", plateColor: "silver", shelfLifeMinutes: 80, costEstimate: 2.55 },
+  { id: "1", name: "California Roll", plateColor: "white", shelfLifeMinutes: 120, costEstimate: 0.95, image: "/sushi/california-roll.jpg" },
+  { id: "2", name: "Cucumber Roll", plateColor: "white", shelfLifeMinutes: 120, costEstimate: 0.75, image: "/sushi/cucumber-roll.jpg" },
+  { id: "3", name: "Salmon Nigiri", plateColor: "blue", shelfLifeMinutes: 90, costEstimate: 1.44, image: "/sushi/salmon-nigiri.jpg" },
+  { id: "4", name: "Tuna Nigiri", plateColor: "blue", shelfLifeMinutes: 90, costEstimate: 1.52, image: "/sushi/tuna-nigiri.jpg" },
+  { id: "5", name: "Spicy Tuna Roll", plateColor: "pink", shelfLifeMinutes: 90, costEstimate: 1.73, image: "/sushi/spicy-tuna-roll.jpg" },
+  { id: "6", name: "Dragon Roll", plateColor: "pink", shelfLifeMinutes: 90, costEstimate: 1.83, image: "/sushi/dragon-roll.jpg" },
+  { id: "7", name: "Rainbow Roll", plateColor: "gold", shelfLifeMinutes: 75, costEstimate: 2.85, image: "/sushi/rainbow-roll.jpg" },
+  { id: "8", name: "Specialty Platter", plateColor: "gold", shelfLifeMinutes: 75, costEstimate: 3.05, image: "/sushi/specialty-platter.jpg" },
+  { id: "9", name: "Black Platter", plateColor: "black", shelfLifeMinutes: 75, costEstimate: 2.65, image: "/sushi/black-platter.jpg" },
+  { id: "10", name: "Red Platter", plateColor: "red", shelfLifeMinutes: 85, costEstimate: 2.45, image: "/sushi/red-platter.jpg" },
+  { id: "11", name: "Choco Motive", plateColor: "choco motive", shelfLifeMinutes: 95, costEstimate: 2.35, image: "/sushi/choco-motive.jpg" },
+  { id: "12", name: "Yellow Combo", plateColor: "yellow", shelfLifeMinutes: 110, costEstimate: 1.15, image: "/sushi/yellow-combo.jpg" },
+  { id: "13", name: "Silver Platter", plateColor: "silver", shelfLifeMinutes: 80, costEstimate: 2.55, image: "/sushi/silver-platter.jpg" },
 ]
 
 export const mockProductionStats: ProductionStats[] = [
