@@ -52,6 +52,12 @@ export function KitchenDashboard() {
           >
             Conveyor
           </Link>
+          <Link
+            href="/kitchen/expired"
+            className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700"
+          >
+            Expired
+          </Link>
           <Button
             onClick={handleLogout}
             variant="destructive"
