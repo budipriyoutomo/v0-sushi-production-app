@@ -17,7 +17,7 @@ interface NavSection {
 }
 
 interface SidebarNavProps {
-  role: 'admin' | 'production'
+  role: 'admin' | 'production' | 'operation'
 }
 
 export function SidebarNav({ role }: SidebarNavProps) {
@@ -34,24 +34,34 @@ export function SidebarNav({ role }: SidebarNavProps) {
     { label: 'Waste Management', href: '/production/waste' },
   ]
 
+  const operationItems: NavItem[] = [
+    { label: 'Sales Input (POS)', href: '/operation/sales-input' },
+    { label: 'Closing Report', href: '/operation/closing-report' },
+  ]
+
   const allItems = role === 'admin' 
     ? [
         { section: 'Management', items: adminItems },
         { section: 'Production', items: productionItems },
+        { section: 'Operation', items: operationItems },
       ]
-    : [
-        { section: 'Production', items: productionItems },
-      ]
+    : role === 'production'
+      ? [
+          { section: 'Production', items: productionItems },
+        ]
+      : [
+          { section: 'Operation', items: operationItems },
+        ]
 
   return (
     <aside className="w-64 h-screen bg-foreground text-background border-r border-border flex flex-col">
       {/* Header */}
       <div className="p-6 border-b border-border">
         <h1 className="text-xl font-bold">
-          {role === 'admin' ? 'Admin' : 'Production'}
+          {role === 'admin' ? 'Admin' : role === 'production' ? 'Production' : 'Operation'}
         </h1>
         <p className="text-sm text-background/70 mt-1">
-          {role === 'admin' ? 'Management' : 'Planning'}
+          {role === 'admin' ? 'Management' : role === 'production' ? 'Planning' : 'Operations'}
         </p>
       </div>
 
