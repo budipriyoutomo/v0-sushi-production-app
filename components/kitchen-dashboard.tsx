@@ -34,39 +34,49 @@ export function KitchenDashboard() {
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
       {/* Header */}
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl md:text-4xl font-bold">Kitchen Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Production overview by plate color</p>
-        </div>
-        <div className="flex gap-2">
-          <Link
-            href="/kitchen/produce"
-            className="px-4 py-2 bg-accent text-accent-foreground rounded-lg font-medium hover:bg-accent/90"
-          >
-            Produce
-          </Link>
-          <Link
-            href="/kitchen/conveyor"
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90"
-          >
-            Conveyor
-          </Link>
-          <Link
-            href="/kitchen/expired"
-            className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700"
-          >
-            Expired
-          </Link>
-          <Button
-            onClick={handleLogout}
-            variant="destructive"
-            size="sm"
-            className="gap-2"
-          >
-            <LogOut className="w-4 h-4" />
-            Logout
-          </Button>
+      <div className="mb-8 bg-card border border-border rounded-xl p-6 shadow-sm">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          {/* Title Section */}
+          <div className="flex-1">
+            <h1 className="text-3xl md:text-4xl font-bold text-foreground">Kitchen Dashboard</h1>
+            <p className="text-sm text-muted-foreground mt-2">Production overview by plate color</p>
+          </div>
+
+          {/* Navigation and Action Section */}
+          <div className="w-full md:w-auto flex flex-col sm:flex-row gap-3">
+            {/* Navigation Buttons Group */}
+            <div className="flex gap-2 bg-secondary/50 rounded-lg p-1">
+              <Link
+                href="/kitchen/produce"
+                className="px-4 py-2 rounded-md text-sm font-medium text-secondary-foreground hover:bg-primary/20 transition-colors"
+              >
+                Produce
+              </Link>
+              <Link
+                href="/kitchen/conveyor"
+                className="px-4 py-2 rounded-md text-sm font-medium text-secondary-foreground hover:bg-primary/20 transition-colors"
+              >
+                Conveyor
+              </Link>
+              <Link
+                href="/kitchen/expired"
+                className="px-4 py-2 rounded-md text-sm font-medium text-secondary-foreground hover:bg-destructive/20 transition-colors"
+              >
+                Expired
+              </Link>
+            </div>
+
+            {/* Logout Button */}
+            <Button
+              onClick={handleLogout}
+              variant="destructive"
+              size="sm"
+              className="gap-2 w-full sm:w-auto justify-center"
+            >
+              <LogOut className="w-4 h-4" />
+              Logout
+            </Button>
+          </div>
         </div>
       </div>
 
