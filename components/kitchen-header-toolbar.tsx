@@ -23,6 +23,17 @@ export function KitchenHeaderToolbar() {
           {/* Navigation Buttons Group */}
           <div className="flex gap-1 bg-secondary/50 rounded-lg p-1">
             <Link
+              href="/kitchen/dashboard"
+              className={cn(
+                'px-4 py-2 rounded-md text-sm font-medium transition-colors',
+                isActive('/kitchen/dashboard')
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-secondary-foreground hover:bg-primary/20'
+              )}
+            >
+              Dashboard
+            </Link>
+            <Link
               href="/kitchen/produce"
               className={cn(
                 'px-4 py-2 rounded-md text-sm font-medium transition-colors',
