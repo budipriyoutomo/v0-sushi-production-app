@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { PlateColorBadge, type PlateColor } from "@/components/plate-color-badge"
 import { StatusIndicator, type Status } from "@/components/status-indicator"
 import { mockProductionStats } from "@/lib/mock-data"
+import { useOutlet } from "@/lib/outlet-context"
 import { cn } from "@/lib/utils"
 
 const plateColorBg: Record<PlateColor, string> = {
@@ -14,6 +15,11 @@ const plateColorBg: Record<PlateColor, string> = {
 }
 
 export function KitchenDashboard() {
+  const { selectedOutletId } = useOutlet()
+  
+  // Filter stats by selected outlet
+  const outletStats = mockProductionStats.filter((stat) => stat.outletId === selectedOutletId)
+
   const getStatus = (produced: number, target: number, expiringSoon: number): Status => {
     const percentage = (produced / target) * 100
     if (expiringSoon > 5) return "critical"
@@ -31,7 +37,7 @@ export function KitchenDashboard() {
 
       {/* Production Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-        {mockProductionStats.map((stat) => {
+        {outletStats.map((stat) => {
           const status = getStatus(stat.produced, stat.targetToday, stat.expiringSoon)
 
           return (

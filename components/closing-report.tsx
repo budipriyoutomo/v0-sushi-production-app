@@ -6,10 +6,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { OutletSelector } from '@/components/outlet-selector'
 import { useToast } from '@/hooks/use-toast'
+import { useOutlet } from '@/lib/outlet-context'
 import { CheckCircle, FileText, AlertCircle } from 'lucide-react'
 
 interface ClosingData {
+  outletId: string
   date: string
   openingCash: number
   closingCash: number
@@ -24,8 +27,10 @@ interface ClosingData {
 
 export function ClosingReport() {
   const { toast } = useToast()
+  const { selectedOutletId } = useOutlet()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [closingData, setClosingData] = useState<ClosingData>({
+    outletId: selectedOutletId,
     date: new Date().toISOString().split('T')[0],
     openingCash: 0,
     closingCash: 0,
@@ -84,6 +89,9 @@ export function ClosingReport() {
 
   return (
     <div className="space-y-6">
+      {/* Outlet Selector */}
+      <OutletSelector />
+
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold">Daily Closing Report</h1>

@@ -3,6 +3,7 @@
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { OutletSelector } from '@/components/outlet-selector'
 import { LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -17,9 +18,14 @@ export function KitchenHeaderToolbar() {
   const isActive = (path: string) => pathname === path
 
   return (
-    <div className="bg-card border-b border-border sticky top-0 z-50">
+    <div className="bg-card border-b border-border sticky top-0 z-50 space-y-4 p-4 md:p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Outlet Selector */}
+        <OutletSelector />
+      </div>
+
       <div className="max-w-7xl mx-auto px-4 md:px-8">
-        <div className="flex items-center justify-between gap-4 py-4">
+        <div className="flex items-center justify-between gap-4 py-2">
           {/* Navigation Buttons Group */}
           <div className="flex gap-1 bg-secondary/50 rounded-lg p-1">
             <Link
