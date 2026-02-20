@@ -8,79 +8,78 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/hooks/use-toast'
-import { Plus, Trash2, Save } from 'lucide-react'
+import { plateColors, mockProductionStats } from '@/lib/mock-data'
+import type { PlateColor } from '@/components/plate-color-badge'
+import { PlateColorBadge } from '@/components/plate-color-badge'
+import { Plus, Trash2, AlertCircle, CheckCircle } from 'lucide-react'
 
 interface SalesEntry {
   id: string
-  itemName: string
-  quantity: number
-  unitPrice: number
-  total: number
-  paymentMethod: 'cash' | 'card' | 'qris' | 'other'
-  timestamp: Date
+  plateColor: PlateColor
+  quantitySold: number
+  systemTotal: number
+  discrepancy: number
 }
 
 export function SalesInput() {
   const { toast } = useToast()
-  const [salesEntries, setSalesEntries] = useState<SalesEntry[]>([
-    {
-      id: '1',
-      itemName: 'California Roll',
-      quantity: 5,
-      unitPrice: 45000,
-      total: 225000,
-      paymentMethod: 'cash',
-      timestamp: new Date(),
-    },
-    {
-      id: '2',
-      itemName: 'Salmon Nigiri',
-      quantity: 3,
-      unitPrice: 55000,
-      total: 165000,
-      paymentMethod: 'card',
-      timestamp: new Date(),
-    },
-  ])
+  const [salesEntries, setSalesEntries] = useState<SalesEntry[]>([])
 
   const [formData, setFormData] = useState({
-    itemName: '',
-    quantity: 0,
-    unitPrice: 0,
-    paymentMethod: 'cash' as const,
+    plateColor: 'white' as PlateColor,
+    quantitySold: 0,
   })
 
   const handleAddEntry = () => {
-    if (!formData.itemName || formData.quantity <= 0 || formData.unitPrice <= 0) {
+    if (formData.quantitySold <= 0) {
       toast({
         title: 'Error',
-        description: 'Please fill in all fields correctly',
+        description: 'Please enter a valid quantity',
         variant: 'destructive',
       })
       return
     }
 
-    const newEntry: SalesEntry = {
-      id: Date.now().toString(),
-      itemName: formData.itemName,
-      quantity: formData.quantity,
-      unitPrice: formData.unitPrice,
-      total: formData.quantity * formData.unitPrice,
-      paymentMethod: formData.paymentMethod,
-      timestamp: new Date(),
+    // Find system total for this plate color
+    const systemStats = mockProductionStats.find((stat) => stat.plateColor === formData.plateColor)
+    const systemTotal = systemStats?.sold || 0
+    const discrepancy = formData.quantitySold - systemTotal
+
+    // Check if entry already exists for this plate color
+    const existingIndex = salesEntries.findIndex((entry) => entry.plateColor === formData.plateColor)
+    
+    if (existingIndex >= 0) {
+      // Update existing entry
+      const updatedEntries = [...salesEntries]
+      updatedEntries[existingIndex] = {
+        ...updatedEntries[existingIndex],
+        quantitySold: formData.quantitySold,
+        discrepancy,
+      }
+      setSalesEntries(updatedEntries)
+      toast({
+        title: 'Updated',
+        description: `${formData.plateColor} quantity updated`,
+      })
+    } else {
+      // Add new entry
+      const newEntry: SalesEntry = {
+        id: Date.now().toString(),
+        plateColor: formData.plateColor,
+        quantitySold: formData.quantitySold,
+        systemTotal,
+        discrepancy,
+      }
+      setSalesEntries([...salesEntries, newEntry])
+      toast({
+        title: 'Success',
+        description: 'Sales entry added',
+      })
     }
 
-    setSalesEntries([...salesEntries, newEntry])
     setFormData({
-      itemName: '',
-      quantity: 0,
-      unitPrice: 0,
-      paymentMethod: 'cash',
-    })
-
-    toast({
-      title: 'Success',
-      description: 'Sales entry added',
+      plateColor: 'white',
+      quantitySold: 0,
     })
   }
 
@@ -92,67 +91,50 @@ export function SalesInput() {
     })
   }
 
-  const totalSales = salesEntries.reduce((sum, entry) => sum + entry.total, 0)
-  const totalQuantity = salesEntries.reduce((sum, entry) => sum + entry.quantity, 0)
+  const totalSold = salesEntries.reduce((sum, entry) => sum + entry.quantitySold, 0)
+  const totalDiscrepancy = salesEntries.reduce((sum, entry) => sum + Math.abs(entry.discrepancy), 0)
+  const hasDiscrepancies = salesEntries.some((entry) => entry.discrepancy !== 0)
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold">Sales Input (POS)</h1>
-        <p className="text-muted-foreground mt-1">Record sales transactions from Point of Sale system</p>
+        <p className="text-muted-foreground mt-1">Input daily sales by plate color and compare with system records</p>
       </div>
 
       {/* Input Form */}
       <Card>
         <CardHeader>
           <CardTitle>Add Sales Entry</CardTitle>
-          <CardDescription>Enter sales data from your POS system</CardDescription>
+          <CardDescription>Enter quantity sold by plate color</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="itemName">Item Name</Label>
-              <Input
-                id="itemName"
-                placeholder="e.g., California Roll"
-                value={formData.itemName}
-                onChange={(e) => setFormData({ ...formData, itemName: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="quantity">Quantity</Label>
-              <Input
-                id="quantity"
-                type="number"
-                placeholder="0"
-                value={formData.quantity || ''}
-                onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="unitPrice">Unit Price (IDR)</Label>
-              <Input
-                id="unitPrice"
-                type="number"
-                placeholder="0"
-                value={formData.unitPrice || ''}
-                onChange={(e) => setFormData({ ...formData, unitPrice: parseInt(e.target.value) || 0 })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="payment">Payment Method</Label>
-              <Select value={formData.paymentMethod} onValueChange={(value: any) => setFormData({ ...formData, paymentMethod: value })}>
+              <Label htmlFor="plateColor">Plate Color</Label>
+              <Select value={formData.plateColor} onValueChange={(value: any) => setFormData({ ...formData, plateColor: value })}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="card">Card</SelectItem>
-                  <SelectItem value="qris">QRIS</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  {plateColors.map((plate) => (
+                    <SelectItem key={plate.id} value={plate.name}>
+                      {plate.name.charAt(0).toUpperCase() + plate.name.slice(1)}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="quantitySold">Quantity Sold</Label>
+              <Input
+                id="quantitySold"
+                type="number"
+                placeholder="0"
+                value={formData.quantitySold || ''}
+                onChange={(e) => setFormData({ ...formData, quantitySold: parseInt(e.target.value) || 0 })}
+              />
             </div>
             <div className="flex items-end">
               <Button onClick={handleAddEntry} className="w-full gap-2">
@@ -169,24 +151,38 @@ export function SalesInput() {
         <Card>
           <CardContent className="pt-6">
             <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Total Sales</p>
-              <p className="text-2xl font-bold">IDR {totalSales.toLocaleString('id-ID')}</p>
+              <p className="text-sm text-muted-foreground">Total Items Sold (POS)</p>
+              <p className="text-2xl font-bold">{totalSold}</p>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Total Items Sold</p>
-              <p className="text-2xl font-bold">{totalQuantity}</p>
+              <p className="text-sm text-muted-foreground">Entries Recorded</p>
+              <p className="text-2xl font-bold">{salesEntries.length} / {plateColors.length}</p>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className={hasDiscrepancies ? 'border-red-200 bg-red-50' : 'border-emerald-200 bg-emerald-50'}>
           <CardContent className="pt-6">
             <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Transactions</p>
-              <p className="text-2xl font-bold">{salesEntries.length}</p>
+              <p className="text-sm text-muted-foreground flex items-center gap-2">
+                {hasDiscrepancies ? (
+                  <>
+                    <AlertCircle className="w-4 h-4 text-red-600" />
+                    Total Discrepancies
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4 text-emerald-600" />
+                    All Matched
+                  </>
+                )}
+              </p>
+              <p className={`text-2xl font-bold ${hasDiscrepancies ? 'text-red-600' : 'text-emerald-600'}`}>
+                {hasDiscrepancies ? `±${totalDiscrepancy}` : '0'}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -195,38 +191,53 @@ export function SalesInput() {
       {/* Sales Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Sales Entries</CardTitle>
+          <CardTitle>Sales Entries Comparison</CardTitle>
+          <CardDescription>Compare POS sales with system records</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="border rounded-lg overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Item Name</TableHead>
-                  <TableHead className="text-right">Quantity</TableHead>
-                  <TableHead className="text-right">Unit Price</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                  <TableHead>Payment Method</TableHead>
-                  <TableHead>Time</TableHead>
+                  <TableHead>Plate Color</TableHead>
+                  <TableHead className="text-right">POS Qty</TableHead>
+                  <TableHead className="text-right">System Qty</TableHead>
+                  <TableHead className="text-right">Discrepancy</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead className="w-12"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {salesEntries.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-4 text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center py-4 text-muted-foreground">
                       No sales entries yet
                     </TableCell>
                   </TableRow>
                 ) : (
                   salesEntries.map((entry) => (
-                    <TableRow key={entry.id}>
-                      <TableCell className="font-medium">{entry.itemName}</TableCell>
-                      <TableCell className="text-right">{entry.quantity}</TableCell>
-                      <TableCell className="text-right">IDR {entry.unitPrice.toLocaleString('id-ID')}</TableCell>
-                      <TableCell className="text-right font-semibold">IDR {entry.total.toLocaleString('id-ID')}</TableCell>
-                      <TableCell className="capitalize">{entry.paymentMethod}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{entry.timestamp.toLocaleTimeString('id-ID')}</TableCell>
+                    <TableRow key={entry.id} className={entry.discrepancy !== 0 ? 'bg-red-50' : ''}>
+                      <TableCell>
+                        <PlateColorBadge color={entry.plateColor} />
+                      </TableCell>
+                      <TableCell className="text-right font-semibold">{entry.quantitySold}</TableCell>
+                      <TableCell className="text-right">{entry.systemTotal}</TableCell>
+                      <TableCell className={`text-right font-semibold ${entry.discrepancy > 0 ? 'text-red-600' : entry.discrepancy < 0 ? 'text-orange-600' : 'text-emerald-600'}`}>
+                        {entry.discrepancy > 0 ? '+' : ''}{entry.discrepancy}
+                      </TableCell>
+                      <TableCell>
+                        {entry.discrepancy === 0 ? (
+                          <div className="flex items-center gap-1 text-emerald-600">
+                            <CheckCircle className="w-4 h-4" />
+                            <span className="text-sm">Match</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1 text-red-600">
+                            <AlertCircle className="w-4 h-4" />
+                            <span className="text-sm">Mismatch</span>
+                          </div>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <Button
                           variant="ghost"
@@ -247,9 +258,8 @@ export function SalesInput() {
 
       {/* Action Buttons */}
       <div className="flex gap-2 justify-end">
-        <Button variant="outline">Cancel</Button>
-        <Button className="gap-2">
-          <Save className="w-4 h-4" />
+        <Button variant="outline" onClick={() => setSalesEntries([])}>Clear All</Button>
+        <Button className="gap-2" disabled={salesEntries.length === 0}>
           Save & Export
         </Button>
       </div>

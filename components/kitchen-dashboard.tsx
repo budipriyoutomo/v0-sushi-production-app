@@ -1,14 +1,10 @@
 "use client"
 
 import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { PlateColorBadge, type PlateColor } from "@/components/plate-color-badge"
 import { StatusIndicator, type Status } from "@/components/status-indicator"
 import { mockProductionStats } from "@/lib/mock-data"
 import { cn } from "@/lib/utils"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { LogOut } from "lucide-react"
 
 const plateColorBg: Record<PlateColor, string> = {
   green: "bg-emerald-50 border-emerald-200",
@@ -18,12 +14,6 @@ const plateColorBg: Record<PlateColor, string> = {
 }
 
 export function KitchenDashboard() {
-  const router = useRouter()
-
-  const handleLogout = () => {
-    router.push("/login/kitchen")
-  }
-
   const getStatus = (produced: number, target: number, expiringSoon: number): Status => {
     const percentage = (produced / target) * 100
     if (expiringSoon > 5) return "critical"
@@ -32,42 +22,11 @@ export function KitchenDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl md:text-4xl font-bold">Kitchen Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Production overview by plate color</p>
-        </div>
-        <div className="flex gap-2">
-          <Link
-            href="/kitchen/produce"
-            className="px-4 py-2 bg-accent text-accent-foreground rounded-lg font-medium hover:bg-accent/90"
-          >
-            Produce
-          </Link>
-          <Link
-            href="/kitchen/conveyor"
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90"
-          >
-            Conveyor
-          </Link>
-          <Link
-            href="/kitchen/expired"
-            className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700"
-          >
-            Expired
-          </Link>
-          <Button
-            onClick={handleLogout}
-            variant="destructive"
-            size="sm"
-            className="gap-2"
-          >
-            <LogOut className="w-4 h-4" />
-            Logout
-          </Button>
-        </div>
+      <div>
+        <h1 className="text-3xl md:text-4xl font-bold">Kitchen Dashboard</h1>
+        <p className="text-muted-foreground mt-1">Production overview by plate color</p>
       </div>
 
       {/* Production Cards Grid */}

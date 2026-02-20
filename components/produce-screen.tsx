@@ -8,8 +8,7 @@ import { PlateColorBadge } from "@/components/plate-color-badge"
 import { QuantityCalculator } from "@/components/quantity-calculator"
 import { sushiMenus, plateColors } from "@/lib/mock-data"
 import { useToast } from "@/hooks/use-toast"
-import Link from "next/link"
-import { ArrowLeft, Plus } from "lucide-react"
+import { Plus } from "lucide-react"
 
 export function ProduceScreen() {
   const { toast } = useToast()
@@ -48,21 +47,15 @@ export function ProduceScreen() {
   const filteredSushi = selectedColor ? sushiMenus.filter((sushi) => sushi.plateColor === selectedColor) : sushiMenus
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="mb-8">
-        <Link
-          href="/kitchen/dashboard"
-          className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-4"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Dashboard
-        </Link>
+      <div>
         <h1 className="text-3xl md:text-4xl font-bold">Produce Sushi</h1>
         <p className="text-muted-foreground mt-1">Tap to produce one plate</p>
       </div>
 
-      <div className="mb-6 flex gap-2 flex-wrap">
+      {/* Filter by Plate Color */}
+      <div className="flex gap-2 flex-wrap">
         <Button
           variant={selectedColor === null ? "default" : "outline"}
           onClick={() => setSelectedColor(null)}
