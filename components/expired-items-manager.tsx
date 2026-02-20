@@ -35,6 +35,11 @@ export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsMana
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingStatus, setEditingStatus] = useState<'sold' | 'waste'>('sold')
   const [editingNotes, setEditingNotes] = useState('')
+  const [selectedColor, setSelectedColor] = useState<string | null>(null)
+
+  const filteredItems = selectedColor 
+    ? expiredItems.filter((item) => item.plateColor === selectedColor)
+    : expiredItems
 
   const handleStatusChange = (itemId: string, newStatus: 'sold' | 'waste', notes: string) => {
     toast({
@@ -65,17 +70,25 @@ export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsMana
 
       {/* Filter by Plate Color */}
       <div className="flex flex-wrap gap-2">
+        <Button
+          variant={selectedColor === null ? "default" : "outline"}
+          onClick={() => setSelectedColor(null)}
+          className="px-4 py-2"
+        >
+          All Colors
+        </Button>
         {plateColors.map((plate) => (
           <Button
             key={plate.id}
-            variant="outline"
+            variant={selectedColor === plate.name ? "default" : "outline"}
+            onClick={() => setSelectedColor(plate.name)}
             className="px-4 py-2 capitalize"
           >
             {plate.name}
           </Button>
         ))}
       </div>
-      {expiredItems.length === 0 ? (
+      {filteredItems.length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center">
             <p className="text-muted-foreground text-lg">No expired items</p>
@@ -83,7 +96,7 @@ export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsMana
         </Card>
       ) : (
         <div className="space-y-3">
-          {expiredItems.map((item) => {
+          {filteredItems.map((item) => {
             const menuItem = sushiMenus.find((m) => m.id === item.sushiId)
             return (
               <Card key={item.id} className="border-red-200">
