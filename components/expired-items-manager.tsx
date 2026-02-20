@@ -16,9 +16,8 @@ import {
 import { PlateColorBadge } from '@/components/plate-color-badge'
 import type { ProductionItem } from '@/lib/types'
 import { useToast } from '@/hooks/use-toast'
-import { sushiMenus } from '@/lib/mock-data'
-import Link from 'next/link'
-import { ArrowLeft, Trash2 } from 'lucide-react'
+import { sushiMenus, plateColors } from '@/lib/mock-data'
+import { Trash2 } from 'lucide-react'
 
 interface ExpiredItem extends ProductionItem {
   status?: 'sold' | 'waste'
@@ -55,23 +54,27 @@ export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsMana
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="mb-8">
-        <Link
-          href="/kitchen/dashboard"
-          className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-4"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Dashboard
-        </Link>
+      <div>
         <h1 className="text-3xl md:text-4xl font-bold">Expired Items</h1>
         <p className="text-muted-foreground mt-1">
           Manage items that have exceeded their shelf life: <span className="font-semibold text-foreground">{expiredItems.length}</span>
         </p>
       </div>
 
-      {/* Items List */}
+      {/* Filter by Plate Color */}
+      <div className="flex flex-wrap gap-2">
+        {plateColors.map((plate) => (
+          <Button
+            key={plate.id}
+            variant="outline"
+            className="px-4 py-2 capitalize"
+          >
+            {plate.name}
+          </Button>
+        ))}
+      </div>
       {expiredItems.length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center">

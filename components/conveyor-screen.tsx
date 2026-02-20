@@ -10,7 +10,7 @@ import type { ProductionItem } from "@/lib/types"
 import { plateColors, sushiMenus } from "@/lib/mock-data"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
-import { ArrowLeft, CheckCircle, XCircle } from "lucide-react"
+import { CheckCircle, XCircle } from "lucide-react"
 
 export function ConveyorScreen() {
   const { toast } = useToast()
@@ -89,23 +89,17 @@ export function ConveyorScreen() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="mb-8">
-        <Link
-          href="/kitchen/dashboard"
-          className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-4"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Dashboard
-        </Link>
+      <div>
         <h1 className="text-3xl md:text-4xl font-bold">Conveyor Control</h1>
         <p className="text-muted-foreground mt-1">
           Active plates on conveyor: <span className="font-semibold text-foreground">{filteredItems.length}</span>
         </p>
       </div>
 
-      <div className="mb-8 flex flex-wrap gap-2">
+      {/* Filter by Plate Color */}
+      <div className="flex flex-wrap gap-2">
         <Button
           variant={selectedColor === null ? "default" : "outline"}
           onClick={() => setSelectedColor(null)}
