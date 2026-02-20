@@ -143,9 +143,6 @@ export function PlateColorsAdmin() {
                 ))}
               </div>
             )}
-                </tbody>
-              </table>
-            </div>
           </CardContent>
         </Card>
 
