@@ -51,9 +51,9 @@ export function LoginForm({ loginType = "admin" }: LoginFormProps) {
           </div>
         </div>
         <CardTitle className="text-2xl font-bold">
-          {loginType === "admin" ? "Admin & Production Access" : loginType === "production" ? "Production Access" : "Operations Access"}
+          Sign In
         </CardTitle>
-        <CardDescription>Sign in with your username and password</CardDescription>
+        <CardDescription>Enter your credentials to access the system</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleLogin} className="space-y-4">
