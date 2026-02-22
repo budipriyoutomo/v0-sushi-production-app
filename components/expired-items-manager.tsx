@@ -95,45 +95,43 @@ export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsMana
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredItems.map((item) => {
             const menuItem = sushiMenus.find((m) => m.id === item.sushiId)
             return (
-              <Card key={item.id} className="border-red-200">
-                <CardContent className="p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                    {/* Image */}
-                    {menuItem?.image && (
-                      <div className="md:col-span-2">
-                        <div className="relative w-full h-24 bg-muted rounded overflow-hidden">
-                          <Image
-                            src={menuItem.image}
-                            alt={item.sushiName}
-                            fill
-                            className="object-cover"
-                            sizes="(max-width: 768px) 100%, 16%"
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Item Info */}
-                    <div className={`${menuItem?.image ? 'md:col-span-2' : 'md:col-span-3'} space-y-2`}>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-lg font-semibold flex-1">{item.sushiName}</h3>
-                        <PlateColorBadge color={item.plateColor} />
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        Produced: {item.productionTime.toLocaleString()}
-                      </p>
-                      <p className="text-sm text-red-600 font-semibold">
-                        Shelf Life: {item.shelfLifeMinutes} min
-                      </p>
+              <Card key={item.id} className="border-red-200 flex flex-col h-full">
+              <CardContent className="p-4 flex flex-col h-full">
+                <div className="space-y-3">
+                  {/* Image */}
+                  {menuItem?.image && (
+                    <div className="relative w-full h-32 bg-muted rounded overflow-hidden">
+                      <Image
+                        src={menuItem.image}
+                        alt={item.sushiName}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 768px) 100%, 50%"
+                      />
                     </div>
+                  )}
+
+                  {/* Item Info */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base font-semibold flex-1">{item.sushiName}</h3>
+                      <PlateColorBadge color={item.plateColor} />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Produced: {item.productionTime.toLocaleString()}
+                    </p>
+                    <p className="text-xs text-red-600 font-semibold">
+                      Shelf Life: {item.shelfLifeMinutes} min
+                    </p>
+                  </div>
 
                   {/* Status Selection */}
-                  <div className="md:col-span-2">
-                    <Label className="text-sm font-medium mb-2 block">Status</Label>
+                  <div>
+                    <Label className="text-xs font-medium mb-1 block">Status</Label>
                     <Select
                       value={item.status || 'sold'}
                       onValueChange={(value) => {
@@ -141,7 +139,7 @@ export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsMana
                         setEditingStatus(value as 'sold' | 'waste')
                       }}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="h-8 text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -152,56 +150,52 @@ export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsMana
                   </div>
 
                   {/* Notes */}
-                  <div className="md:col-span-4">
-                    <Label className="text-sm font-medium mb-2 block">Keterangan (Notes)</Label>
+                  <div>
+                    <Label className="text-xs font-medium mb-1 block">Keterangan</Label>
                     <Input
                       placeholder="Add notes..."
                       value={item.notes || ''}
                       onChange={(e) => setEditingNotes(e.target.value)}
-                      className="text-sm"
+                      className="text-xs h-7"
                     />
                   </div>
 
                   {/* Expired Info */}
-                  <div className="md:col-span-2 flex flex-col gap-2">
-                    <p className="text-xs text-muted-foreground font-medium">
-                      Status: <span className="text-red-600">Expired</span>
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Time: {item.expiredAt?.toLocaleTimeString() || 'Just now'}
-                    </p>
+                  <div className="text-xs text-muted-foreground space-y-1 py-2 border-t">
+                    <p>Status: <span className="text-red-600 font-semibold">Expired</span></p>
+                    <p>Time: {item.expiredAt?.toLocaleTimeString() || 'Just now'}</p>
                   </div>
+                </div>
 
-                  {/* Actions */}
-                  <div className="md:col-span-1 flex gap-2 flex-col">
-                    <Button
-                      size="sm"
-                      onClick={() => handleStatusChange(item.id, item.status || 'sold', item.notes || '')}
-                      className="bg-blue-600 hover:bg-blue-700 text-white text-xs"
-                      disabled={!editingId || editingId !== item.id}
-                    >
-                      Save
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => handleRemove(item.id)}
-                      className="text-xs"
-                    >
-                      <Trash2 className="w-3 h-3 mr-1" />
-                      Delete
-                    </Button>
-                  </div>
-                  </div>
+                {/* Actions */}
+                <div className="flex gap-2 mt-auto pt-3">
+                  <Button
+                    size="sm"
+                    onClick={() => handleStatusChange(item.id, item.status || 'sold', item.notes || '')}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs h-7"
+                    disabled={!editingId || editingId !== item.id}
+                  >
+                    Save
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => handleRemove(item.id)}
+                    className="text-xs h-7"
+                  >
+                    <Trash2 className="w-3 h-3 mr-1" />
+                    Delete
+                  </Button>
+                </div>
 
-                  {/* Changed Note */}
-                  <div className="mt-3 pt-3 border-t border-border">
-                    <p className="text-xs text-amber-600 font-medium">
-                      📝 Status changed when time remaining expired
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
+                {/* Changed Note */}
+                <div className="mt-3 pt-2 border-t border-border">
+                  <p className="text-xs text-amber-600 font-medium">
+                    📝 Status: Time expired
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
             )
           })}
         </div>
