@@ -71,9 +71,7 @@ export function SidebarNav({ role }: SidebarNavProps) {
 
       {/* Outlet Selector */}
       {showOutletSelector && (
-        <div className="px-4 py-4 border-b border-border/30">
-          <OutletSelector />
-        </div>
+        
       )}
 
       {/* Navigation Items */}
