@@ -40,6 +40,12 @@ export function PlateColorsAdmin() {
   // Filter plate colors by selected outlet
   const outletPlateColors = plateColors.filter((pc) => pc.outletId === selectedOutletId)
 
+  const handleAdd = () => {
+    setEditingItem(null)
+    setFormData({ name: "", price: 0, targetFoodCost: 0, active: true })
+    setIsDialogOpen(true)
+  }
+
   const handleEdit = (item: PlateColorConfig) => {
     setEditingItem(item)
     setFormData({
@@ -75,14 +81,26 @@ export function PlateColorsAdmin() {
     <div className="min-h-screen bg-background p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-6">
         <OutletSelector />
-        <div>
-          <h1 className="text-3xl md:text-4xl font-bold">Plate Colors</h1>
-          <p className="text-muted-foreground mt-1">Manage plate color configurations and pricing</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold">Plate Colors</h1>
+            <p className="text-muted-foreground mt-1">Manage plate color configurations and pricing</p>
+          </div>
+          <Button onClick={handleAdd} size="lg">
+            <Plus className="w-5 h-5 mr-2" />
+            Add Color
+          </Button>
         </div>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Color Configuration</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <div>
+              <CardTitle>Color Configuration</CardTitle>
+            </div>
+            <Button onClick={handleAdd} size="sm" className="gap-2">
+              <Plus className="w-4 h-4" />
+              Add Color
+            </Button>
           </CardHeader>
           <CardContent>
             {outletPlateColors.length === 0 ? (
