@@ -5,87 +5,125 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { OutletSelector } from '@/components/outlet-selector'
 import { useToast } from '@/hooks/use-toast'
 import { useOutlet } from '@/lib/outlet-context'
-import { CheckCircle, FileText, AlertCircle } from 'lucide-react'
+import { sushiMenus } from '@/lib/mock-data'
+import { PlateColorBadge } from '@/components/plate-color-badge'
+import { CheckCircle, AlertCircle, Plus, Trash2 } from 'lucide-react'
 
-interface ClosingData {
-  outletId: string
-  date: string
-  openingCash: number
-  closingCash: number
-  totalSales: number
-  totalExpenses: number
+interface MenuSalesEntry {
+  menuId: string
+  menuName: string
+  plateColor: string
+  produced: number
+  sold: number
+  waste: number
   discrepancy: number
-  notes: string
-  signedBy: string
-  timestamp: Date
-  status: 'draft' | 'submitted' | 'verified'
+  price: number
 }
 
 export function ClosingReport() {
   const { toast } = useToast()
   const { selectedOutletId } = useOutlet()
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0])
+  const [salesEntries, setSalesEntries] = useState<MenuSalesEntry[]>([
+    { menuId: '1', menuName: 'California Roll', plateColor: 'white', produced: 45, sold: 38, waste: 2, discrepancy: 5, price: 25000 },
+    { menuId: '3', menuName: 'Salmon Nigiri', plateColor: 'blue', produced: 32, sold: 28, waste: 1, discrepancy: 3, price: 35000 },
+    { menuId: '5', menuName: 'Spicy Tuna Roll', plateColor: 'pink', produced: 28, sold: 24, waste: 2, discrepancy: 2, price: 40000 },
+  ])
+  const [signedBy, setSignedBy] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [closingData, setClosingData] = useState<ClosingData>({
-    outletId: selectedOutletId,
-    date: new Date().toISOString().split('T')[0],
-    openingCash: 0,
-    closingCash: 0,
-    totalSales: 2500000,
-    totalExpenses: 750000,
-    discrepancy: 0,
-    notes: '',
-    signedBy: '',
-    timestamp: new Date(),
-    status: 'draft',
-  })
+  const [status, setStatus] = useState<'draft' | 'submitted'>('draft')
 
-  const handleInputChange = (field: keyof ClosingData, value: any) => {
-    setClosingData((prev) => ({
-      ...prev,
-      [field]: value,
-    }))
-  }
+  // Filter menus by outlet
+  const outletMenus = sushiMenus.filter((m) => m.outletId === selectedOutletId)
 
-  const calculateDiscrepancy = () => {
-    const expected = closingData.openingCash + closingData.totalSales - closingData.totalExpenses
-    const discrepancy = closingData.closingCash - expected
-    setClosingData((prev) => ({
-      ...prev,
-      discrepancy,
-    }))
-  }
-
-  const handleSubmit = async () => {
-    if (!closingData.signedBy) {
+  const addMenuEntry = () => {
+    if (outletMenus.length === 0) {
       toast({
         title: 'Error',
-        description: 'Please fill in all required fields',
+        description: 'No menus available for this outlet',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    const menu = outletMenus[0]
+    const newEntry: MenuSalesEntry = {
+      menuId: menu.id,
+      menuName: menu.name,
+      plateColor: menu.plateColor,
+      produced: 0,
+      sold: 0,
+      waste: 0,
+      discrepancy: 0,
+      price: 25000,
+    }
+    setSalesEntries([...salesEntries, newEntry])
+  }
+
+  const updateEntry = (index: number, field: keyof MenuSalesEntry, value: any) => {
+    const newEntries = [...salesEntries]
+    newEntries[index][field] = value
+
+    // Calculate discrepancy: produced - (sold + waste) = discrepancy
+    if (field === 'produced' || field === 'sold' || field === 'waste') {
+      newEntries[index].discrepancy = newEntries[index].produced - (newEntries[index].sold + newEntries[index].waste)
+    }
+
+    setSalesEntries(newEntries)
+  }
+
+  const deleteEntry = (index: number) => {
+    setSalesEntries(salesEntries.filter((_, i) => i !== index))
+    toast({
+      title: 'Deleted',
+      description: 'Menu entry removed',
+      variant: 'destructive',
+    })
+  }
+
+  const totals = {
+    produced: salesEntries.reduce((sum, e) => sum + e.produced, 0),
+    sold: salesEntries.reduce((sum, e) => sum + e.sold, 0),
+    waste: salesEntries.reduce((sum, e) => sum + e.waste, 0),
+    discrepancy: salesEntries.reduce((sum, e) => sum + e.discrepancy, 0),
+    revenue: salesEntries.reduce((sum, e) => sum + (e.sold * e.price), 0),
+  }
+
+  const hasDiscrepancies = salesEntries.some((e) => Math.abs(e.discrepancy) > 0)
+
+  const handleSubmit = async () => {
+    if (!signedBy) {
+      toast({
+        title: 'Error',
+        description: 'Please fill in signature field',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (salesEntries.length === 0) {
+      toast({
+        title: 'Error',
+        description: 'Please add at least one menu entry',
         variant: 'destructive',
       })
       return
     }
 
     setIsSubmitting(true)
-    
     setTimeout(() => {
-      setClosingData((prev) => ({
-        ...prev,
-        status: 'submitted',
-      }))
       setIsSubmitting(false)
+      setStatus('submitted')
       toast({
         title: 'Success',
         description: 'Closing report submitted successfully',
       })
     }, 1000)
   }
-
-  const expectedClosing = closingData.openingCash + closingData.totalSales - closingData.totalExpenses
-  const hasDiscrepancy = Math.abs(closingData.discrepancy) > 0
 
   return (
     <div className="space-y-6">
@@ -94,12 +132,12 @@ export function ClosingReport() {
 
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">Daily Closing Report</h1>
-        <p className="text-muted-foreground mt-1">Complete the daily closing report for operations team</p>
+        <h1 className="text-3xl md:text-4xl font-bold">Daily Closing Report</h1>
+        <p className="text-muted-foreground mt-1">Sales summary by menu item with waste and discrepancy</p>
       </div>
 
       {/* Status Banner */}
-      {closingData.status === 'submitted' && (
+      {status === 'submitted' && (
         <Card className="border-green-200 bg-green-50">
           <CardContent className="pt-6 flex items-center gap-3">
             <CheckCircle className="w-6 h-6 text-green-600" />
@@ -112,146 +150,195 @@ export function ClosingReport() {
       )}
 
       {/* Discrepancy Alert */}
-      {hasDiscrepancy && closingData.status !== 'submitted' && (
+      {hasDiscrepancies && status !== 'submitted' && (
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="pt-6 flex items-center gap-3">
             <AlertCircle className="w-6 h-6 text-amber-600" />
             <div>
-              <p className="font-semibold text-amber-900">Cash Discrepancy Detected</p>
+              <p className="font-semibold text-amber-900">Discrepancies Detected</p>
               <p className="text-sm text-amber-700">
-                Difference: IDR {Math.abs(closingData.discrepancy).toLocaleString('id-ID')} ({closingData.discrepancy > 0 ? 'Over' : 'Under'})
+                Total discrepancy: {totals.discrepancy > 0 ? '+' : ''}{totals.discrepancy} units
               </p>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Main Form */}
+      {/* Main Report Card */}
       <Card>
         <CardHeader>
-          <CardTitle>Closing Summary</CardTitle>
-          <CardDescription>Enter all closing information for {closingData.date}</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Sales Report by Menu</CardTitle>
+              <CardDescription>Date: {date}</CardDescription>
+            </div>
+            <Input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              disabled={status === 'submitted'}
+              className="w-32"
+            />
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Date Section */}
-          <div>
-            <Label htmlFor="date">Date</Label>
-            <Input
-              id="date"
-              type="date"
-              value={closingData.date}
-              onChange={(e) => handleInputChange('date', e.target.value)}
-              disabled={closingData.status === 'submitted'}
-            />
+          {/* Sales Table */}
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Menu Item</TableHead>
+                  <TableHead>Color</TableHead>
+                  <TableHead className="text-right">Price</TableHead>
+                  <TableHead className="text-right">Produced</TableHead>
+                  <TableHead className="text-right">Sold</TableHead>
+                  <TableHead className="text-right">Waste</TableHead>
+                  <TableHead className="text-right">Discrepancy</TableHead>
+                  <TableHead className="text-right">Revenue</TableHead>
+                  <TableHead className="w-10"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {salesEntries.map((entry, index) => (
+                  <TableRow key={index}>
+                    <TableCell className="font-medium">{entry.menuName}</TableCell>
+                    <TableCell>
+                      <PlateColorBadge color={entry.plateColor as any} />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Input
+                        type="number"
+                        value={entry.price}
+                        onChange={(e) => updateEntry(index, 'price', parseInt(e.target.value) || 0)}
+                        disabled={status === 'submitted'}
+                        className="w-24 text-right text-sm"
+                      />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Input
+                        type="number"
+                        value={entry.produced}
+                        onChange={(e) => updateEntry(index, 'produced', parseInt(e.target.value) || 0)}
+                        disabled={status === 'submitted'}
+                        className="w-20 text-right text-sm"
+                      />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Input
+                        type="number"
+                        value={entry.sold}
+                        onChange={(e) => updateEntry(index, 'sold', parseInt(e.target.value) || 0)}
+                        disabled={status === 'submitted'}
+                        className="w-20 text-right text-sm"
+                      />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Input
+                        type="number"
+                        value={entry.waste}
+                        onChange={(e) => updateEntry(index, 'waste', parseInt(e.target.value) || 0)}
+                        disabled={status === 'submitted'}
+                        className="w-20 text-right text-sm"
+                      />
+                    </TableCell>
+                    <TableCell className={`text-right font-semibold ${entry.discrepancy !== 0 ? 'text-destructive' : 'text-green-600'}`}>
+                      {entry.discrepancy > 0 ? '+' : ''}{entry.discrepancy}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold">
+                      IDR {(entry.sold * entry.price).toLocaleString('id-ID')}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => deleteEntry(index)}
+                        disabled={status === 'submitted'}
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                <TableRow className="bg-muted/50 font-semibold">
+                  <TableCell colSpan={3}>TOTAL</TableCell>
+                  <TableCell className="text-right">{totals.produced}</TableCell>
+                  <TableCell className="text-right">{totals.sold}</TableCell>
+                  <TableCell className="text-right">{totals.waste}</TableCell>
+                  <TableCell className={`text-right ${totals.discrepancy !== 0 ? 'text-destructive' : 'text-green-600'}`}>
+                    {totals.discrepancy > 0 ? '+' : ''}{totals.discrepancy}
+                  </TableCell>
+                  <TableCell className="text-right">IDR {totals.revenue.toLocaleString('id-ID')}</TableCell>
+                  <TableCell></TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
           </div>
 
-          {/* Cash Flow Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h3 className="font-semibold mb-4 flex items-center gap-2">
-                <span className="w-2 h-2 bg-primary rounded-full"></span>
-                Cash Position
-              </h3>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="opening">Opening Cash (IDR)</Label>
-                  <Input
-                    id="opening"
-                    type="number"
-                    value={closingData.openingCash || ''}
-                    onChange={(e) => handleInputChange('openingCash', parseInt(e.target.value) || 0)}
-                    disabled={closingData.status === 'submitted'}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="closing">Closing Cash (IDR)</Label>
-                  <Input
-                    id="closing"
-                    type="number"
-                    value={closingData.closingCash || ''}
-                    onChange={(e) => handleInputChange('closingCash', parseInt(e.target.value) || 0)}
-                    disabled={closingData.status === 'submitted'}
-                  />
-                  {closingData.status !== 'submitted' && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={calculateDiscrepancy}
-                      className="w-full mt-2"
-                    >
-                      Calculate Discrepancy
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
+          {/* Add Menu Button */}
+          {status !== 'submitted' && (
+            <Button onClick={addMenuEntry} variant="outline" className="w-full gap-2">
+              <Plus className="w-4 h-4" />
+              Add Menu Item
+            </Button>
+          )}
 
-            <div>
-              <h3 className="font-semibold mb-4 flex items-center gap-2">
-                <span className="w-2 h-2 bg-primary rounded-full"></span>
-                Financial Summary
-              </h3>
-              <div className="space-y-4 bg-muted p-4 rounded-lg">
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Total Sales:</span>
-                  <span className="font-semibold">IDR {closingData.totalSales.toLocaleString('id-ID')}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Total Expenses:</span>
-                  <span className="font-semibold">IDR {closingData.totalExpenses.toLocaleString('id-ID')}</span>
-                </div>
-                <div className="border-t pt-2 flex justify-between font-semibold">
-                  <span>Expected Closing:</span>
-                  <span>IDR {expectedClosing.toLocaleString('id-ID')}</span>
-                </div>
-                <div
-                  className={`pt-2 flex justify-between font-bold ${
-                    hasDiscrepancy ? 'text-amber-600' : 'text-green-600'
-                  }`}
-                >
-                  <span>Discrepancy:</span>
-                  <span>{closingData.discrepancy > 0 ? '+' : ''}IDR {closingData.discrepancy.toLocaleString('id-ID')}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Notes Section */}
-          <div className="space-y-2">
-            <Label htmlFor="notes">Notes & Observations</Label>
-            <Textarea
-              id="notes"
-              placeholder="Add any notes, discrepancies, or observations from the closing process"
-              value={closingData.notes}
-              onChange={(e) => handleInputChange('notes', e.target.value)}
-              disabled={closingData.status === 'submitted'}
-              rows={4}
-            />
+          {/* Summary Statistics */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+            <Card className="bg-blue-50 border-blue-200">
+              <CardContent className="pt-4">
+                <p className="text-sm text-muted-foreground">Total Produced</p>
+                <p className="text-2xl font-bold text-blue-600">{totals.produced}</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-green-50 border-green-200">
+              <CardContent className="pt-4">
+                <p className="text-sm text-muted-foreground">Total Sold</p>
+                <p className="text-2xl font-bold text-green-600">{totals.sold}</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-red-50 border-red-200">
+              <CardContent className="pt-4">
+                <p className="text-sm text-muted-foreground">Total Waste</p>
+                <p className="text-2xl font-bold text-red-600">{totals.waste}</p>
+              </CardContent>
+            </Card>
+            <Card className={`${totals.discrepancy === 0 ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
+              <CardContent className="pt-4">
+                <p className="text-sm text-muted-foreground">Discrepancy</p>
+                <p className={`text-2xl font-bold ${totals.discrepancy === 0 ? 'text-green-600' : 'text-amber-600'}`}>
+                  {totals.discrepancy > 0 ? '+' : ''}{totals.discrepancy}
+                </p>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Signature Section */}
-          <div className="space-y-2">
-            <Label htmlFor="signedBy">Signed By (Name & Title)</Label>
-            <Input
-              id="signedBy"
-              placeholder="e.g., John Doe - Operations Manager"
-              value={closingData.signedBy}
-              onChange={(e) => handleInputChange('signedBy', e.target.value)}
-              disabled={closingData.status === 'submitted'}
-            />
+          <div className="pt-4 border-t space-y-4">
+            <div>
+              <Label htmlFor="signedBy">Signed By (Name & Title)</Label>
+              <Input
+                id="signedBy"
+                placeholder="e.g., John Doe - Operations Manager"
+                value={signedBy}
+                onChange={(e) => setSignedBy(e.target.value)}
+                disabled={status === 'submitted'}
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Action Buttons */}
       <div className="flex gap-2 justify-end">
-        <Button variant="outline">Save as Draft</Button>
+        <Button variant="outline" disabled={status === 'submitted'}>
+          Save as Draft
+        </Button>
         <Button
           onClick={handleSubmit}
-          disabled={isSubmitting || closingData.status === 'submitted'}
+          disabled={isSubmitting || status === 'submitted'}
           className="gap-2"
         >
-          <FileText className="w-4 h-4" />
+          <CheckCircle className="w-4 h-4" />
           {isSubmitting ? 'Submitting...' : 'Submit Closing Report'}
         </Button>
       </div>
