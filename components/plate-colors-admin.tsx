@@ -4,8 +4,10 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { PlateColorBadge } from "@/components/plate-color-badge"
+import { OutletSelector } from "@/components/outlet-selector"
 import type { PlateColorConfig } from "@/lib/types"
 import { plateColors as initialPlateColors } from "@/lib/mock-data"
+import { useOutlet } from "@/lib/outlet-context"
 import { Plus, Pencil, Trash2 } from "lucide-react"
 import {
   Dialog,
@@ -22,6 +24,7 @@ import { useToast } from "@/hooks/use-toast"
 
 export function PlateColorsAdmin() {
   const { toast } = useToast()
+  const { selectedOutletId } = useOutlet()
   const [plateColors, setPlateColors] = useState<PlateColorConfig[]>(initialPlateColors)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<PlateColorConfig | null>(null)
@@ -33,6 +36,9 @@ export function PlateColorsAdmin() {
     targetFoodCost: 0,
     active: true,
   })
+
+  // Filter plate colors by selected outlet
+  const outletPlateColors = plateColors.filter((pc) => pc.outletId === selectedOutletId)
 
   const handleAdd = () => {
     setEditingItem(null)
@@ -73,8 +79,9 @@ export function PlateColorsAdmin() {
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="mb-8 flex items-center justify-between">
+      <div className="max-w-6xl mx-auto space-y-6">
+        <OutletSelector />
+        <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl md:text-4xl font-bold">Plate Colors</h1>
             <p className="text-muted-foreground mt-1">Manage plate color configurations and pricing</p>
@@ -86,51 +93,56 @@ export function PlateColorsAdmin() {
         </div>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Plate Color Master Data</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <div>
+              <CardTitle>Color Configuration</CardTitle>
+            </div>
+            <Button onClick={handleAdd} size="sm" className="gap-2">
+              <Plus className="w-4 h-4" />
+              Add Color
+            </Button>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left p-3 font-semibold">Color</th>
-                    <th className="text-right p-3 font-semibold">Price</th>
-                    <th className="text-right p-3 font-semibold">Target Food Cost %</th>
-                    <th className="text-center p-3 font-semibold">Active</th>
-                    <th className="text-right p-3 font-semibold">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {plateColors.map((item) => (
-                    <tr key={item.id} className="border-b hover:bg-muted/50">
-                      <td className="p-3">
-                        <PlateColorBadge color={item.name} />
-                      </td>
-                      <td className="p-3 text-right font-medium">${item.price.toFixed(2)}</td>
-                      <td className="p-3 text-right">{item.targetFoodCost}%</td>
-                      <td className="p-3 text-center">
-                        {item.active ? (
-                          <span className="text-emerald-600 font-medium">Active</span>
-                        ) : (
-                          <span className="text-muted-foreground">Inactive</span>
-                        )}
-                      </td>
-                      <td className="p-3">
-                        <div className="flex gap-2 justify-end">
-                          <Button variant="ghost" size="sm" onClick={() => handleEdit(item)}>
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => setDeleteConfirm(item.id)}>
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {outletPlateColors.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">No plate colors configured for this outlet</p>
+            ) : (
+              <div className="space-y-3">
+                {outletPlateColors.map((color) => (
+                  <div
+                    key={color.id}
+                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50"
+                  >
+                    <div className="flex items-center gap-4 flex-1">
+                      <PlateColorBadge color={color.name} />
+                      <div className="flex-1">
+                        <p className="font-medium capitalize">{color.name}</p>
+                        <p className="text-sm text-muted-foreground">Price: ${color.price.toFixed(2)} • Target Food Cost: {color.targetFoodCost}%</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">Active</span>
+                        <Switch checked={color.active} disabled />
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEdit(color)}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setDeleteConfirm(color.id)}
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 

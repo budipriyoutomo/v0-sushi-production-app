@@ -1,5 +1,8 @@
+'use client'
+
 import React from "react"
 import { SidebarNav } from '@/components/sidebar-nav'
+import { OutletProvider } from '@/lib/outlet-context'
 
 export default function ProductionLayout({
   children,
@@ -7,11 +10,13 @@ export default function ProductionLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex h-screen">
-      <SidebarNav role="production" />
-      <main className="flex-1 overflow-auto bg-background">
-        {children}
-      </main>
-    </div>
+    <OutletProvider>
+      <div className="flex h-screen">
+        <SidebarNav role="production" />
+        <main className="flex-1 overflow-auto bg-background">
+          {children}
+        </main>
+      </div>
+    </OutletProvider>
   )
 }
