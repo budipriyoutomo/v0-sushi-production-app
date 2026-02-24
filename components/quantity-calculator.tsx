@@ -51,17 +51,17 @@ export function QuantityCalculator({ open, item, onConfirm, onCancel }: Quantity
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Produce {item.name}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
-          {/* Menu Image and Details */}
-          <div className="space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Left Column - Menu Description */}
+          <div className="space-y-4">
             {/* Image */}
             {item.image && (
-              <div className="relative w-full h-48 bg-muted rounded-lg overflow-hidden">
+              <div className="relative w-full h-56 bg-muted rounded-lg overflow-hidden">
                 <Image
                   src={item.image}
                   alt={item.name}
@@ -76,31 +76,40 @@ export function QuantityCalculator({ open, item, onConfirm, onCancel }: Quantity
             <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1">
-                  <h3 className="font-semibold text-base mb-1">{item.name}</h3>
+                  <h3 className="font-semibold text-lg">{item.name}</h3>
                   <p className="text-sm text-muted-foreground">Menu Item</p>
                 </div>
                 <PlateColorBadge color={item.plateColor} />
               </div>
 
               {/* Details Grid */}
-              <div className="grid grid-cols-2 gap-3 pt-2 border-t">
-                <div>
-                  <p className="text-xs text-muted-foreground">Shelf Life</p>
-                  <p className="font-semibold text-sm">{item.shelfLifeMinutes}m</p>
+              <div className="space-y-2 pt-3 border-t">
+                <div className="flex justify-between items-center">
+                  <p className="text-sm text-muted-foreground">Plate Color</p>
+                  <p className="font-semibold text-sm capitalize">{item.plateColor}</p>
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Cost Estimate</p>
+                <div className="flex justify-between items-center">
+                  <p className="text-sm text-muted-foreground">Shelf Life</p>
+                  <p className="font-semibold text-sm">{item.shelfLifeMinutes} minutes</p>
+                </div>
+                <div className="flex justify-between items-center">
+                  <p className="text-sm text-muted-foreground">Cost Estimate</p>
                   <p className="font-semibold text-sm">${item.costEstimate.toFixed(2)}</p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Quantity Section */}
-          <div className="space-y-4 pt-2 border-t">
+          {/* Right Column - Quantity Input */}
+          <div className="space-y-6 flex flex-col justify-between">
             {/* Quantity Display */}
-            <div className="flex items-center justify-center">
-              <div className="text-5xl font-bold text-center">{quantity}</div>
+            <div className="space-y-4">
+              <div className="flex items-center justify-center bg-muted/50 rounded-lg py-8">
+                <div className="text-6xl font-bold text-center">{quantity}</div>
+              </div>
+
+              {/* Quantity Display Label */}
+              <p className="text-center text-sm text-muted-foreground">Units to Produce</p>
             </div>
 
             {/* Calculator Buttons */}
@@ -109,7 +118,7 @@ export function QuantityCalculator({ open, item, onConfirm, onCancel }: Quantity
                 variant="outline"
                 size="lg"
                 onClick={() => setQuantity(Math.max(1, quantity - 10))}
-                className="text-lg font-semibold"
+                className="text-base font-semibold py-6"
               >
                 -10
               </Button>
@@ -117,7 +126,7 @@ export function QuantityCalculator({ open, item, onConfirm, onCancel }: Quantity
                 variant="outline"
                 size="lg"
                 onClick={handleDecrement}
-                className="text-lg font-semibold bg-transparent"
+                className="text-base font-semibold py-6 bg-transparent"
               >
                 <Minus className="w-5 h-5" />
               </Button>
@@ -125,7 +134,7 @@ export function QuantityCalculator({ open, item, onConfirm, onCancel }: Quantity
                 variant="outline"
                 size="lg"
                 onClick={handleIncrement}
-                className="text-lg font-semibold bg-transparent"
+                className="text-base font-semibold py-6 bg-transparent"
               >
                 <Plus className="w-5 h-5" />
               </Button>
@@ -134,7 +143,7 @@ export function QuantityCalculator({ open, item, onConfirm, onCancel }: Quantity
                 variant="outline"
                 size="lg"
                 onClick={() => setQuantity(quantity + 10)}
-                className="text-lg font-semibold"
+                className="text-base font-semibold py-6"
               >
                 +10
               </Button>
@@ -142,7 +151,7 @@ export function QuantityCalculator({ open, item, onConfirm, onCancel }: Quantity
                 variant="outline"
                 size="lg"
                 onClick={() => setQuantity(5)}
-                className="text-lg font-semibold"
+                className="text-base font-semibold py-6"
               >
                 5
               </Button>
@@ -150,7 +159,7 @@ export function QuantityCalculator({ open, item, onConfirm, onCancel }: Quantity
                 variant="outline"
                 size="lg"
                 onClick={() => setQuantity(10)}
-                className="text-lg font-semibold"
+                className="text-base font-semibold py-6"
               >
                 10
               </Button>
@@ -158,28 +167,28 @@ export function QuantityCalculator({ open, item, onConfirm, onCancel }: Quantity
 
             {/* Manual Input */}
             <div>
-              <label className="text-sm font-medium">Enter quantity</label>
+              <label className="text-sm font-medium block mb-2">Enter quantity</label>
               <Input
                 type="number"
                 min="1"
                 value={quantity}
                 onChange={handleInputChange}
-                className="mt-1 text-center text-lg font-semibold"
+                className="w-full text-center text-lg font-semibold py-2 h-12"
               />
             </div>
 
             {/* Action Buttons */}
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <Button
                 variant="outline"
                 onClick={onCancel}
-                className="flex-1 bg-transparent"
+                className="flex-1 bg-transparent h-11"
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleConfirm}
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 h-11"
               >
                 Produce {quantity}x
               </Button>
