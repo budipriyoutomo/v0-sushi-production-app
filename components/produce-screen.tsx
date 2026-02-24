@@ -15,10 +15,10 @@ export function ProduceScreen() {
   const [producing, setProducing] = useState<string | null>(null)
   const [selectedColor, setSelectedColor] = useState<string | null>(null)
   const [calculatorOpen, setCalculatorOpen] = useState(false)
-  const [selectedItem, setSelectedItem] = useState<{ id: string; name: string } | null>(null)
+  const [selectedItem, setSelectedItem] = useState<typeof sushiMenus[0] | null>(null)
 
-  const handleProduce = (sushiId: string, sushiName: string) => {
-    setSelectedItem({ id: sushiId, name: sushiName })
+  const handleProduce = (sushi: typeof sushiMenus[0]) => {
+    setSelectedItem(sushi)
     setCalculatorOpen(true)
   }
 
@@ -111,7 +111,7 @@ export function ProduceScreen() {
                 <Button
                   className="w-full h-8 text-xs"
                   size="sm"
-                  onClick={() => handleProduce(sushi.id, sushi.name)}
+                  onClick={() => handleProduce(sushi)}
                   disabled={producing === sushi.id}
                 >
                   <Plus className="w-3 h-3 mr-1" />
@@ -133,7 +133,7 @@ export function ProduceScreen() {
       {selectedItem && (
         <QuantityCalculator
           open={calculatorOpen}
-          itemName={selectedItem.name}
+          item={selectedItem}
           onConfirm={handleConfirmQuantity}
           onCancel={handleCancelCalculator}
         />
