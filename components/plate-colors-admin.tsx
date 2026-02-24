@@ -97,10 +97,7 @@ export function PlateColorsAdmin() {
             <div>
               <CardTitle>Color Configuration</CardTitle>
             </div>
-            <Button onClick={handleAdd} size="sm" className="gap-2">
-              <Plus className="w-4 h-4" />
-              Add Color
-            </Button>
+            
           </CardHeader>
           <CardContent>
             {outletPlateColors.length === 0 ? (
