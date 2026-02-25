@@ -129,63 +129,60 @@ export function ConveyorScreen() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
           {sortedItems.map((item) => {
             const menuItem = sushiMenus.find((m) => m.id === item.sushiId)
             return (
-              <Card key={item.id} className="flex flex-col overflow-hidden">
-                <CardContent className="p-3 flex flex-col h-full">
-                  {/* Image */}
-                  {menuItem?.image && (
-                    <div className="relative w-full h-32 bg-muted rounded mb-3 -mx-3 -mt-3">
-                      <Image
-                        src={menuItem.image}
-                        alt={item.sushiName}
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 768px) 100%, (max-width: 1024px) 50%, 33%"
-                      />
-                    </div>
-                  )}
+              <Card key={item.id} className="hover:shadow-lg transition-shadow overflow-hidden">
+                <CardContent className="p-2">
+                  <div className="space-y-2">
+                    {/* Image */}
+                    {menuItem?.image && (
+                      <div className="relative w-full h-20 bg-muted rounded overflow-hidden">
+                        <Image
+                          src={menuItem.image}
+                          alt={item.sushiName}
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 640px) 100px, (max-width: 768px) 120px, 150px"
+                        />
+                      </div>
+                    )}
 
-                  {/* Item Info */}
-                  <div className="flex-1 space-y-2 mb-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h3 className="text-lg font-semibold flex-1">{item.sushiName}</h3>
+                    {/* Item Info */}
+                    <div className="flex items-start justify-between gap-1">
+                      <h3 className="text-xs font-semibold leading-tight line-clamp-2 flex-1">{item.sushiName}</h3>
                       <PlateColorBadge color={item.plateColor} />
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      {item.productionTime.toLocaleTimeString()}
-                    </p>
 
                     {/* Countdown */}
-                    <div>
+                    <div className="text-xs">
                       <ExpirationCountdown
                         productionTime={item.productionTime}
                         shelfLifeMinutes={item.shelfLifeMinutes}
                       />
                     </div>
-                  </div>
 
-                  {/* Actions */}
-                  <div className="flex gap-2 flex-col">
-                    <Button
-                      size="sm"
-                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm"
-                      onClick={() => handleMarkSold(item.id, item.sushiName)}
-                    >
-                      <CheckCircle className="w-4 h-4 mr-1" />
-                      Sold
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      className="w-full text-sm"
-                      onClick={() => handleMarkWaste(item.id, item.sushiName)}
-                    >
-                      <XCircle className="w-4 h-4 mr-1" />
-                      Waste
-                    </Button>
+                    {/* Actions */}
+                    <div className="flex gap-1 flex-col">
+                      <Button
+                        size="sm"
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-7 text-xs"
+                        onClick={() => handleMarkSold(item.id, item.sushiName)}
+                      >
+                        <CheckCircle className="w-3 h-3 mr-1" />
+                        Sold
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="w-full h-7 text-xs"
+                        onClick={() => handleMarkWaste(item.id, item.sushiName)}
+                      >
+                        <XCircle className="w-3 h-3 mr-1" />
+                        Waste
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

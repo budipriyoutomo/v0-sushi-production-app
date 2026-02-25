@@ -95,107 +95,77 @@ export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsMana
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
           {filteredItems.map((item) => {
             const menuItem = sushiMenus.find((m) => m.id === item.sushiId)
             return (
-              <Card key={item.id} className="border-red-200 flex flex-col h-full">
-              <CardContent className="p-4 flex flex-col h-full">
-                <div className="space-y-3">
-                  {/* Image */}
-                  {menuItem?.image && (
-                    <div className="relative w-full h-32 bg-muted rounded overflow-hidden">
-                      <Image
-                        src={menuItem.image}
-                        alt={item.sushiName}
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 768px) 100%, 50%"
-                      />
-                    </div>
-                  )}
-
-                  {/* Item Info */}
+              <Card key={item.id} className="border-red-200 hover:shadow-lg transition-shadow overflow-hidden">
+                <CardContent className="p-2">
                   <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-base font-semibold flex-1">{item.sushiName}</h3>
+                    {/* Image */}
+                    {menuItem?.image && (
+                      <div className="relative w-full h-20 bg-muted rounded overflow-hidden">
+                        <Image
+                          src={menuItem.image}
+                          alt={item.sushiName}
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 640px) 100px, (max-width: 768px) 120px, 150px"
+                        />
+                      </div>
+                    )}
+
+                    {/* Item Info */}
+                    <div className="flex items-start justify-between gap-1">
+                      <h3 className="text-xs font-semibold leading-tight line-clamp-2 flex-1">{item.sushiName}</h3>
                       <PlateColorBadge color={item.plateColor} />
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Produced: {item.productionTime.toLocaleString()}
-                    </p>
-                    <p className="text-xs text-red-600 font-semibold">
-                      Shelf Life: {item.shelfLifeMinutes} min
-                    </p>
+
+                    <div className="text-xs text-muted-foreground space-y-0.5">
+                      <p>
+                        Life: <span className="font-medium text-red-600">{item.shelfLifeMinutes}m</span>
+                      </p>
+                      <p>
+                        Status: <span className="font-medium text-red-600">Expired</span>
+                      </p>
+                    </div>
+
+                    {/* Status Selection */}
+                    <div>
+                      <Label className="text-xs font-medium mb-1 block">Mark as</Label>
+                      <Select
+                        value={item.status || 'sold'}
+                        onValueChange={(value) => {
+                          setEditingId(item.id)
+                          setEditingStatus(value as 'sold' | 'waste')
+                          handleStatusChange(item.id, value as 'sold' | 'waste', item.notes || '')
+                        }}
+                      >
+                        <SelectTrigger className="h-7 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="sold">Sold</SelectItem>
+                          <SelectItem value="waste">Waste</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-1">
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleRemove(item.id)}
+                        className="w-full text-xs h-7"
+                      >
+                        <Trash2 className="w-3 h-3 mr-1" />
+                        Delete
+                      </Button>
+                    </div>
                   </div>
-
-                  {/* Status Selection */}
-                  <div>
-                    <Label className="text-xs font-medium mb-1 block">Status</Label>
-                    <Select
-                      value={item.status || 'sold'}
-                      onValueChange={(value) => {
-                        setEditingId(item.id)
-                        setEditingStatus(value as 'sold' | 'waste')
-                      }}
-                    >
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="sold">Sold</SelectItem>
-                        <SelectItem value="waste">Waste</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Notes */}
-                  <div>
-                    <Label className="text-xs font-medium mb-1 block">Keterangan</Label>
-                    <Input
-                      placeholder="Add notes..."
-                      value={item.notes || ''}
-                      onChange={(e) => setEditingNotes(e.target.value)}
-                      className="text-xs h-7"
-                    />
-                  </div>
-
-                  {/* Expired Info */}
-                  <div className="text-xs text-muted-foreground space-y-1 py-2 border-t">
-                    <p>Status: <span className="text-red-600 font-semibold">Expired</span></p>
-                    <p>Time: {item.expiredAt?.toLocaleTimeString() || 'Just now'}</p>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="flex gap-2 mt-auto pt-3">
-                  <Button
-                    size="sm"
-                    onClick={() => handleStatusChange(item.id, item.status || 'sold', item.notes || '')}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs h-7"
-                    disabled={!editingId || editingId !== item.id}
-                  >
-                    Save
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => handleRemove(item.id)}
-                    className="text-xs h-7"
-                  >
-                    <Trash2 className="w-3 h-3 mr-1" />
-                    Delete
-                  </Button>
-                </div>
-
-                {/* Changed Note */}
-                <div className="mt-3 pt-2 border-t border-border">
-                  <p className="text-xs text-amber-600 font-medium">
-                    📝 Status: Time expired
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
             )
           })}
         </div>
