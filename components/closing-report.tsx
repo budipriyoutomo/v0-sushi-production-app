@@ -22,6 +22,7 @@ interface MenuSalesEntry {
   sold: number
   waste: number
   posSold: number
+  adjustment: number
 }
 
 export function ClosingReport() {
@@ -29,9 +30,9 @@ export function ClosingReport() {
   const { selectedOutletId } = useOutlet()
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [salesEntries, setSalesEntries] = useState<MenuSalesEntry[]>([
-    { menuId: '1', menuName: 'California Roll', code: 'MN0021', plateColor: 'white', produced: 30, sold: 25, waste: 5, posSold: 21 },
-    { menuId: '3', menuName: 'Salmon Nigiri', code: 'MN0022', plateColor: 'blue', produced: 45, sold: 45, waste: 0, posSold: 47 },
-    { menuId: '5', menuName: 'Spicy Tuna Roll', code: 'MN0023', plateColor: 'pink', produced: 60, sold: 56, waste: 4, posSold: 43 },
+    { menuId: '1', menuName: 'California Roll', code: 'MN0021', plateColor: 'white', produced: 30, sold: 25, waste: 5, posSold: 21, adjustment: 0 },
+    { menuId: '3', menuName: 'Salmon Nigiri', code: 'MN0022', plateColor: 'blue', produced: 45, sold: 45, waste: 0, posSold: 47, adjustment: 0 },
+    { menuId: '5', menuName: 'Spicy Tuna Roll', code: 'MN0023', plateColor: 'pink', produced: 60, sold: 56, waste: 4, posSold: 43, adjustment: 0 },
   ])
   const [signedBy, setSignedBy] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -60,6 +61,7 @@ export function ClosingReport() {
       sold: 0,
       waste: 0,
       posSold: 0,
+      adjustment: 0,
     }
     setSalesEntries([...salesEntries, newEntry])
   }
@@ -84,6 +86,7 @@ export function ClosingReport() {
     sold: salesEntries.reduce((sum, e) => sum + e.sold, 0),
     waste: salesEntries.reduce((sum, e) => sum + e.waste, 0),
     posSold: salesEntries.reduce((sum, e) => sum + e.posSold, 0),
+    adjustment: salesEntries.reduce((sum, e) => sum + e.adjustment, 0),
   }
 
   const getSelisih = (entry: MenuSalesEntry) => entry.posSold - entry.sold
@@ -185,6 +188,7 @@ export function ClosingReport() {
                   <TableHead>Color</TableHead>
                   <TableHead colSpan={3} className="text-center">COLORPLATE</TableHead>
                   <TableHead className="text-center">POS</TableHead>
+                  <TableHead className="text-center">Adjustment</TableHead>
                   <TableHead className="text-center">Selisih</TableHead>
                   <TableHead className="w-10"></TableHead>
                 </TableRow>
@@ -196,6 +200,7 @@ export function ClosingReport() {
                   <TableHead className="text-right text-xs">Sold</TableHead>
                   <TableHead className="text-right text-xs">Waste</TableHead>
                   <TableHead className="text-right text-xs">Sold</TableHead>
+                  <TableHead className="text-right text-xs">Adj</TableHead>
                   <TableHead className="text-center text-xs"></TableHead>
                   <TableHead></TableHead>
                 </TableRow>
@@ -246,6 +251,15 @@ export function ClosingReport() {
                           className="w-16 text-right text-sm"
                         />
                       </TableCell>
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          value={entry.adjustment}
+                          onChange={(e) => updateEntry(index, 'adjustment', parseInt(e.target.value) || 0)}
+                          disabled={status === 'submitted'}
+                          className="w-16 text-right text-sm"
+                        />
+                      </TableCell>
                       <TableCell className={`text-right font-semibold ${selisih !== 0 ? 'text-destructive' : 'text-green-600'}`}>
                         {selisih > 0 ? '+' : ''}{selisih}
                       </TableCell>
@@ -268,6 +282,7 @@ export function ClosingReport() {
                   <TableCell className="text-right">{totals.sold}</TableCell>
                   <TableCell className="text-right">{totals.waste}</TableCell>
                   <TableCell className="text-right">{totals.posSold}</TableCell>
+                  <TableCell className="text-right">{totals.adjustment > 0 ? '+' : ''}{totals.adjustment}</TableCell>
                   <TableCell className={`text-right ${salesEntries.reduce((sum, e) => sum + getSelisih(e), 0) !== 0 ? 'text-destructive' : 'text-green-600'}`}>
                     {salesEntries.reduce((sum, e) => sum + getSelisih(e), 0) > 0 ? '+' : ''}{salesEntries.reduce((sum, e) => sum + getSelisih(e), 0)}
                   </TableCell>
