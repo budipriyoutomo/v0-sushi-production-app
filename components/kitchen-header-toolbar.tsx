@@ -17,9 +17,9 @@ export function KitchenHeaderToolbar() {
   const isActive = (path: string) => pathname === path
 
   return (
-    <div className="bg-card border-b border-border sticky top-0 z-50 p-4 md:p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between gap-4 py-2">
+<div className="bg-card border-b border-border sticky top-0 z-50 px-3 py-2">
+  <div className="max-w-7xl mx-auto">
+    <div className="flex items-center justify-between gap-3">
           {/* Navigation Buttons Group */}
           <div className="flex gap-1 bg-secondary/50 rounded-lg p-1">
             <Link
@@ -42,7 +42,7 @@ export function KitchenHeaderToolbar() {
                   : 'text-secondary-foreground hover:bg-primary/20'
               )}
             >
-              Produce
+              Production
             </Link>
             <Link
               href="/kitchen/conveyor"
@@ -61,7 +61,7 @@ export function KitchenHeaderToolbar() {
                 'px-4 py-2 rounded-md text-sm font-medium transition-colors',
                 isActive('/kitchen/expired')
                   ? 'bg-destructive text-destructive-foreground'
-                  : 'text-secondary-foreground hover:bg-destructive/20'
+                  : 'text-secondary-foreground hover:bg-primary/20'
               )}
             >
               Expired

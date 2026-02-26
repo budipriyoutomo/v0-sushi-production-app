@@ -10,32 +10,33 @@ export function OutletSelector() {
   const currentOutlet = outlets.find((o) => o.id === selectedOutletId)
 
   return (
-    <Card className="p-4 bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
-      <div className="flex items-center gap-3">
-        <Store className="w-5 h-5 text-primary" />
-        <div className="flex-1">
-          <label className="text-xs font-semibold text-muted-foreground uppercase">Current Outlet</label>
-          <Select value={selectedOutletId} onValueChange={setSelectedOutletId}>
-            <SelectTrigger className="w-full bg-background mt-1">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {outlets.map((outlet) => (
-                <SelectItem key={outlet.id} value={outlet.id}>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{outlet.name}</span>
-                    <span className="text-xs text-muted-foreground">({outlet.code})</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="text-right">
-          <p className="text-xs text-muted-foreground">Location</p>
-          <p className="text-sm font-semibold">{currentOutlet?.location}</p>
-        </div>
-      </div>
-    </Card>
+    <Card className="px-4 py-3 border border-border shadow-sm">
+  <div className="flex items-center gap-3">
+    <div className="flex items-center gap-2 min-w-[110px]">
+      <Store className="w-5 h-5 text-primary" />
+      <span className="text-sm font-medium text-muted-foreground">
+        Outlet
+      </span>
+    </div>
+
+    <Select value={selectedOutletId} onValueChange={setSelectedOutletId}>
+      <SelectTrigger className="h-9 bg-background">
+        <SelectValue placeholder="Select outlet" />
+      </SelectTrigger>
+      <SelectContent>
+        {outlets.map((outlet) => (
+          <SelectItem key={outlet.id} value={outlet.id}>
+            <div className="flex items-center gap-2">
+              <span className="font-medium">{outlet.name}</span>
+              <span className="text-xs text-muted-foreground">
+                ({outlet.code})
+              </span>
+            </div>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  </div>
+</Card>
   )
 }
