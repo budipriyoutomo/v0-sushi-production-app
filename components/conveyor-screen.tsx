@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { PlateColorBadge } from "@/components/plate-color-badge"
+import { OutletSelector } from "@/components/outlet-selector"
 import { ExpirationCountdown } from "@/components/expiration-countdown"
 import type { ProductionItem } from "@/lib/types"
 import { plateColors, sushiMenus } from "@/lib/mock-data"
@@ -131,11 +132,12 @@ export function ConveyorScreen() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl md:text-4xl font-bold">Conveyor Control</h1>
-        <p className="text-muted-foreground mt-1">
-          Active plates on conveyor: <span className="font-semibold text-foreground">{filteredItems.length}</span>
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-bold">Conveyor Management</h1>
+          <p className="text-muted-foreground mt-1">Monitor and manage active production</p>
+        </div>
+        <OutletSelector />
       </div>
 
       {/* Filter by Plate Color */}
