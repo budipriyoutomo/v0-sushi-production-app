@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { OutletSelector } from '@/components/outlet-selector'
 import { useToast } from '@/hooks/use-toast'
 import { useOutlet } from '@/lib/outlet-context'
-import { sushiMenus, plateColors } from '@/lib/mock-data'
+import { sushiMenus } from '@/lib/mock-data'
 import { PlateColorBadge } from '@/components/plate-color-badge'
 import { CheckCircle, AlertCircle, Plus, Trash2 } from 'lucide-react'
 
@@ -18,14 +18,11 @@ interface MenuSalesEntry {
   menuName: string
   code: string
   plateColor: string
-  price: number
   produced: number
   sold: number
   waste: number
   posSold: number
   adjustment: number
-  adjustmentReason: string
-  gantiRugi: number
 }
 
 export function ClosingReport() {
@@ -33,20 +30,16 @@ export function ClosingReport() {
   const { selectedOutletId } = useOutlet()
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [salesEntries, setSalesEntries] = useState<MenuSalesEntry[]>([
-    { menuId: '1', menuName: 'California Roll', code: 'MN0021', plateColor: 'white', price: 2.5, produced: 30, sold: 25, waste: 5, posSold: 21, adjustment: 0, adjustmentReason: '', gantiRugi: 0 },
-    { menuId: '3', menuName: 'Salmon Nigiri', code: 'MN0022', plateColor: 'blue', price: 3.5, produced: 45, sold: 45, waste: 0, posSold: 47, adjustment: 0, adjustmentReason: '', gantiRugi: 0 },
-    { menuId: '5', menuName: 'Spicy Tuna Roll', code: 'MN0023', plateColor: 'pink', price: 4.0, produced: 60, sold: 56, waste: 4, posSold: 43, adjustment: 0, adjustmentReason: '', gantiRugi: 0 },
+    { menuId: '1', menuName: 'California Roll', code: 'MN0021', plateColor: 'white', produced: 30, sold: 25, waste: 5, posSold: 21, adjustment: 0 },
+    { menuId: '3', menuName: 'Salmon Nigiri', code: 'MN0022', plateColor: 'blue', produced: 45, sold: 45, waste: 0, posSold: 47, adjustment: 0 },
+    { menuId: '5', menuName: 'Spicy Tuna Roll', code: 'MN0023', plateColor: 'pink', produced: 60, sold: 56, waste: 4, posSold: 43, adjustment: 0 },
   ])
   const [signedBy, setSignedBy] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [status, setStatus] = useState<'draft' | 'submitted'>('draft')
 
-  // Filter menus by outlet and get prices
+  // Filter menus by outlet
   const outletMenus = sushiMenus.filter((m) => m.outletId === selectedOutletId)
-  const getMenuPrice = (plateColor: string) => {
-    const colorConfig = plateColors.find((pc) => pc.outletId === selectedOutletId && pc.name === plateColor)
-    return colorConfig?.price || 0
-  }
 
   const addMenuEntry = () => {
     if (outletMenus.length === 0) {
@@ -59,20 +52,16 @@ export function ClosingReport() {
     }
 
     const menu = outletMenus[0]
-    const price = getMenuPrice(menu.plateColor)
     const newEntry: MenuSalesEntry = {
       menuId: menu.id,
       menuName: menu.name,
       code: menu.id,
       plateColor: menu.plateColor,
-      price: price,
       produced: 0,
       sold: 0,
       waste: 0,
       posSold: 0,
       adjustment: 0,
-      adjustmentReason: '',
-      gantiRugi: 0,
     }
     setSalesEntries([...salesEntries, newEntry])
   }
@@ -98,7 +87,6 @@ export function ClosingReport() {
     waste: salesEntries.reduce((sum, e) => sum + e.waste, 0),
     posSold: salesEntries.reduce((sum, e) => sum + e.posSold, 0),
     adjustment: salesEntries.reduce((sum, e) => sum + e.adjustment, 0),
-    gantiRugi: salesEntries.reduce((sum, e) => sum + e.gantiRugi, 0),
   }
 
   const getSelisih = (entry: MenuSalesEntry) => entry.posSold - entry.sold
@@ -197,17 +185,14 @@ export function ClosingReport() {
                 <TableRow>
                   <TableHead>Code</TableHead>
                   <TableHead>Menu</TableHead>
-                  <TableHead>Price</TableHead>
                   <TableHead>Color</TableHead>
                   <TableHead colSpan={3} className="text-center">COLORPLATE</TableHead>
                   <TableHead className="text-center">POS</TableHead>
                   <TableHead className="text-center">Adjustment</TableHead>
-                  <TableHead className="text-center">Ganti Rugi</TableHead>
                   <TableHead className="text-center">Selisih</TableHead>
                   <TableHead className="w-10"></TableHead>
                 </TableRow>
                 <TableRow className="bg-muted/50">
-                  <TableHead></TableHead>
                   <TableHead></TableHead>
                   <TableHead></TableHead>
                   <TableHead></TableHead>
@@ -216,7 +201,6 @@ export function ClosingReport() {
                   <TableHead className="text-right text-xs">Waste</TableHead>
                   <TableHead className="text-right text-xs">Sold</TableHead>
                   <TableHead className="text-right text-xs">Adj</TableHead>
-                  <TableHead className="text-right text-xs">Rugi</TableHead>
                   <TableHead className="text-center text-xs"></TableHead>
                   <TableHead></TableHead>
                 </TableRow>
@@ -225,103 +209,81 @@ export function ClosingReport() {
                 {salesEntries.map((entry, index) => {
                   const selisih = getSelisih(entry)
                   return (
-                    <div key={index}>
-                      <TableRow>
-                        <TableCell className="font-mono font-semibold text-sm">{entry.code}</TableCell>
-                        <TableCell className="font-medium">{entry.menuName}</TableCell>
-                        <TableCell className="font-semibold text-right">${entry.price.toFixed(2)}</TableCell>
-                        <TableCell>
-                          <PlateColorBadge color={entry.plateColor as any} />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Input
-                            type="number"
-                            value={entry.produced}
-                            onChange={(e) => updateEntry(index, 'produced', parseInt(e.target.value) || 0)}
-                            disabled={status === 'submitted'}
-                            className="w-16 text-right text-sm"
-                          />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Input
-                            type="number"
-                            value={entry.sold}
-                            onChange={(e) => updateEntry(index, 'sold', parseInt(e.target.value) || 0)}
-                            disabled={status === 'submitted'}
-                            className="w-16 text-right text-sm"
-                          />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Input
-                            type="number"
-                            value={entry.waste}
-                            onChange={(e) => updateEntry(index, 'waste', parseInt(e.target.value) || 0)}
-                            disabled={status === 'submitted'}
-                            className="w-16 text-right text-sm"
-                          />
-                        </TableCell>
-                        <TableCell className="text-right font-semibold">{entry.posSold}</TableCell>
-                        <TableCell className="text-right">
-                          <Input
-                            type="number"
-                            value={entry.adjustment}
-                            onChange={(e) => updateEntry(index, 'adjustment', parseInt(e.target.value) || 0)}
-                            disabled={status === 'submitted'}
-                            className="w-16 text-right text-sm bg-blue-50"
-                          />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Input
-                            type="number"
-                            value={entry.gantiRugi}
-                            onChange={(e) => updateEntry(index, 'gantiRugi', parseFloat(e.target.value) || 0)}
-                            disabled={status === 'submitted'}
-                            className="w-16 text-right text-sm bg-blue-50"
-                          />
-                        </TableCell>
-                        <TableCell className={`text-right font-semibold ${selisih !== 0 ? 'text-destructive' : 'text-green-600'}`}>
-                          {selisih > 0 ? '+' : ''}{selisih}
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => deleteEntry(index)}
-                            disabled={status === 'submitted'}
-                          >
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                      {entry.adjustment !== 0 && (
-                        <TableRow className="bg-blue-50/50">
-                          <TableCell colSpan={10} className="text-sm">
-                            <div className="flex gap-2 items-center">
-                              <span className="font-medium">Reason:</span>
-                              <Input
-                                placeholder="Enter adjustment reason"
-                                value={entry.adjustmentReason}
-                                onChange={(e) => updateEntry(index, 'adjustmentReason', e.target.value)}
-                                disabled={status === 'submitted'}
-                                className="max-w-xs text-sm"
-                              />
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </div>
+                    <TableRow key={index}>
+                      <TableCell className="font-mono font-semibold text-sm">{entry.code}</TableCell>
+                      <TableCell className="font-medium">{entry.menuName}</TableCell>
+                      <TableCell>
+                        <PlateColorBadge color={entry.plateColor as any} />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          value={entry.produced}
+                          onChange={(e) => updateEntry(index, 'produced', parseInt(e.target.value) || 0)}
+                          disabled={status === 'submitted'}
+                          className="w-16 text-right text-sm"
+                        />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          value={entry.sold}
+                          onChange={(e) => updateEntry(index, 'sold', parseInt(e.target.value) || 0)}
+                          disabled={status === 'submitted'}
+                          className="w-16 text-right text-sm"
+                        />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          value={entry.waste}
+                          onChange={(e) => updateEntry(index, 'waste', parseInt(e.target.value) || 0)}
+                          disabled={status === 'submitted'}
+                          className="w-16 text-right text-sm"
+                        />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          value={entry.posSold}
+                          onChange={(e) => updateEntry(index, 'posSold', parseInt(e.target.value) || 0)}
+                          disabled={status === 'submitted'}
+                          className="w-16 text-right text-sm"
+                        />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          value={entry.adjustment}
+                          onChange={(e) => updateEntry(index, 'adjustment', parseInt(e.target.value) || 0)}
+                          disabled={status === 'submitted'}
+                          className="w-16 text-right text-sm"
+                        />
+                      </TableCell>
+                      <TableCell className={`text-right font-semibold ${selisih !== 0 ? 'text-destructive' : 'text-green-600'}`}>
+                        {selisih > 0 ? '+' : ''}{selisih}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => deleteEntry(index)}
+                          disabled={status === 'submitted'}
+                        >
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
                   )
                 })}
                 <TableRow className="bg-muted/50 font-semibold">
                   <TableCell colSpan={3}>TOTAL</TableCell>
-                  <TableCell></TableCell>
                   <TableCell className="text-right">{totals.produced}</TableCell>
                   <TableCell className="text-right">{totals.sold}</TableCell>
                   <TableCell className="text-right">{totals.waste}</TableCell>
-                  <TableCell className="text-right font-bold text-lg">{totals.posSold}</TableCell>
-                  <TableCell className="text-right font-bold text-lg text-blue-600">{totals.adjustment > 0 ? '+' : ''}{totals.adjustment}</TableCell>
-                  <TableCell className="text-right font-bold text-lg text-blue-600">${totals.gantiRugi.toFixed(2)}</TableCell>
-                  <TableCell className={`text-right font-bold text-lg ${salesEntries.reduce((sum, e) => sum + getSelisih(e), 0) !== 0 ? 'text-destructive' : 'text-green-600'}`}>
+                  <TableCell className="text-right">{totals.posSold}</TableCell>
+                  <TableCell className="text-right">{totals.adjustment > 0 ? '+' : ''}{totals.adjustment}</TableCell>
+                  <TableCell className={`text-right ${salesEntries.reduce((sum, e) => sum + getSelisih(e), 0) !== 0 ? 'text-destructive' : 'text-green-600'}`}>
                     {salesEntries.reduce((sum, e) => sum + getSelisih(e), 0) > 0 ? '+' : ''}{salesEntries.reduce((sum, e) => sum + getSelisih(e), 0)}
                   </TableCell>
                   <TableCell></TableCell>
@@ -334,34 +296,28 @@ export function ClosingReport() {
           {status !== 'submitted' && (
             <Button onClick={addMenuEntry} variant="outline" className="w-full gap-2">
               <Plus className="w-4 h-4" />
-              Get Menu Item
+              Add Menu Item
             </Button>
           )}
 
           {/* Summary Statistics */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6">
             <Card className="bg-blue-50 border-blue-200">
               <CardContent className="pt-4">
-                <p className="text-sm text-muted-foreground">Total Sold POS</p>
-                <p className="text-2xl font-bold text-blue-600">{totals.posSold}</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-purple-50 border-purple-200">
-              <CardContent className="pt-4">
-                <p className="text-sm text-muted-foreground">Total Adjustment</p>
-                <p className="text-2xl font-bold text-purple-600">{totals.adjustment > 0 ? '+' : ''}{totals.adjustment}</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-orange-50 border-orange-200">
-              <CardContent className="pt-4">
-                <p className="text-sm text-muted-foreground">Total Ganti Rugi</p>
-                <p className="text-2xl font-bold text-orange-600">${totals.gantiRugi.toFixed(2)}</p>
+                <p className="text-sm text-muted-foreground">Total Produced</p>
+                <p className="text-2xl font-bold text-blue-600">{totals.produced}</p>
               </CardContent>
             </Card>
             <Card className="bg-green-50 border-green-200">
               <CardContent className="pt-4">
+                <p className="text-sm text-muted-foreground">Total Sold</p>
+                <p className="text-2xl font-bold text-green-600">{totals.sold}</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-red-50 border-red-200">
+              <CardContent className="pt-4">
                 <p className="text-sm text-muted-foreground">Total Waste</p>
-                <p className="text-2xl font-bold text-green-600">{totals.waste}</p>
+                <p className="text-2xl font-bold text-red-600">{totals.waste}</p>
               </CardContent>
             </Card>
           </div>
