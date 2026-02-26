@@ -22,6 +22,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { PlateColorBadge } from '@/components/plate-color-badge'
+import { OutletSelector } from '@/components/outlet-selector'
 import type { ProductionItem } from '@/lib/types'
 import { useToast } from '@/hooks/use-toast'
 import { sushiMenus, plateColors } from '@/lib/mock-data'
@@ -87,11 +88,14 @@ export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsMana
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl md:text-4xl font-bold">Expired Items</h1>
-        <p className="text-muted-foreground mt-1">
-          Manage items that have exceeded their shelf life: <span className="font-semibold text-foreground">{expiredItems.length}</span>
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-bold">Expired Items</h1>
+          <p className="text-muted-foreground mt-1">
+            Manage items that have exceeded their shelf life: <span className="font-semibold text-foreground">{expiredItems.length}</span>
+          </p>
+        </div>
+        <OutletSelector />
       </div>
 
       {/* Filter by Plate Color */}

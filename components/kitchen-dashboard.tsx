@@ -3,6 +3,7 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { PlateColorBadge, type PlateColor } from "@/components/plate-color-badge"
 import { StatusIndicator, type Status } from "@/components/status-indicator"
+import { OutletSelector } from "@/components/outlet-selector"
 import { mockProductionStats } from "@/lib/mock-data"
 import { useOutlet } from "@/lib/outlet-context"
 import { cn } from "@/lib/utils"
@@ -30,9 +31,12 @@ export function KitchenDashboard() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl md:text-4xl font-bold">Kitchen Dashboard</h1>
-        <p className="text-muted-foreground mt-1">Production overview by plate color</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-bold">Kitchen Dashboard</h1>
+          <p className="text-muted-foreground mt-1">Production overview by plate color</p>
+        </div>
+        <OutletSelector />
       </div>
 
       {/* Production Cards Grid */}

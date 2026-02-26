@@ -4,7 +4,9 @@ import { useState } from "react"
 import Image from "next/image"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { PlateColorBadge } from "@/components/plate-color-badge"
+import { OutletSelector } from "@/components/outlet-selector"
 import { ExpirationCountdown } from "@/components/expiration-countdown"
 import type { ProductionItem } from "@/lib/types"
 import { plateColors, sushiMenus } from "@/lib/mock-data"
@@ -12,12 +14,17 @@ import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
 import { CheckCircle, XCircle } from "lucide-react"
 
+interface ItemWithWasteReason extends ProductionItem {
+  wasteReasonInput?: string
+  showWasteReasonForm?: boolean
+}
+
 export function ConveyorScreen() {
   const { toast } = useToast()
   const [selectedColor, setSelectedColor] = useState<string | null>(null)
 
   // Mock active production items
-  const [items, setItems] = useState<ProductionItem[]>([
+  const [items, setItems] = useState<ItemWithWasteReason[]>([
     {
       id: "1",
       sushiId: "1",
@@ -26,6 +33,8 @@ export function ConveyorScreen() {
       productionTime: new Date(Date.now() - 30 * 60 * 1000), // 30 min ago
       shelfLifeMinutes: 120,
       status: "active",
+      wasteReasonInput: "",
+      showWasteReasonForm: false,
     },
     {
       id: "2",
@@ -35,6 +44,8 @@ export function ConveyorScreen() {
       productionTime: new Date(Date.now() - 70 * 60 * 1000), // 70 min ago
       shelfLifeMinutes: 90,
       status: "active",
+      wasteReasonInput: "",
+      showWasteReasonForm: false,
     },
     {
       id: "3",
@@ -44,6 +55,8 @@ export function ConveyorScreen() {
       productionTime: new Date(Date.now() - 15 * 60 * 1000), // 15 min ago
       shelfLifeMinutes: 90,
       status: "active",
+      wasteReasonInput: "",
+      showWasteReasonForm: false,
     },
     {
       id: "4",
@@ -53,6 +66,8 @@ export function ConveyorScreen() {
       productionTime: new Date(Date.now() - 60 * 60 * 1000), // 60 min ago
       shelfLifeMinutes: 75,
       status: "active",
+      wasteReasonInput: "",
+      showWasteReasonForm: false,
     },
   ])
 
@@ -79,23 +94,50 @@ export function ConveyorScreen() {
     })
   }
 
-  const handleMarkWaste = (itemId: string, sushiName: string) => {
+  const handleWasteClick = (itemId: string) => {
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === itemId ? { ...item, showWasteReasonForm: true } : item
+      )
+    )
+  }
+
+  const handleMarkWaste = (itemId: string, sushiName: string, reason: string) => {
+    if (!reason.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a reason for waste",
+        variant: "destructive",
+      })
+      return
+    }
     setItems((prev) => prev.filter((item) => item.id !== itemId))
     toast({
       title: "Marked as Waste",
-      description: `${sushiName} logged as waste`,
+      description: `${sushiName} - Reason: ${reason}`,
       variant: "destructive",
     })
+  }
+
+  const handleCancelWasteReason = (itemId: string) => {
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === itemId
+          ? { ...item, showWasteReasonForm: false, wasteReasonInput: "" }
+          : item
+      )
+    )
   }
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl md:text-4xl font-bold">Conveyor Control</h1>
-        <p className="text-muted-foreground mt-1">
-          Active plates on conveyor: <span className="font-semibold text-foreground">{filteredItems.length}</span>
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-bold">Conveyor Management</h1>
+          <p className="text-muted-foreground mt-1">Monitor and manage active production</p>
+        </div>
+        <OutletSelector />
       </div>
 
       {/* Filter by Plate Color */}
@@ -173,15 +215,53 @@ export function ConveyorScreen() {
                         <CheckCircle className="w-3 h-3 mr-1" />
                         Sold
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="w-full h-7 text-xs"
-                        onClick={() => handleMarkWaste(item.id, item.sushiName)}
-                      >
-                        <XCircle className="w-3 h-3 mr-1" />
-                        Waste
-                      </Button>
+                      {!item.showWasteReasonForm ? (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="w-full h-7 text-xs"
+                          onClick={() => handleWasteClick(item.id)}
+                        >
+                          <XCircle className="w-3 h-3 mr-1" />
+                          Waste
+                        </Button>
+                      ) : (
+                        <div className="space-y-2">
+                          <Input
+                            placeholder="Reason for waste"
+                            value={item.wasteReasonInput}
+                            onChange={(e) =>
+                              setItems((prev) =>
+                                prev.map((i) =>
+                                  i.id === item.id
+                                    ? { ...i, wasteReasonInput: e.target.value }
+                                    : i
+                                )
+                              )
+                            }
+                            className="h-7 text-xs"
+                          />
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              className="flex-1 bg-red-600 hover:bg-red-700 text-white h-6 text-xs"
+                              onClick={() =>
+                                handleMarkWaste(item.id, item.sushiName, item.wasteReasonInput || "")
+                              }
+                            >
+                              Confirm
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="flex-1 h-6 text-xs"
+                              onClick={() => handleCancelWasteReason(item.id)}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </CardContent>

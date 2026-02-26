@@ -5,6 +5,7 @@ import Image from "next/image"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { PlateColorBadge } from "@/components/plate-color-badge"
+import { OutletSelector } from "@/components/outlet-selector"
 import { QuantityCalculator } from "@/components/quantity-calculator"
 import { sushiMenus, plateColors } from "@/lib/mock-data"
 import { useToast } from "@/hooks/use-toast"
@@ -49,9 +50,12 @@ export function ProduceScreen() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl md:text-4xl font-bold">Produce Sushi</h1>
-        <p className="text-muted-foreground mt-1">Tap to produce one plate</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-bold">Produce Sushi</h1>
+          <p className="text-muted-foreground mt-1">Tap to produce one plate</p>
+        </div>
+        <OutletSelector />
       </div>
 
       {/* Filter by Plate Color */}
