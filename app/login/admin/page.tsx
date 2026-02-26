@@ -1,16 +1,16 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { LoginForm } from "@/components/login-form"
+import { AdminRoleLogin } from "@/components/admin-role-login"
 
 export const metadata = {
-  title: "Admin & Production Login",
+  title: "Admin Login",
 }
 
 export default function AdminLoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md space-y-4">
-        <LoginForm loginType="admin" />
+        <AdminRoleLogin />
         <Link href="/login">
           <Button variant="outline" className="w-full">
             Back to Login Options

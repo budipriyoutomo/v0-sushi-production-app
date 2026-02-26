@@ -95,12 +95,9 @@ export function PlateColorsAdmin() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <div>
-              <CardTitle>Color Configuration</CardTitle>
+              <CardTitle>Color Plate Configuration</CardTitle>
             </div>
-            <Button onClick={handleAdd} size="sm" className="gap-2">
-              <Plus className="w-4 h-4" />
-              Add Color
-            </Button>
+            
           </CardHeader>
           <CardContent>
             {outletPlateColors.length === 0 ? (
