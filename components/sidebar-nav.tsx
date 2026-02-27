@@ -25,6 +25,7 @@ export function SidebarNav({ role }: SidebarNavProps) {
   const pathname = usePathname()
 
   const adminItems: NavItem[] = [
+    { label: 'Users', href: '/admin/users' },
     { label: 'Plate Colors', href: '/admin/plate-colors' },
     { label: 'Menus', href: '/admin/menus' },
     { label: 'Reports', href: '/admin/reports' },
