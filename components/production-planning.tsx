@@ -113,7 +113,7 @@ export function ProductionPlanning() {
                   <tr key={row.timeSlot} className="border-b hover:bg-muted/50">
                     <td className="p-3 font-medium text-sm">{row.timeSlot}</td>
                     {colorKeys.map((color) => (
-                      <td key={color} className="p-3 px-2 py-2">
+                      <td key={color} className="p-3 py-2 px-1">
                         <Input
                           type="number"
                           min="0"
