@@ -81,12 +81,13 @@ export function ProductionPlanning() {
 
   return (
     <div className="space-y-6">
-      {/* Outlet Selector */}
-      <OutletSelector />
-
-      <div>
-        <h1 className="text-3xl md:text-4xl font-bold">Production Planning</h1>
-        <p className="text-muted-foreground mt-1">Plan 30-minute production targets by plate color</p>
+      {/* Header with Outlet Selector */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-bold">Production Planning</h1>
+          <p className="text-muted-foreground mt-1">Plan 30-minute production targets by plate color</p>
+        </div>
+        <OutletSelector />
       </div>
 
       <Card>
