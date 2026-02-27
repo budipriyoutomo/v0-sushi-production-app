@@ -123,13 +123,13 @@ export function ClosingReport() {
 
   return (
     <div className="space-y-6">
-      {/* Outlet Selector */}
-      <OutletSelector />
-
       {/* Header */}
-      <div>
-        <h1 className="text-3xl md:text-4xl font-bold">Daily Closing Report</h1>
-        <p className="text-muted-foreground mt-1">Sales summary by menu item with waste and discrepancy</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-bold">Daily Closing Report</h1>
+          <p className="text-muted-foreground mt-1">Complete end-of-day sales and inventory report</p>
+        </div>
+        <OutletSelector />
       </div>
 
       {/* Status Banner */}
