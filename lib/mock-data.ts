@@ -31,27 +31,7 @@ export const plateColors: PlateColorConfig[] = [
   { id: "6", outletId: "outlet-1", name: "gold", price: 7.5, targetFoodCost: 40, active: true },
   { id: "7", outletId: "outlet-1", name: "choco motive", price: 6.5, targetFoodCost: 38, active: true },
   { id: "8", outletId: "outlet-1", name: "yellow", price: 3.0, targetFoodCost: 27, active: true },
-  { id: "9", outletId: "outlet-1", name: "silver", price: 6.0, targetFoodCost: 36, active: true },
-  // Outlet 2
-  { id: "10", outletId: "outlet-2", name: "white", price: 2.5, targetFoodCost: 25, active: true },
-  { id: "11", outletId: "outlet-2", name: "blue", price: 3.5, targetFoodCost: 28, active: true },
-  { id: "12", outletId: "outlet-2", name: "pink", price: 4.0, targetFoodCost: 30, active: true },
-  { id: "13", outletId: "outlet-2", name: "black", price: 5.5, targetFoodCost: 35, active: true },
-  { id: "14", outletId: "outlet-2", name: "red", price: 5.0, targetFoodCost: 33, active: true },
-  { id: "15", outletId: "outlet-2", name: "gold", price: 7.5, targetFoodCost: 40, active: true },
-  { id: "16", outletId: "outlet-2", name: "choco motive", price: 6.5, targetFoodCost: 38, active: true },
-  { id: "17", outletId: "outlet-2", name: "yellow", price: 3.0, targetFoodCost: 27, active: true },
-  { id: "18", outletId: "outlet-2", name: "silver", price: 6.0, targetFoodCost: 36, active: true },
-  // Outlet 3
-  { id: "19", outletId: "outlet-3", name: "white", price: 2.5, targetFoodCost: 25, active: true },
-  { id: "20", outletId: "outlet-3", name: "blue", price: 3.5, targetFoodCost: 28, active: true },
-  { id: "21", outletId: "outlet-3", name: "pink", price: 4.0, targetFoodCost: 30, active: true },
-  { id: "22", outletId: "outlet-3", name: "black", price: 5.5, targetFoodCost: 35, active: true },
-  { id: "23", outletId: "outlet-3", name: "red", price: 5.0, targetFoodCost: 33, active: true },
-  { id: "24", outletId: "outlet-3", name: "gold", price: 7.5, targetFoodCost: 40, active: true },
-  { id: "25", outletId: "outlet-3", name: "choco motive", price: 6.5, targetFoodCost: 38, active: true },
-  { id: "26", outletId: "outlet-3", name: "yellow", price: 3.0, targetFoodCost: 27, active: true },
-  { id: "27", outletId: "outlet-3", name: "silver", price: 6.0, targetFoodCost: 36, active: true },
+  { id: "9", outletId: "outlet-1", name: "silver", price: 6.0, targetFoodCost: 36, active: true }, 
 ]
 
 // Sushi Menus (same for all outlets)
