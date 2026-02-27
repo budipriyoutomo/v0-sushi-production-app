@@ -101,7 +101,7 @@ export function ProductionPlanning() {
                 <tr className="border-b">
                   <th className="text-left p-3 font-semibold">Time Slot</th>
                   {colorKeys.map((color) => (
-                    <th key={color} className="text-center p-3 min-w-24">
+                    <th key={color} className="text-center p-3 min-w-24 px-2 py-2">
                       <PlateColorBadge color={color as PlateColor} />
                     </th>
                   ))}
@@ -113,7 +113,7 @@ export function ProductionPlanning() {
                   <tr key={row.timeSlot} className="border-b hover:bg-muted/50">
                     <td className="p-3 font-medium text-sm">{row.timeSlot}</td>
                     {colorKeys.map((color) => (
-                      <td key={color} className="p-3">
+                      <td key={color} className="p-3 px-2 py-2">
                         <Input
                           type="number"
                           min="0"
