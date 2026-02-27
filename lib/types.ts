@@ -9,6 +9,25 @@ export interface Outlet {
   createdAt: Date
 }
 
+export interface KitchenUser {
+  id: string
+  name: string
+  pin: string
+  outletIds: string[]
+  status: 'active' | 'inactive'
+  createdAt: Date
+}
+
+export interface AdminUser {
+  id: string
+  name: string
+  email: string
+  role: 'admin' | 'manager'
+  outletIds: string[]
+  status: 'active' | 'inactive'
+  createdAt: Date
+}
+
 export interface PlateColorConfig {
   id: string
   outletId: string
