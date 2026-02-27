@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { OutletSelector } from '@/components/outlet-selector'
 import { ChevronDown } from 'lucide-react'
 
 interface NavItem {
@@ -70,13 +69,6 @@ export function SidebarNav({ role }: SidebarNavProps) {
           {role === 'admin' ? 'Management' : role === 'production' ? 'Planning' : 'Operations'}
         </p>
       </div>
-
-      {/* Outlet Selector */}
-      {showOutletSelector && (
-        <div className="px-4 py-4 border-b border-border/30">
-          <OutletSelector />
-        </div>
-      )}
 
       {/* Navigation Items */}
       <nav className="flex-1 p-4 space-y-4 overflow-y-auto">
