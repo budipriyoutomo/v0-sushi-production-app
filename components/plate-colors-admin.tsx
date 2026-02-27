@@ -4,7 +4,6 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { PlateColorBadge } from "@/components/plate-color-badge"
-import { OutletSelector } from "@/components/outlet-selector"
 import type { PlateColorConfig } from "@/lib/types"
 import { plateColors as initialPlateColors } from "@/lib/mock-data"
 import { useOutlet } from "@/lib/outlet-context"
@@ -80,7 +79,6 @@ export function PlateColorsAdmin() {
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-6">
-        <OutletSelector />
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl md:text-4xl font-bold">Plate Colors</h1>

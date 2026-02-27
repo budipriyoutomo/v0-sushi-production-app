@@ -1,10 +1,24 @@
-import type { PlateColorConfig, SushiMenu, ProductionStats, Outlet } from "./types"
+import type { PlateColorConfig, SushiMenu, ProductionStats, Outlet, KitchenUser, AdminUser } from "./types"
 
 // Outlets
 export const outlets: Outlet[] = [
   { id: "outlet-1", name: "Main Branch", location: "Downtown", code: "MB", isActive: true, createdAt: new Date("2024-01-01") },
   { id: "outlet-2", name: "Mall Branch", location: "Shopping Mall", code: "SB", isActive: true, createdAt: new Date("2024-02-15") },
   { id: "outlet-3", name: "Airport Branch", location: "Airport Terminal", code: "AB", isActive: true, createdAt: new Date("2024-03-10") },
+]
+
+// Kitchen Users (can access multiple outlets)
+export const kitchenUsers: KitchenUser[] = [
+  { id: '1', name: 'Chef John', pin: '1234', outletIds: ['outlet-1'], status: 'active', createdAt: new Date('2024-01-15') },
+  { id: '2', name: 'Chef Maria', pin: '5678', outletIds: ['outlet-2', 'outlet-3'], status: 'active', createdAt: new Date('2024-02-01') },
+  { id: '3', name: 'Chef Alex', pin: '9012', outletIds: ['outlet-1', 'outlet-2'], status: 'active', createdAt: new Date('2024-02-20') },
+]
+
+// Admin Users (can access multiple outlets)
+export const adminUsers: AdminUser[] = [
+  { id: 'a1', name: 'Admin User', email: 'admin@sushi.com', role: 'admin', outletIds: ['outlet-1', 'outlet-2', 'outlet-3'], status: 'active', createdAt: new Date('2024-01-01') },
+  { id: 'a2', name: 'Manager 1', email: 'manager1@sushi.com', role: 'manager', outletIds: ['outlet-1'], status: 'active', createdAt: new Date('2024-01-10') },
+  { id: 'a3', name: 'Manager 2', email: 'manager2@sushi.com', role: 'manager', outletIds: ['outlet-2', 'outlet-3'], status: 'active', createdAt: new Date('2024-02-05') },
 ]
 
 // Plate Colors

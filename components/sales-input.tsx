@@ -127,12 +127,13 @@ export function SalesInput() {
 
   return (
     <div className="space-y-6">
-      {/* Outlet Selector */}
-      <OutletSelector />
-
-      <div>
-        <h1 className="text-3xl md:text-4xl font-bold">Sales Input (POS)</h1>
-        <p className="text-muted-foreground mt-1">Input daily sales data and verify against system records</p>
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-bold">Sales Input</h1>
+          <p className="text-muted-foreground mt-1">Record POS sales transactions and reconcile with production</p>
+        </div>
+        <OutletSelector />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
