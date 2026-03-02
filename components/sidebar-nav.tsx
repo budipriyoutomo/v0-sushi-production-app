@@ -54,6 +54,7 @@ export function SidebarNav({ role }: SidebarNavProps) {
         { section: 'Management', items: adminItems },
         { section: 'Production', items: productionItems },
         { section: 'Operation', items: operationItems },
+        { section: 'Report', items: reportItems },
       ]
     : role === 'production'
       ? [
