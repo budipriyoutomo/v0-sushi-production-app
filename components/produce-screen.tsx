@@ -80,52 +80,60 @@ export function ProduceScreen() {
       </div>
 
       {/* Sushi Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-        {filteredSushi.map((sushi) => (
-          <Card key={sushi.id} className="hover:shadow-lg transition-shadow overflow-hidden">
-            <CardContent className="p-2">
-              <div className="space-y-2">
-                {/* Image */}
-                {sushi.image && (
-                  <div className="relative w-full h-20 bg-muted rounded overflow-hidden">
-                    <Image
-                      src={sushi.image}
-                      alt={sushi.name}
-                      fill
-                      className="object-cover"
-                      sizes="(max-width: 640px) 100px, (max-width: 768px) 120px, 150px"
-                    />
-                  </div>
-                )}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+  {filteredSushi.map((sushi) => {
+    const isProducing = producing === sushi.id
 
-                <div className="flex items-start justify-between gap-1">
-                  <h3 className="text-xs font-semibold leading-tight line-clamp-2 flex-1">{sushi.name}</h3>
-                  <PlateColorBadge color={sushi.plateColor} />
-                </div>
+    return (
+      <Card
+        key={sushi.id}
+        className="relative h-44 overflow-hidden cursor-pointer group"
+      >
+        {/* FULL IMAGE */}
+        {sushi.image && (
+          <Image
+            src={sushi.image}
+            alt={sushi.name}
+            fill
+            className="object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+        )}
 
-                <div className="text-xs text-muted-foreground space-y-0.5">
-                  <p>
-                    Life: <span className="font-medium text-foreground">{sushi.shelfLifeMinutes}m</span>
-                  </p>
-                  <p>
-                    Cost: <span className="font-medium text-foreground">${sushi.costEstimate.toFixed(2)}</span>
-                  </p>
-                </div>
+        {/* DARK GRADIENT OVERLAY */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
 
-                <Button
-                  className="w-full h-8 text-xs"
-                  size="sm"
-                  onClick={() => handleProduce(sushi)}
-                  disabled={producing === sushi.id}
-                >
-                  <Plus className="w-3 h-3 mr-1" />
-                  {producing === sushi.id ? "..." : "Make"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+        {/* CONTENT OVER IMAGE */}
+        <div className="absolute inset-0 p-3 flex flex-col justify-between text-white">
+
+          {/* Top */}
+          <div className="flex justify-between items-start">
+            <PlateColorBadge color={sushi.plateColor} />
+          </div>
+
+          {/* Bottom Info */}
+          <div>
+            <h3 className="text-sm font-semibold leading-tight line-clamp-2">
+              {sushi.name}
+            </h3>
+
+            <div className="text-xs opacity-90 mt-1">
+              ⏱ {sushi.shelfLifeMinutes}m • 💰 ${sushi.costEstimate.toFixed(2)}
+            </div>
+
+            <Button
+              size="sm"
+              className="mt-2 w-full h-8 text-xs bg-white text-black hover:bg-gray-200"
+              onClick={() => handleProduce(sushi)}
+              disabled={isProducing}
+            >
+              {isProducing ? "Producing..." : "Make"}
+            </Button>
+          </div>
+        </div>
+      </Card>
+    )
+  })}
+</div>
 
       {filteredSushi.length === 0 && (
         <div className="text-center py-12">

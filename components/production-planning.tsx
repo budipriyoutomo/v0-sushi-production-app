@@ -168,17 +168,17 @@ export function ProductionPlanning() {
                 </tr>
               </thead>
               <tbody>
-                {plan.map((row, index) => (
+                {plan.map((row, index) => ( 
                   <tr key={row.timeSlot} className="border-b hover:bg-blue-50/50 transition-colors">
-                    <td className="p-4 font-semibold text-slate-700 bg-slate-50/50">{row.timeSlot}</td>
+                    <td className="p-4 font-semibold text-slate-700 bg-slate-50/50" title={row.timeSlot}>{row.timeSlot.split("-")[0]}</td>
                     {colorKeys.map((color) => (
                       <td key={color} className="p-3 text-center">
                         <Input
                           type="number"
-                          min="0"
-                          value={row[color]}
-                          onChange={(e) => handleChange(index, color as PlateColor, e.target.value)}
-                          className="w-6/12 text-center mx-auto h-9 text-sm font-medium"
+                          min={0}
+                          value={row[color] ?? ""}
+                          onChange={(e) => handleChange(index, color as PlateColor, e.target.value === "" ? "0" : e.target.value)}
+                          className="w-20 text-center mx-auto h-9 text-sm font-medium"
                         />
                       </td>
                     ))}
