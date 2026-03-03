@@ -17,7 +17,7 @@ interface NavSection {
 }
 
 interface SidebarNavProps {
-  role: 'admin' | 'production' | 'operation'
+  role: 'admin' | 'production' | 'operation' | 'report'
 }
 
 export function SidebarNav({ role }: SidebarNavProps) {
@@ -41,19 +41,31 @@ export function SidebarNav({ role }: SidebarNavProps) {
     { label: 'Closing Report', href: '/operation/closing-report' },
   ]
 
+  const reportItems: NavItem[] = [
+    { label: 'Daily Summary', href: '/report/daily-summary' },
+    { label: 'Sales Analysis', href: '/report/sales-analysis' },
+    { label: 'Closing Reports', href: '/report/closing-reports' },
+    { label: 'Waste Analysis', href: '/report/waste-analysis' },
+  ]
+
   const allItems = role === 'admin' 
     ? [
         { section: 'Management', items: adminItems },
         { section: 'Production', items: productionItems },
         { section: 'Operation', items: operationItems },
+        { section: 'Report', items: reportItems },
       ]
     : role === 'production'
       ? [
           { section: 'Production', items: productionItems },
         ]
-      : [
-          { section: 'Operation', items: operationItems },
-        ]
+      : role === 'operation'
+        ? [
+            { section: 'Operation', items: operationItems },
+          ]
+        : [
+            { section: 'Reports', items: reportItems },
+          ]
 
   // Only show outlet selector for non-admin roles
   const showOutletSelector = role !== 'admin'
@@ -63,10 +75,10 @@ export function SidebarNav({ role }: SidebarNavProps) {
       {/* Header */}
       <div className="p-6 border-b border-border">
         <h1 className="text-xl font-bold">
-          {role === 'admin' ? 'Admin' : role === 'production' ? 'Production' : 'Operation'}
+          {role === 'admin' ? 'Admin' : role === 'production' ? 'Production' : role === 'operation' ? 'Operation' : 'Reports'}
         </h1>
         <p className="text-sm text-background/70 mt-1">
-          {role === 'admin' ? 'Management' : role === 'production' ? 'Planning' : 'Operations'}
+          {role === 'admin' ? 'Management' : role === 'production' ? 'Planning' : role === 'operation' ? 'Operations' : 'Analytics'}
         </p>
       </div>
 

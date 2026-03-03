@@ -178,7 +178,7 @@ export function ProductionPlanning() {
                           min="0"
                           value={row[color]}
                           onChange={(e) => handleChange(index, color as PlateColor, e.target.value)}
-                          className="text-center h-9 text-sm font-medium"
+                          className="w-6/12 text-center mx-auto h-9 text-sm font-medium"
                         />
                       </td>
                     ))}
