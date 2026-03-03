@@ -44,9 +44,8 @@ export function SidebarNav({ role }: SidebarNavProps) {
   const reportItems: NavItem[] = [
     { label: 'Daily Summary', href: '/report/daily-summary' },
     { label: 'Sales Analysis', href: '/report/sales-analysis' },
-    { label: 'Inventory Report', href: '/report/inventory-report' },
+    { label: 'Closing Reports', href: '/report/closing-reports' },
     { label: 'Waste Analysis', href: '/report/waste-analysis' },
-    { label: 'Staff Performance', href: '/report/staff-performance' },
   ]
 
   const allItems = role === 'admin' 
