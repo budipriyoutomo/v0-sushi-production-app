@@ -24,9 +24,9 @@ export function UserManagement() {
 
   // Kitchen Users
   const [kitchenUsers, setKitchenUsers] = useState<KitchenUser[]>([
-    { id: '1', name: 'Chef John', pin: '1234', outletIds: ['outlet-1'], status: 'active', createdAt: new Date('2024-01-15') },
-    { id: '2', name: 'Chef Maria', pin: '5678', outletIds: ['outlet-2', 'outlet-3'], status: 'active', createdAt: new Date('2024-02-01') },
-    { id: '3', name: 'Chef Alex', pin: '9012', outletIds: ['outlet-1', 'outlet-2'], status: 'active', createdAt: new Date('2024-02-20') },
+    { id: '1', name: 'Chef John', pin: '123456', outletIds: ['outlet-1'], status: 'active', createdAt: new Date('2024-01-15') },
+    { id: '2', name: 'Chef Maria', pin: '567890', outletIds: ['outlet-2', 'outlet-3'], status: 'active', createdAt: new Date('2024-02-01') },
+    { id: '3', name: 'Chef Alex', pin: '901234', outletIds: ['outlet-1', 'outlet-2'], status: 'active', createdAt: new Date('2024-02-20') },
   ])
 
   // Admin Users
@@ -65,8 +65,8 @@ export function UserManagement() {
       return
     }
 
-    if (kitchenFormData.pin.length !== 4 || !/^\d+$/.test(kitchenFormData.pin)) {
-      toast({ title: 'Error', description: 'PIN must be 4 digits', variant: 'destructive' })
+    if (kitchenFormData.pin.length !== 6 || !/^\d+$/.test(kitchenFormData.pin)) {
+      toast({ title: 'Error', description: 'PIN must be 6 digits', variant: 'destructive' })
       return
     }
 
