@@ -51,6 +51,7 @@ export function ProductionPlanning() {
   const { toast } = useToast()
   const { selectedOutletId } = useOutlet()
   const [plan, setPlan] = useState<TimeSlotPlan[]>(initialPlan)
+  const [planDate, setPlanDate] = useState(new Date().toISOString().split('T')[0])
 
   const colorKeys: PlateColor[] = ["white", "blue", "pink", "black", "red", "gold", "choco motive", "yellow", "silver"]
 
@@ -143,7 +144,7 @@ export function ProductionPlanning() {
       {/* Production Schedule Table */}
       <Card className="shadow-lg">
         <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 border-b">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
             <div>
               <CardTitle className="flex items-center gap-2">
                 <TrendingUp className="w-5 h-5" />
@@ -151,6 +152,12 @@ export function ProductionPlanning() {
               </CardTitle>
               <p className="text-sm text-muted-foreground mt-1">Input target quantities for each 30-minute time slot</p>
             </div>
+            <Input
+              type="date"
+              value={planDate}
+              onChange={(e) => setPlanDate(e.target.value)}
+              className="w-40"
+            />
           </div>
         </CardHeader>
         <CardContent className="p-0">
