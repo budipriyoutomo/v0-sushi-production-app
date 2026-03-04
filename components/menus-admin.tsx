@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { PlateColorBadge, type PlateColor } from "@/components/plate-color-badge"
 import type { SushiMenu } from "@/lib/types"
 import { sushiMenus as initialMenus, plateColors } from "@/lib/mock-data"
-import { Plus, Pencil, Trash2 } from "lucide-react"
+import { Plus, Pencil, Trash2, Upload, X } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -32,11 +32,12 @@ export function MenusAdmin() {
     plateColor: (plateColors[0]?.name || "white") as PlateColor,
     shelfLifeMinutes: 90,
     costEstimate: 0,
+    image: "",
   })
 
   const handleAdd = () => {
     setEditingItem(null)
-    setFormData({ name: "", plateColor: (plateColors[0]?.name || "white") as PlateColor, shelfLifeMinutes: 90, costEstimate: 0 })
+    setFormData({ name: "", plateColor: (plateColors[0]?.name || "white") as PlateColor, shelfLifeMinutes: 90, costEstimate: 0, image: "" })
     setIsDialogOpen(true)
   }
 
@@ -47,6 +48,7 @@ export function MenusAdmin() {
       plateColor: item.plateColor,
       shelfLifeMinutes: item.shelfLifeMinutes,
       costEstimate: item.costEstimate,
+      image: item.image || "",
     })
     setIsDialogOpen(true)
   }
@@ -95,22 +97,30 @@ export function MenusAdmin() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b">
+                    <th className="text-left p-3 font-semibold">Image</th>
                     <th className="text-left p-3 font-semibold">Sushi Name</th>
                     <th className="text-left p-3 font-semibold">Plate Color</th>
                     <th className="text-right p-3 font-semibold">Shelf Life</th>
-                    <th className="text-right p-3 font-semibold">Cost Estimate</th>
+                    <th className="text-right p-3 font-semibold">Harga Jual</th>
                     <th className="text-right p-3 font-semibold">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {menus.map((item) => (
                     <tr key={item.id} className="border-b hover:bg-muted/50">
+                      <td className="p-3">
+                        {item.image ? (
+                          <img src={item.image} alt={item.name} className="w-12 h-12 object-cover rounded" />
+                        ) : (
+                          <div className="w-12 h-12 bg-muted rounded flex items-center justify-center text-xs text-muted-foreground">No Image</div>
+                        )}
+                      </td>
                       <td className="p-3 font-medium">{item.name}</td>
                       <td className="p-3">
                         <PlateColorBadge color={item.plateColor} />
                       </td>
                       <td className="p-3 text-right">{item.shelfLifeMinutes} min</td>
-                      <td className="p-3 text-right">${item.costEstimate.toFixed(2)}</td>
+                      <td className="p-3 text-right">Rp {item.costEstimate.toLocaleString('id-ID')}</td>
                       <td className="p-3">
                         <div className="flex gap-2 justify-end">
                           <Button variant="ghost" size="sm" onClick={() => handleEdit(item)}>
@@ -147,6 +157,51 @@ export function MenusAdmin() {
                 />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="image">Menu Image</Label>
+                <div className="border-2 border-dashed rounded-lg p-4 text-center">
+                  {formData.image ? (
+                    <div className="space-y-2">
+                      <img src={formData.image} alt="Preview" className="w-full h-40 object-cover rounded" />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        type="button"
+                        onClick={() => setFormData({ ...formData, image: "" })}
+                        className="w-full"
+                      >
+                        <X className="w-4 h-4 mr-2" />
+                        Remove Image
+                      </Button>
+                    </div>
+                  ) : (
+                    <div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0]
+                          if (file) {
+                            const reader = new FileReader()
+                            reader.onload = (event) => {
+                              setFormData({ ...formData, image: event.target?.result as string })
+                            }
+                            reader.readAsDataURL(file)
+                          }
+                        }}
+                        className="hidden"
+                        id="image-upload"
+                      />
+                      <label htmlFor="image-upload" className="cursor-pointer">
+                        <div className="flex flex-col items-center gap-2">
+                          <Upload className="w-8 h-8 text-muted-foreground" />
+                          <p className="text-sm text-muted-foreground">Click to upload image or drag and drop</p>
+                        </div>
+                      </label>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="plateColor">Plate Color</Label>
                 <Select
                   value={formData.plateColor}
@@ -174,13 +229,14 @@ export function MenusAdmin() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="cost">Cost Estimate ($)</Label>
+                <Label htmlFor="cost">Harga Jual (Rp)</Label>
                 <Input
                   id="cost"
                   type="number"
-                  step="0.01"
+                  step="1"
                   value={formData.costEstimate}
-                  onChange={(e) => setFormData({ ...formData, costEstimate: Number.parseFloat(e.target.value) || 0 })}
+                  onChange={(e) => setFormData({ ...formData, costEstimate: Number.parseInt(e.target.value) || 0 })}
+                  placeholder="e.g. 25000"
                 />
               </div>
             </div>
