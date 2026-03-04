@@ -133,55 +133,74 @@ export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsMana
             const expiredTime = calculateExpiredTime(item)
 
             return (
-              <Card key={item.id} className="border-red-200 hover:shadow-lg transition-shadow overflow-hidden">
-                <CardContent className="p-2">
-                  <div className="space-y-2">
-                    {/* Image */}
-                    {menuItem?.image && (
-                      <div className="relative w-full h-20 bg-muted rounded overflow-hidden">
-                        <Image
-                          src={menuItem.image}
-                          alt={item.sushiName}
-                          fill
-                          className="object-cover"
-                          sizes="(max-width: 640px) 100px, (max-width: 768px) 120px, 150px"
-                        />
-                      </div>
-                    )}
+              <Card
+                key={item.id}
+                className="relative h-56 overflow-hidden group ring-1 ring-gray-200"
+              >
+                {/* FULL IMAGE */}
+                {menuItem?.image && (
+                  <Image
+                    src={menuItem.image}
+                    alt={item.sushiName}
+                    fill
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                )}
+ 
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
 
-                    {/* Item Info */}
-                    <div className="flex items-start justify-between gap-1">
-                      <h3 className="text-xs font-semibold leading-tight line-clamp-2 flex-1">{item.sushiName}</h3>
-                      <PlateColorBadge color={item.plateColor} />
-                    </div>
+                {/* CONTENT */}
+                <div className="absolute inset-0 p-3 flex flex-col justify-between text-gray-900">
+
+                  {/* TOP */}
+                  <div className="flex justify-between items-start">
+                    <PlateColorBadge color={item.plateColor} />
+                  </div>
+
+                  {/* BOTTOM */}
+                  <div className="space-y-2">
+
+                    {/* Name */}
+                    <h3 className="text-sm font-semibold ">
+                      {item.sushiName}
+                    </h3>
 
                     {/* Production Details */}
-                    <div className="text-xs text-muted-foreground space-y-0.5 border-t pt-1">
+                    <div className="text-xs space-y-1 bg-white/70 backdrop-blur-sm p-2 rounded-md border border-gray-200">
+
                       <p>
-                        Prod: <span className="font-medium">{productionTime.toLocaleTimeString()}</span>
+                        Prod:{" "}
+                        <span className="font-medium">
+                          {productionTime.toLocaleTimeString()}
+                        </span>
                       </p>
+
                       <p>
-                        Exp: <span className="font-medium text-red-600">{expiredTime.toLocaleTimeString()}</span>
+                        Exp:{" "}
+                        <span className="font-medium text-red-600">
+                          {expiredTime.toLocaleTimeString()}
+                        </span>
                       </p>
-                      <p className="flex items-center gap-1 text-red-600 font-medium">
+
+                      <p className="flex items-center gap-1 text-red-600 font-semibold">
                         <AlertCircle className="w-3 h-3" />
                         Time Expired
                       </p>
+
                     </div>
 
                     {/* Update Button */}
-                    <div className="flex gap-1 pt-1">
-                      <Button
-                        size="sm"
-                        onClick={() => handleOpenUpdateDialog(item)}
-                        className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs h-7"
-                      >
-                        <CheckCircle className="w-3 h-3 mr-1" />
-                        Update
-                      </Button>
-                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => handleOpenUpdateDialog(item)}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs h-8"
+                    >
+                      <CheckCircle className="w-3 h-3 mr-1" />
+                      Update
+                    </Button>
+
                   </div>
-                </CardContent>
+                </div>
               </Card>
             )
           })}
