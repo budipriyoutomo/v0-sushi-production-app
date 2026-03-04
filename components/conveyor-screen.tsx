@@ -175,27 +175,38 @@ export function ConveyorScreen() {
           {sortedItems.map((item) => {
             const menuItem = sushiMenus.find((m) => m.id === item.sushiId)
             return (
-              <Card key={item.id} className="hover:shadow-lg transition-shadow overflow-hidden">
-                <CardContent className="p-2">
-                  <div className="space-y-2">
-                    {/* Image */}
-                    {menuItem?.image && (
-                      <div className="relative w-full h-20 bg-muted rounded overflow-hidden">
-                        <Image
-                          src={menuItem.image}
-                          alt={item.sushiName}
-                          fill
-                          className="object-cover"
-                          sizes="(max-width: 640px) 100px, (max-width: 768px) 120px, 150px"
-                        />
-                      </div>
-                    )}
+              <Card
+                key={item.id}
+                className="relative h-56 overflow-hidden group cursor-pointer"
+              >
+                {/* FULL IMAGE */}
+                {menuItem?.image && (
+                  <Image
+                    src={menuItem.image}
+                    alt={item.sushiName}
+                    fill
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                )}
 
-                    {/* Item Info */}
-                    <div className="flex items-start justify-between gap-1">
-                      <h3 className="text-xs font-semibold leading-tight line-clamp-2 flex-1">{item.sushiName}</h3>
-                      <PlateColorBadge color={item.plateColor} />
-                    </div>
+                {/* DARK GRADIENT OVERLAY */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+
+                {/* CONTENT */}
+                <div className="absolute inset-0 p-3 flex flex-col justify-between text-white">
+
+                  {/* TOP SECTION */}
+                  <div className="flex justify-between items-start">
+                    <PlateColorBadge color={item.plateColor} />
+                  </div>
+
+                  {/* BOTTOM SECTION */}
+                  <div className="space-y-2">
+
+                    {/* Name */}
+                    <h3 className="text-sm font-semibold leading-tight line-clamp-2">
+                      {item.sushiName}
+                    </h3>
 
                     {/* Countdown */}
                     <div className="text-xs">
@@ -205,28 +216,32 @@ export function ConveyorScreen() {
                       />
                     </div>
 
-                    {/* Actions */}
-                    <div className="flex gap-1 flex-col">
+                    {/* ACTIONS */}
+                    <div className="space-y-1">
+
+                      {/* SOLD BUTTON */}
                       <Button
                         size="sm"
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-7 text-xs"
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-8 text-xs"
                         onClick={() => handleMarkSold(item.id, item.sushiName)}
                       >
                         <CheckCircle className="w-3 h-3 mr-1" />
                         Sold
                       </Button>
+
+                      {/* WASTE SECTION */}
                       {!item.showWasteReasonForm ? (
                         <Button
                           size="sm"
                           variant="destructive"
-                          className="w-full h-7 text-xs"
+                          className="w-full h-8 text-xs"
                           onClick={() => handleWasteClick(item.id)}
                         >
                           <XCircle className="w-3 h-3 mr-1" />
                           Waste
                         </Button>
                       ) : (
-                        <div className="space-y-2">
+                        <div className="space-y-2 bg-black/50 p-2 rounded-md">
                           <Input
                             placeholder="Reason for waste"
                             value={item.wasteReasonInput}
@@ -239,14 +254,18 @@ export function ConveyorScreen() {
                                 )
                               )
                             }
-                            className="h-7 text-xs"
+                            className="h-7 text-xs bg-white text-black"
                           />
                           <div className="flex gap-1">
                             <Button
                               size="sm"
-                              className="flex-1 bg-red-600 hover:bg-red-700 text-white h-6 text-xs"
+                              className="flex-1 bg-red-600 hover:bg-red-700 text-white h-7 text-xs"
                               onClick={() =>
-                                handleMarkWaste(item.id, item.sushiName, item.wasteReasonInput || "")
+                                handleMarkWaste(
+                                  item.id,
+                                  item.sushiName,
+                                  item.wasteReasonInput || ""
+                                )
                               }
                             >
                               Confirm
@@ -254,7 +273,7 @@ export function ConveyorScreen() {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="flex-1 h-6 text-xs"
+                              className="flex-1 h-7 text-xs bg-white text-black"
                               onClick={() => handleCancelWasteReason(item.id)}
                             >
                               Cancel
@@ -262,9 +281,10 @@ export function ConveyorScreen() {
                           </div>
                         </div>
                       )}
+
                     </div>
                   </div>
-                </CardContent>
+                </div>
               </Card>
             )
           })}

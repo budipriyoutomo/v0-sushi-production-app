@@ -100,7 +100,7 @@ export function ProduceScreen() {
         )}
 
         {/* DARK GRADIENT OVERLAY */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
 
         {/* CONTENT OVER IMAGE */}
         <div className="absolute inset-0 p-3 flex flex-col justify-between text-white">
