@@ -79,6 +79,9 @@ export function ConveyorScreen() {
 
   const filteredItems = selectedColor ? activeItems.filter((item) => item.plateColor === selectedColor) : activeItems
 
+  // Filter for buttons - sort by price
+  const sortedPlateColors = plateColors.sort((a, b) => a.price - b.price)
+
   // Sort by time remaining (expiring soon first)
   const sortedItems = [...filteredItems].sort((a, b) => {
     const timeRemainingA = a.shelfLifeMinutes - Math.floor((Date.now() - a.productionTime.getTime()) / 60000)
@@ -149,7 +152,7 @@ export function ConveyorScreen() {
         >
           All Colors
         </Button>
-        {plateColors.map((plate) => (
+        {sortedPlateColors.map((plate) => (
           <Button
             key={plate.id}
             variant={selectedColor === plate.name ? "default" : "outline"}

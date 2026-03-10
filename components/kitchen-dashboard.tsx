@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { PlateColorBadge, type PlateColor } from "@/components/plate-color-badge"
 import { StatusIndicator, type Status } from "@/components/status-indicator"
 import { OutletSelector } from "@/components/outlet-selector"
-import { mockProductionStats } from "@/lib/mock-data"
+import { mockProductionStats, plateColors } from "@/lib/mock-data"
 import { useOutlet } from "@/lib/outlet-context"
 import { cn } from "@/lib/utils"
 
@@ -41,7 +41,13 @@ export function KitchenDashboard() {
 
       {/* Production Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-        {outletStats.map((stat) => {
+        {outletStats
+          .sort((a, b) => {
+            const priceA = plateColors.find((pc) => pc.name === a.plateColor)?.price || 0
+            const priceB = plateColors.find((pc) => pc.name === b.plateColor)?.price || 0
+            return priceA - priceB
+          })
+          .map((stat) => {
           const status = getStatus(stat.produced, stat.targetToday, stat.expiringSoon)
 
           return (
