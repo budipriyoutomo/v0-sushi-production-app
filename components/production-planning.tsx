@@ -24,15 +24,30 @@ interface TimeSlotPlan {
   silver: number
 }
 
-// Generate 30-minute time slots from 10:00 to 21:00
+// Generate 30-minute time slots from 10:00 to 20:30
 const generateTimeSlots = (): string[] => {
   const slots: string[] = []
-  for (let hour = 10; hour < 21; hour++) {
+  for (let hour = 10; hour <= 20; hour++) {
     slots.push(`${String(hour).padStart(2, "0")}:00-${String(hour).padStart(2, "0")}:30`)
-    slots.push(`${String(hour).padStart(2, "0")}:30-${String(hour + 1).padStart(2, "0")}:00`)
+    if (hour < 20) {
+      slots.push(`${String(hour).padStart(2, "0")}:30-${String(hour + 1).padStart(2, "0")}:00`)
+    } else {
+      slots.push(`${String(hour).padStart(2, "0")}:30-${String(hour + 1).padStart(2, "0")}:00`)
+    }
   }
   return slots
 }
+
+// Cycle: Biru → Hitam → Merah → Kuning → Hijau
+const TIME_SLOT_COLORS = [
+  { label: "Biru",   bg: "bg-blue-500",   ring: "ring-blue-400",   text: "text-blue-700",   rowBg: "bg-blue-50/60" },
+  { label: "Hitam",  bg: "bg-gray-800",   ring: "ring-gray-600",   text: "text-gray-800",   rowBg: "bg-gray-50/60" },
+  { label: "Merah",  bg: "bg-red-500",    ring: "ring-red-400",    text: "text-red-700",    rowBg: "bg-red-50/60" },
+  { label: "Kuning", bg: "bg-yellow-400", ring: "ring-yellow-300", text: "text-yellow-700", rowBg: "bg-yellow-50/60" },
+  { label: "Hijau",  bg: "bg-green-500",  ring: "ring-green-400",  text: "text-green-700",  rowBg: "bg-green-50/60" },
+]
+
+const getTimeSlotColor = (index: number) => TIME_SLOT_COLORS[index % TIME_SLOT_COLORS.length]
 
 const initialPlan: TimeSlotPlan[] = generateTimeSlots().map((timeSlot) => ({
   timeSlot,
@@ -53,7 +68,10 @@ export function ProductionPlanning() {
   const [plan, setPlan] = useState<TimeSlotPlan[]>(initialPlan)
   const [planDate, setPlanDate] = useState(new Date().toISOString().split('T')[0])
 
-  const colorKeys: PlateColor[] = ["white", "blue", "pink", "black", "red", "gold", "choco motive", "yellow", "silver"]
+  // Sort colors by price (cheapest first)
+  const colorKeys: PlateColor[] = plateColors
+    .sort((a, b) => a.price - b.price)
+    .map((pc) => pc.name as PlateColor)
 
   const handleChange = (index: number, color: PlateColor, value: string) => {
     const newPlan = [...plan]
@@ -112,23 +130,7 @@ export function ProductionPlanning() {
             <p className="text-3xl font-bold text-blue-700 mt-2">{getGrandTotal()}</p>
             <p className="text-xs text-blue-600 mt-1">items to produce</p>
           </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-200">
-          <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">Plate Colors</p>
-            <p className="text-3xl font-bold text-emerald-700 mt-2">{colorKeys.length}</p>
-            <p className="text-xs text-emerald-600 mt-1">varieties tracked</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
-          <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">Time Slots</p>
-            <p className="text-3xl font-bold text-purple-700 mt-2">{plan.length}</p>
-            <p className="text-xs text-purple-600 mt-1">30-minute periods</p>
-          </CardContent>
-        </Card>
+        </Card> 
 
         <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
           <CardContent className="pt-6">
@@ -164,6 +166,19 @@ export function ProductionPlanning() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th colSpan={colorKeys.length + 2} className="px-4 py-2">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Penanda Waktu:</span>
+                      {TIME_SLOT_COLORS.map((c) => (
+                        <span key={c.label} className="flex items-center gap-1.5">
+                          <span className={`inline-block w-3 h-3 rounded-full ${c.bg}`} />
+                          <span className="text-xs text-slate-600">{c.label}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </th>
+                </tr>
                 <tr className="bg-slate-100 border-b-2 border-slate-300">
                   <th className="text-left p-4 font-semibold text-slate-700">Time Slot</th>
                   {colorKeys.map((color) => (
@@ -175,25 +190,40 @@ export function ProductionPlanning() {
                 </tr>
               </thead>
               <tbody>
-                {plan.map((row, index) => ( 
-                  <tr key={row.timeSlot} className="border-b hover:bg-blue-50/50 transition-colors">
-                    <td className="p-4 font-semibold text-slate-700 bg-slate-50/50" title={row.timeSlot}>{row.timeSlot.split("-")[0]}</td>
-                    {colorKeys.map((color) => (
-                      <td key={color} className="p-3 text-center">
-                        <Input
-                          type="number"
-                          min={0}
-                          value={row[color] ?? ""}
-                          onChange={(e) => handleChange(index, color as PlateColor, e.target.value === "" ? "0" : e.target.value)}
-                          className="w-20 text-center mx-auto h-9 text-sm font-medium"
-                        />
+                {plan.map((row, index) => {
+                  const slotColor = getTimeSlotColor(index)
+                  return (
+                    <tr key={row.timeSlot} className={`border-b transition-colors hover:brightness-95 ${slotColor.rowBg}`}>
+                      <td className="p-3 bg-white/70 border-r border-slate-200">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`inline-flex items-center justify-center w-6 h-6 rounded-full ${slotColor.bg} text-white text-[10px] font-bold ring-2 ${slotColor.ring} shrink-0`}
+                            title={slotColor.label}
+                          >
+                            {slotColor.label[0]}
+                          </span>
+                          <span className={`font-semibold text-sm ${slotColor.text}`}>
+                            {row.timeSlot.split("-")[0]}
+                          </span>
+                        </div>
                       </td>
-                    ))}
-                    <td className="p-4 text-center font-bold text-slate-700 bg-slate-50 text-sm">
-                      {getRowTotal(row)}
-                    </td>
-                  </tr>
-                ))}
+                      {colorKeys.map((color) => (
+                        <td key={color} className="p-3 text-center">
+                          <Input
+                            type="number"
+                            min={0}
+                            value={row[color] ?? ""}
+                            onChange={(e) => handleChange(index, color as PlateColor, e.target.value === "" ? "0" : e.target.value)}
+                            className="w-20 text-center mx-auto h-9 text-sm font-medium"
+                          />
+                        </td>
+                      ))}
+                      <td className="p-4 text-center font-bold text-slate-700 bg-white/60 text-sm border-l border-slate-200">
+                        {getRowTotal(row)}
+                      </td>
+                    </tr>
+                  )
+                })}
                 <tr className="bg-gradient-to-r from-slate-100 to-slate-50 border-t-2 border-slate-300 font-bold">
                   <td className="p-4 text-slate-800">Daily Total</td>
                   {colorKeys.map((color) => (

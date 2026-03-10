@@ -23,15 +23,15 @@ export const adminUsers: AdminUser[] = [
 
 // Plate Colors
 export const plateColors: PlateColorConfig[] = [
-  { id: "1", outletId: "outlet-1", name: "white", price: 2.5, targetFoodCost: 25, active: true },
-  { id: "2", outletId: "outlet-1", name: "blue", price: 3.5, targetFoodCost: 28, active: true },
-  { id: "3", outletId: "outlet-1", name: "pink", price: 4.0, targetFoodCost: 30, active: true },
-  { id: "4", outletId: "outlet-1", name: "yellow", price: 5.5, targetFoodCost: 35, active: true },
-  { id: "5", outletId: "outlet-1", name: "red", price: 5.0, targetFoodCost: 33, active: true },
-  { id: "6", outletId: "outlet-1", name: "black", price: 7.5, targetFoodCost: 40, active: true },
-  { id: "7", outletId: "outlet-1", name: "gold", price: 6.5, targetFoodCost: 38, active: true },
-  { id: "8", outletId: "outlet-1", name: "choco motive", price: 3.0, targetFoodCost: 27, active: true },
-  { id: "9", outletId: "outlet-1", name: "silver", price: 6.0, targetFoodCost: 36, active: true }, 
+  { id: "1", outletId: "outlet-1", name: "white", price: 23000, targetFoodCost: 25, active: true },
+  { id: "2", outletId: "outlet-1", name: "blue", price: 30000, targetFoodCost: 28, active: true },
+  { id: "3", outletId: "outlet-1", name: "pink", price: 38000, targetFoodCost: 30, active: true },
+  { id: "4", outletId: "outlet-1", name: "yellow", price: 32000, targetFoodCost: 35, active: true },
+  { id: "5", outletId: "outlet-1", name: "red", price: 53000, targetFoodCost: 33, active: true },
+  { id: "6", outletId: "outlet-1", name: "black", price: 47000, targetFoodCost: 40, active: true },
+  { id: "7", outletId: "outlet-1", name: "gold", price: 60000, targetFoodCost: 38, active: true },
+  { id: "8", outletId: "outlet-1", name: "choco motive", price: 64000, targetFoodCost: 27, active: true },
+  { id: "9", outletId: "outlet-1", name: "silver", price: 42000, targetFoodCost: 36, active: true }, 
 ]
 
 // Sushi Menus (same for all outlets)
