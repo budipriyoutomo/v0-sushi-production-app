@@ -27,6 +27,7 @@ export function OutletManagement() {
   const [editingOutlet, setEditingOutlet] = useState<Outlet | null>(null)
   const [formData, setFormData] = useState({
     name: '',
+    brand: '',
     location: '',
     code: '',
     isActive: true,
@@ -34,7 +35,7 @@ export function OutletManagement() {
 
   const handleAdd = () => {
     setEditingOutlet(null)
-    setFormData({ name: '', location: '', code: '', isActive: true })
+    setFormData({ name: '', brand: '', location: '', code: '', isActive: true })
     setDialogOpen(true)
   }
 
@@ -42,6 +43,7 @@ export function OutletManagement() {
     setEditingOutlet(outlet)
     setFormData({
       name: outlet.name,
+      brand: outlet.brand,
       location: outlet.location,
       code: outlet.code,
       isActive: outlet.isActive,
@@ -50,10 +52,10 @@ export function OutletManagement() {
   }
 
   const handleSave = () => {
-    if (!formData.name || !formData.location || !formData.code) {
+    if (!formData.name || !formData.brand || !formData.location || !formData.code) {
       toast({
         title: 'Error',
-        description: 'Please fill in all fields',
+        description: 'Please fill in all required fields',
         variant: 'destructive',
       })
       return
@@ -142,6 +144,7 @@ export function OutletManagement() {
                   <TableRow>
                     <TableHead>Code</TableHead>
                     <TableHead>Name</TableHead>
+                    <TableHead>Brand</TableHead>
                     <TableHead>Location</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Created</TableHead>
@@ -151,7 +154,7 @@ export function OutletManagement() {
                 <TableBody>
                   {outlets.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                         No outlets found
                       </TableCell>
                     </TableRow>
@@ -165,6 +168,7 @@ export function OutletManagement() {
                             {outlet.name}
                           </div>
                         </TableCell>
+                        <TableCell>{outlet.brand}</TableCell>
                         <TableCell>{outlet.location}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
@@ -227,6 +231,17 @@ export function OutletManagement() {
                   value={formData.name}
                   onChange={(e) =>
                     setFormData({ ...formData, name: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <Label htmlFor="brand">Brand</Label>
+                <Input
+                  id="brand"
+                  placeholder="e.g., Sushi King"
+                  value={formData.brand}
+                  onChange={(e) =>
+                    setFormData({ ...formData, brand: e.target.value })
                   }
                 />
               </div>

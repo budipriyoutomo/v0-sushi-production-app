@@ -2,9 +2,9 @@ import type { PlateColorConfig, SushiMenu, ProductionStats, Outlet, KitchenUser,
 
 // Outlets
 export const outlets: Outlet[] = [
-  { id: "outlet-1", name: "Main Branch", location: "Downtown", code: "MB", isActive: true, createdAt: new Date("2024-01-01") },
-  { id: "outlet-2", name: "Mall Branch", location: "Shopping Mall", code: "SB", isActive: true, createdAt: new Date("2024-02-15") },
-  { id: "outlet-3", name: "Airport Branch", location: "Airport Terminal", code: "AB", isActive: true, createdAt: new Date("2024-03-10") },
+  { id: "outlet-1", name: "Main Branch", brand: "Sushi King", location: "Downtown", code: "MB", isActive: true, createdAt: new Date("2024-01-01") },
+  { id: "outlet-2", name: "Mall Branch", brand: "Sushi King", location: "Shopping Mall", code: "SB", isActive: true, createdAt: new Date("2024-02-15") },
+  { id: "outlet-3", name: "Airport Branch", brand: "Sushi Go", location: "Airport Terminal", code: "AB", isActive: true, createdAt: new Date("2024-03-10") },
 ]
 
 // Kitchen Users (can access multiple outlets)
