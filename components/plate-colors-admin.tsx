@@ -5,9 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { PlateColorBadge } from "@/components/plate-color-badge"
 import type { PlateColorConfig } from "@/lib/types"
-import { plateColors as initialPlateColors } from "@/lib/mock-data"
+import { usePlateColors } from "@/hooks/use-plate-colors"
+import { getApiError } from "@/lib/api"
 import { useOutlet } from "@/lib/outlet-context"
-import { Plus, Pencil, Trash2 } from "lucide-react"
+import { Plus, Pencil, Trash2, Loader2 } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -24,10 +25,11 @@ import { useToast } from "@/hooks/use-toast"
 export function PlateColorsAdmin() {
   const { toast } = useToast()
   const { selectedOutletId } = useOutlet()
-  const [plateColors, setPlateColors] = useState<PlateColorConfig[]>(initialPlateColors)
+  const { plateColors, isLoading, updatePlateColor, deletePlateColor } = usePlateColors()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<PlateColorConfig | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
 
   const [formData, setFormData] = useState({
     name: "",
@@ -56,24 +58,34 @@ export function PlateColorsAdmin() {
     setIsDialogOpen(true)
   }
 
-  const handleSave = () => {
-    if (editingItem) {
-      setPlateColors(
-        plateColors.map((item) =>
-          item.id === editingItem.id
-            ? { ...item, price: formData.price, targetFoodCost: formData.targetFoodCost, active: formData.active }
-            : item,
-        ),
-      )
+  const handleSave = async () => {
+    if (!editingItem) return
+
+    setIsSaving(true)
+    try {
+      await updatePlateColor(editingItem.id, {
+        price: formData.price,
+        sortOrder: formData.targetFoodCost,
+      })
       toast({ title: "Updated", description: "Plate color updated successfully" })
+      setIsDialogOpen(false)
+    } catch (error) {
+      const apiError = getApiError(error)
+      toast({ title: "Error", description: apiError.message, variant: "destructive" })
+    } finally {
+      setIsSaving(false)
     }
-    setIsDialogOpen(false)
   }
 
-  const handleDelete = (id: string) => {
-    setPlateColors(plateColors.filter((item) => item.id !== id))
-    setDeleteConfirm(null)
-    toast({ title: "Deleted", description: "Plate color removed", variant: "destructive" })
+  const handleDelete = async (id: string) => {
+    try {
+      await deletePlateColor(id)
+      setDeleteConfirm(null)
+      toast({ title: "Deleted", description: "Plate color removed", variant: "destructive" })
+    } catch (error) {
+      const apiError = getApiError(error)
+      toast({ title: "Error", description: apiError.message, variant: "destructive" })
+    }
   }
 
   return (
@@ -98,7 +110,11 @@ export function PlateColorsAdmin() {
             
           </CardHeader>
           <CardContent>
-            {outletPlateColors.length === 0 ? (
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : outletPlateColors.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">No plate colors configured for this outlet</p>
             ) : (
               <div className="space-y-3">
@@ -178,10 +194,13 @@ export function PlateColorsAdmin() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSaving}>
                 Cancel
               </Button>
-              <Button onClick={handleSave}>Save Changes</Button>
+              <Button onClick={handleSave} disabled={isSaving}>
+                {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Save Changes
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

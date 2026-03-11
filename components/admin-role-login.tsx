@@ -7,7 +7,9 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
-import { AlertCircle } from 'lucide-react'
+import { authService } from '@/lib/api'
+import { getApiError } from '@/lib/api'
+import { AlertCircle, Loader2 } from 'lucide-react'
 
 const ADMIN_ROLES = {
   administrator: {
@@ -53,25 +55,24 @@ export function AdminRoleLogin() {
     e.preventDefault()
     setIsLoading(true)
 
-    // Simulate login delay
-    await new Promise((resolve) => setTimeout(resolve, 300))
-
-    if (username === role.username && password === role.password) {
+    try {
+      const { user } = await authService.login({ email: username, password })
       toast({
         title: 'Login Successful',
-        description: `Welcome, ${role.title}!`,
+        description: `Welcome, ${user.name}!`,
       })
       router.push(role.dashboardRoute)
-    } else {
+    } catch (error) {
+      const apiError = getApiError(error)
       toast({
         title: 'Login Failed',
-        description: `Invalid username or password for ${role.title} role.`,
+        description: apiError.message || 'Invalid username or password',
         variant: 'destructive',
       })
       setPassword('')
+    } finally {
+      setIsLoading(false)
     }
-
-    setIsLoading(false)
   }
 
   return (
@@ -170,6 +171,7 @@ export function AdminRoleLogin() {
             </div>
           </div>
           <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+            {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
             {isLoading ? 'Signing In...' : 'Sign In'}
           </Button>
         </form>
