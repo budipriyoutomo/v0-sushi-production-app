@@ -3,6 +3,7 @@ export type PlateColor = "white" | "blue" | "pink" | "black" | "red" | "gold" | 
 export interface Outlet {
   id: string
   name: string
+  brand: string
   location: string
   code: string
   isActive: boolean

@@ -5,11 +5,16 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { authService, getApiError } from "@/lib/api"
+import { useOutlet } from "@/lib/outlet-context"
+import { Loader2 } from "lucide-react"
 
 export function KitchenPinLogin() {
   const router = useRouter()
+  const { selectedOutletId } = useOutlet()
   const [pin, setPin] = useState("")
   const [error, setError] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
 
   const handleNumberClick = (num: string) => {
     if (pin.length < 6) {
@@ -28,17 +33,22 @@ export function KitchenPinLogin() {
     setError("")
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (pin.length === 6) {
-      // Simulate PIN validation - in production, verify against database
-      // For demo: PIN 123456 is valid
-      if (pin === "123456") {
-        router.push("/kitchen/dashboard")
-      } else {
-        setError("Invalid PIN. Please try again.")
-        setPin("")
-      }
+    if (pin.length !== 6 || !selectedOutletId) return
+
+    setIsLoading(true)
+    setError("")
+
+    try {
+      await authService.pinLogin({ pin, outletId: selectedOutletId })
+      router.push("/kitchen/dashboard")
+    } catch (err) {
+      const apiError = getApiError(err)
+      setError(apiError.message || "Invalid PIN. Please try again.")
+      setPin("")
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -126,8 +136,9 @@ export function KitchenPinLogin() {
           </div>
 
           {/* Submit Button */}
-          <Button type="submit" className="w-full h-14 text-lg" size="lg" disabled={pin.length !== 6}>
-            Enter
+          <Button type="submit" className="w-full h-14 text-lg" size="lg" disabled={pin.length !== 6 || isLoading}>
+            {isLoading && <Loader2 className="w-5 h-5 mr-2 animate-spin" />}
+            {isLoading ? "Verifying..." : "Enter"}
           </Button>
         </form>
       </CardContent>

@@ -5,8 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { PlateColorBadge, type PlateColor } from "@/components/plate-color-badge"
 import type { SushiMenu } from "@/lib/types"
-import { sushiMenus as initialMenus, plateColors } from "@/lib/mock-data"
-import { Plus, Pencil, Trash2, Upload, X } from "lucide-react"
+import { useMenus } from "@/hooks/use-menus"
+import { usePlateColorsSortedByPrice } from "@/hooks/use-plate-colors"
+import { getApiError } from "@/lib/api"
+import { Plus, Pencil, Trash2, Upload, X, Loader2 } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -22,14 +24,16 @@ import { useToast } from "@/hooks/use-toast"
 
 export function MenusAdmin() {
   const { toast } = useToast()
-  const [menus, setMenus] = useState<SushiMenu[]>(initialMenus)
+  const { menus, isLoading, createMenu, updateMenu, deleteMenu } = useMenus()
+  const { plateColors } = usePlateColorsSortedByPrice()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<SushiMenu | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
 
   const [formData, setFormData] = useState({
     name: "",
-    plateColor: (plateColors[0]?.name || "white") as PlateColor,
+    plateColor: "white" as PlateColor,
     shelfLifeMinutes: 90,
     costEstimate: 0,
     image: "",
@@ -40,6 +44,8 @@ export function MenusAdmin() {
     setFormData({ name: "", plateColor: (plateColors[0]?.name || "white") as PlateColor, shelfLifeMinutes: 90, costEstimate: 0, image: "" })
     setIsDialogOpen(true)
   }
+
+  const defaultPlateColor = plateColors[0]?.name || "white"
 
   const handleEdit = (item: SushiMenu) => {
     setEditingItem(item)
@@ -53,25 +59,39 @@ export function MenusAdmin() {
     setIsDialogOpen(true)
   }
 
-  const handleSave = () => {
-    if (editingItem) {
-      setMenus(menus.map((item) => (item.id === editingItem.id ? { ...item, ...formData } : item)))
-      toast({ title: "Updated", description: "Menu item updated successfully" })
-    } else {
-      const newMenu: SushiMenu = {
-        id: Date.now().toString(),
-        ...formData,
-      }
-      setMenus([...menus, newMenu])
-      toast({ title: "Added", description: "New menu item added successfully" })
+  const handleSave = async () => {
+    if (!formData.name) {
+      toast({ title: "Error", description: "Please enter a menu name", variant: "destructive" })
+      return
     }
-    setIsDialogOpen(false)
+
+    setIsSaving(true)
+    try {
+      if (editingItem) {
+        await updateMenu(editingItem.id, formData)
+        toast({ title: "Updated", description: "Menu item updated successfully" })
+      } else {
+        await createMenu(formData)
+        toast({ title: "Added", description: "New menu item added successfully" })
+      }
+      setIsDialogOpen(false)
+    } catch (error) {
+      const apiError = getApiError(error)
+      toast({ title: "Error", description: apiError.message, variant: "destructive" })
+    } finally {
+      setIsSaving(false)
+    }
   }
 
-  const handleDelete = (id: string) => {
-    setMenus(menus.filter((item) => item.id !== id))
-    setDeleteConfirm(null)
-    toast({ title: "Deleted", description: "Menu item removed", variant: "destructive" })
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteMenu(id)
+      setDeleteConfirm(null)
+      toast({ title: "Deleted", description: "Menu item removed", variant: "destructive" })
+    } catch (error) {
+      const apiError = getApiError(error)
+      toast({ title: "Error", description: apiError.message, variant: "destructive" })
+    }
   }
 
   return (
@@ -93,6 +113,11 @@ export function MenusAdmin() {
             <CardTitle>Sushi Menu Items</CardTitle>
           </CardHeader>
           <CardContent>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -136,6 +161,7 @@ export function MenusAdmin() {
                 </tbody>
               </table>
             </div>
+            )}
           </CardContent>
         </Card>
 
@@ -241,10 +267,13 @@ export function MenusAdmin() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSaving}>
                 Cancel
               </Button>
-              <Button onClick={handleSave}>{editingItem ? "Save Changes" : "Add Item"}</Button>
+              <Button onClick={handleSave} disabled={isSaving}>
+                {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                {editingItem ? "Save Changes" : "Add Item"}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

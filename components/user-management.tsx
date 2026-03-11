@@ -15,12 +15,13 @@ import {
 } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/hooks/use-toast'
-import { outlets } from '@/lib/mock-data'
+import { useOutlets } from '@/hooks/use-outlets'
 import type { KitchenUser, AdminUser } from '@/lib/types'
-import { Plus, Trash2, Edit2, Shield, Lock } from 'lucide-react'
+import { Plus, Trash2, Edit2, Shield, Lock, Loader2 } from 'lucide-react'
 
 export function UserManagement() {
   const { toast } = useToast()
+  const { outlets, isLoading: outletsLoading } = useOutlets()
 
   // Kitchen Users
   const [kitchenUsers, setKitchenUsers] = useState<KitchenUser[]>([

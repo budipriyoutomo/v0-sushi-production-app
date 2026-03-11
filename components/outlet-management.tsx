@@ -16,17 +16,20 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Switch } from '@/components/ui/switch'
 import { useToast } from '@/hooks/use-toast'
+import { useOutlets } from '@/hooks/use-outlets'
+import { getApiError } from '@/lib/api'
 import type { Outlet } from '@/lib/types'
-import { outlets as initialOutlets } from '@/lib/mock-data'
-import { Plus, Trash2, Edit2, MapPin } from 'lucide-react'
+import { Plus, Trash2, Edit2, MapPin, Loader2 } from 'lucide-react'
 
 export function OutletManagement() {
   const { toast } = useToast()
-  const [outlets, setOutlets] = useState<Outlet[]>(initialOutlets)
+  const { outlets, isLoading, createOutlet, updateOutlet, deleteOutlet, toggleOutletStatus } = useOutlets()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingOutlet, setEditingOutlet] = useState<Outlet | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
+    brand: '',
     location: '',
     code: '',
     isActive: true,
@@ -34,7 +37,7 @@ export function OutletManagement() {
 
   const handleAdd = () => {
     setEditingOutlet(null)
-    setFormData({ name: '', location: '', code: '', isActive: true })
+    setFormData({ name: '', brand: '', location: '', code: '', isActive: true })
     setDialogOpen(true)
   }
 
@@ -42,6 +45,7 @@ export function OutletManagement() {
     setEditingOutlet(outlet)
     setFormData({
       name: outlet.name,
+      brand: outlet.brand,
       location: outlet.location,
       code: outlet.code,
       isActive: outlet.isActive,
@@ -49,11 +53,11 @@ export function OutletManagement() {
     setDialogOpen(true)
   }
 
-  const handleSave = () => {
-    if (!formData.name || !formData.location || !formData.code) {
+  const handleSave = async () => {
+    if (!formData.name || !formData.brand || !formData.location || !formData.code) {
       toast({
         title: 'Error',
-        description: 'Please fill in all fields',
+        description: 'Please fill in all required fields',
         variant: 'destructive',
       })
       return
@@ -68,52 +72,64 @@ export function OutletManagement() {
       return
     }
 
-    if (editingOutlet) {
-      setOutlets(
-        outlets.map((outlet) =>
-          outlet.id === editingOutlet.id
-            ? { ...outlet, ...formData }
-            : outlet
-        )
-      )
-      toast({
-        title: 'Success',
-        description: 'Outlet updated successfully',
-      })
-    } else {
-      const newOutlet: Outlet = {
-        id: `outlet-${Date.now()}`,
-        ...formData,
-        createdAt: new Date(),
+    setIsSaving(true)
+    try {
+      if (editingOutlet) {
+        await updateOutlet(editingOutlet.id, formData)
+        toast({
+          title: 'Success',
+          description: 'Outlet updated successfully',
+        })
+      } else {
+        await createOutlet(formData)
+        toast({
+          title: 'Success',
+          description: 'Outlet added successfully',
+        })
       }
-      setOutlets([...outlets, newOutlet])
+      setDialogOpen(false)
+    } catch (error) {
+      const apiError = getApiError(error)
       toast({
-        title: 'Success',
-        description: 'Outlet added successfully',
+        title: 'Error',
+        description: apiError.message,
+        variant: 'destructive',
       })
+    } finally {
+      setIsSaving(false)
     }
-
-    setDialogOpen(false)
   }
 
-  const handleDelete = (outletId: string) => {
+  const handleDelete = async (outletId: string) => {
     if (window.confirm('Are you sure you want to delete this outlet?')) {
-      setOutlets(outlets.filter((outlet) => outlet.id !== outletId))
-      toast({
-        title: 'Success',
-        description: 'Outlet deleted successfully',
-      })
+      try {
+        await deleteOutlet(outletId)
+        toast({
+          title: 'Success',
+          description: 'Outlet deleted successfully',
+        })
+      } catch (error) {
+        const apiError = getApiError(error)
+        toast({
+          title: 'Error',
+          description: apiError.message,
+          variant: 'destructive',
+        })
+      }
     }
   }
 
-  const handleToggleActive = (outletId: string) => {
-    setOutlets(
-      outlets.map((outlet) =>
-        outlet.id === outletId
-          ? { ...outlet, isActive: !outlet.isActive }
-          : outlet
-      )
-    )
+  const handleToggleActive = async (outletId: string) => {
+    try {
+      await toggleOutletStatus(outletId)
+    } catch (error) {
+      const apiError = getApiError(error)
+      toast({
+        title: 'Error',
+        description: apiError.message,
+        variant: 'destructive',
+      })
+    }
   }
 
   return (
@@ -136,12 +152,18 @@ export function OutletManagement() {
             <CardTitle>Active Outlets</CardTitle>
           </CardHeader>
           <CardContent>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Code</TableHead>
                     <TableHead>Name</TableHead>
+                    <TableHead>Brand</TableHead>
                     <TableHead>Location</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Created</TableHead>
@@ -151,7 +173,7 @@ export function OutletManagement() {
                 <TableBody>
                   {outlets.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                         No outlets found
                       </TableCell>
                     </TableRow>
@@ -165,6 +187,7 @@ export function OutletManagement() {
                             {outlet.name}
                           </div>
                         </TableCell>
+                        <TableCell>{outlet.brand}</TableCell>
                         <TableCell>{outlet.location}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
@@ -204,6 +227,7 @@ export function OutletManagement() {
                 </TableBody>
               </Table>
             </div>
+            )}
           </CardContent>
         </Card>
 
@@ -227,6 +251,17 @@ export function OutletManagement() {
                   value={formData.name}
                   onChange={(e) =>
                     setFormData({ ...formData, name: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <Label htmlFor="brand">Brand</Label>
+                <Input
+                  id="brand"
+                  placeholder="e.g., Sushi King"
+                  value={formData.brand}
+                  onChange={(e) =>
+                    setFormData({ ...formData, brand: e.target.value })
                   }
                 />
               </div>
@@ -264,10 +299,11 @@ export function OutletManagement() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={isSaving}>
                 Cancel
               </Button>
-              <Button onClick={handleSave}>
+              <Button onClick={handleSave} disabled={isSaving}>
+                {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 {editingOutlet ? 'Update' : 'Add'} Outlet
               </Button>
             </DialogFooter>
