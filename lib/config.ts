@@ -1,7 +1,7 @@
 // API Configuration
 export const config = {
   api: {
-    baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.example.com',
+    baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.maharasa.calira.my.id',
     timeout: 30000,
   },
   auth: {
