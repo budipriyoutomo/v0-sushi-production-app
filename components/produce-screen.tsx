@@ -7,37 +7,56 @@ import { Button } from "@/components/ui/button"
 import { PlateColorBadge } from "@/components/plate-color-badge"
 import { OutletSelector } from "@/components/outlet-selector"
 import { QuantityCalculator } from "@/components/quantity-calculator"
-import { sushiMenus, plateColors } from "@/lib/mock-data"
+import { useOutlet } from "@/lib/outlet-context"
+import { useMenus } from "@/hooks/use-menus"
+import { usePlateColorsSortedByPrice } from "@/hooks/use-plate-colors"
+import { useConveyorItems } from "@/hooks/use-production"
+import { getApiError } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
-import { Plus } from "lucide-react"
+import type { SushiMenu } from "@/lib/types"
+import { Loader2 } from "lucide-react"
 
 export function ProduceScreen() {
   const { toast } = useToast()
+  const { selectedOutletId } = useOutlet()
+  const { menus, isLoading: menusLoading } = useMenus()
+  const { plateColors, isLoading: plateColorsLoading } = usePlateColorsSortedByPrice()
+  const { produceItem } = useConveyorItems(selectedOutletId)
   const [producing, setProducing] = useState<string | null>(null)
   const [selectedColor, setSelectedColor] = useState<string | null>(null)
   const [calculatorOpen, setCalculatorOpen] = useState(false)
-  const [selectedItem, setSelectedItem] = useState<typeof sushiMenus[0] | null>(null)
+  const [selectedItem, setSelectedItem] = useState<SushiMenu | null>(null)
 
-  const handleProduce = (sushi: typeof sushiMenus[0]) => {
+  const isLoading = menusLoading || plateColorsLoading
+
+  const handleProduce = (sushi: SushiMenu) => {
     setSelectedItem(sushi)
     setCalculatorOpen(true)
   }
 
-  const handleConfirmQuantity = (quantity: number) => {
+  const handleConfirmQuantity = async (quantity: number) => {
     if (!selectedItem) return
 
     setProducing(selectedItem.id)
     setCalculatorOpen(false)
 
-    // Simulate production
-    setTimeout(() => {
+    try {
+      await produceItem(selectedItem.id, quantity)
       toast({
         title: "Plates Produced",
         description: `Successfully produced ${quantity}x ${selectedItem.name}`,
       })
+    } catch (error) {
+      const apiError = getApiError(error)
+      toast({
+        title: "Error",
+        description: apiError.message,
+        variant: "destructive",
+      })
+    } finally {
       setProducing(null)
       setSelectedItem(null)
-    }, 500)
+    }
   }
 
   const handleCancelCalculator = () => {
@@ -45,7 +64,7 @@ export function ProduceScreen() {
     setSelectedItem(null)
   }
 
-  const filteredSushi = selectedColor ? sushiMenus.filter((sushi) => sushi.plateColor === selectedColor) : sushiMenus
+  const filteredSushi = selectedColor ? menus.filter((sushi) => sushi.plateColor === selectedColor) : menus
 
   return (
     <div className="space-y-6">
@@ -67,9 +86,7 @@ export function ProduceScreen() {
         >
           All Colors
         </Button>
-        {plateColors
-          .sort((a, b) => a.price - b.price)
-          .map((plate) => (
+        {plateColors.map((plate) => (
             <Button
               key={plate.id}
               variant={selectedColor === plate.name ? "default" : "outline"}
@@ -82,6 +99,11 @@ export function ProduceScreen() {
       </div>
 
       {/* Sushi Grid */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
   {filteredSushi.map((sushi) => {
     const isProducing = producing === sushi.id
@@ -134,10 +156,11 @@ export function ProduceScreen() {
         </div>
       </Card>
     )
-  })}
+          })}
 </div>
+      )}
 
-      {filteredSushi.length === 0 && (
+      {filteredSushi.length === 0 && !isLoading && (
         <div className="text-center py-12">
           <p className="text-muted-foreground">No items available for this color</p>
         </div>

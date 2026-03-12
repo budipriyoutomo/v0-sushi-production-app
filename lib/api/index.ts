@@ -16,6 +16,7 @@ export {
   type ProductionItem,
   type ConveyorItem,
   type WasteRecord,
+  type ProductionStats,
 } from './services/production'
 export {
   reportsService,

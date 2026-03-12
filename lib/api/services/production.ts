@@ -33,8 +33,25 @@ export interface WasteRecord {
   outletId: string
 }
 
+export interface ProductionStats {
+  plateColor: PlateColor
+  targetToday: number
+  produced: number
+  sold: number
+  expiringSoon: number
+  outletId: string
+}
+
 class ProductionService {
   private endpoint = '/production'
+
+  // Get production stats for dashboard
+  async getStats(outletId: string): Promise<ProductionStats[]> {
+    const response = await apiClient.get<{ data: ProductionStats[] }>(`${this.endpoint}/stats`, {
+      params: { outletId },
+    })
+    return response.data.data
+  }
 
   // Get production plan for a date
   async getPlan(outletId: string, date: string): Promise<ProductionPlanRow[]> {
