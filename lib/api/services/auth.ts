@@ -14,12 +14,11 @@ export interface LoginResponse {
 }
 
 export interface PinLoginCredentials {
-  pin: string
-  outletId: string
+  pin: string 
 }
 
 class AuthService {
-  private endpoint = '/auth'
+  private endpoint = ''
 
   // Admin login with email/password
   async login(credentials: LoginCredentials): Promise<LoginResponse> {
@@ -31,7 +30,7 @@ class AuthService {
 
   // Kitchen login with PIN
   async pinLogin(credentials: PinLoginCredentials): Promise<LoginResponse> {
-    const response = await apiClient.post<{ data: LoginResponse }>(`${this.endpoint}/pin-login`, credentials)
+    const response = await apiClient.post<{ data: LoginResponse }>(`${this.endpoint}/login-pin`, credentials)
     const { token } = response.data.data
     setAuthToken(token)
     return response.data.data
