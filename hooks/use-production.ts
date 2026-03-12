@@ -4,9 +4,31 @@ import {
   type ProductionPlanRow,
   type ConveyorItem,
   type WasteRecord,
+  type ProductionStats,
 } from '@/lib/api'
 
 const PRODUCTION_KEY = '/production'
+
+export function useProductionStats(outletId: string | null) {
+  const { data, error, isLoading, mutate } = useSWR<ProductionStats[]>(
+    outletId ? `${PRODUCTION_KEY}/stats/${outletId}` : null,
+    async () => {
+      if (!outletId) return []
+      const stats = await productionService.getStats(outletId)
+      return stats
+    },
+    {
+      refreshInterval: 30000, // Refresh every 30 seconds
+    }
+  )
+
+  return {
+    stats: data || [],
+    isLoading,
+    error,
+    refresh: mutate,
+  }
+}
 
 export function useProductionPlan(outletId: string | null, date: string | null) {
   const { data, error, isLoading, mutate } = useSWR<ProductionPlanRow[]>(

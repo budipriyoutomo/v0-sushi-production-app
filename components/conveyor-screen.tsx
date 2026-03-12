@@ -8,104 +8,84 @@ import { Input } from "@/components/ui/input"
 import { PlateColorBadge } from "@/components/plate-color-badge"
 import { OutletSelector } from "@/components/outlet-selector"
 import { ExpirationCountdown } from "@/components/expiration-countdown"
-import type { ProductionItem } from "@/lib/types"
-import { plateColors, sushiMenus } from "@/lib/mock-data"
+import { useOutlet } from "@/lib/outlet-context"
+import { useConveyorItems } from "@/hooks/use-production"
+import { usePlateColorsSortedByPrice } from "@/hooks/use-plate-colors"
+import { useMenus } from "@/hooks/use-menus"
 import { useToast } from "@/hooks/use-toast"
-import Link from "next/link"
-import { CheckCircle, XCircle } from "lucide-react"
+import { productionService, getApiError } from "@/lib/api"
+import { CheckCircle, XCircle, Loader2 } from "lucide-react"
 
-interface ItemWithWasteReason extends ProductionItem {
+interface ItemWithWasteReason {
+  id: string
+  menuId: string
+  menuName: string
+  plateColor: string
+  producedAt: Date
+  expiresAt: Date
   wasteReasonInput?: string
   showWasteReasonForm?: boolean
 }
 
 export function ConveyorScreen() {
   const { toast } = useToast()
+  const { selectedOutletId } = useOutlet()
+  const { items: conveyorItems, isLoading, refresh } = useConveyorItems(selectedOutletId)
+  const { plateColors } = usePlateColorsSortedByPrice()
+  const { menus } = useMenus()
   const [selectedColor, setSelectedColor] = useState<string | null>(null)
+  const [itemStates, setItemStates] = useState<Record<string, { wasteReasonInput: string; showWasteReasonForm: boolean }>>({})
 
-  // Mock active production items
-  const [items, setItems] = useState<ItemWithWasteReason[]>([
-    {
-      id: "1",
-      sushiId: "1",
-      sushiName: "California Roll",
-      plateColor: "white",
-      productionTime: new Date(Date.now() - 30 * 60 * 1000), // 30 min ago
-      shelfLifeMinutes: 120,
-      status: "active",
-      wasteReasonInput: "",
-      showWasteReasonForm: false,
-    },
-    {
-      id: "2",
-      sushiId: "3",
-      sushiName: "Salmon Nigiri",
-      plateColor: "blue",
-      productionTime: new Date(Date.now() - 70 * 60 * 1000), // 70 min ago
-      shelfLifeMinutes: 90,
-      status: "active",
-      wasteReasonInput: "",
-      showWasteReasonForm: false,
-    },
-    {
-      id: "3",
-      sushiId: "5",
-      sushiName: "Spicy Tuna Roll",
-      plateColor: "pink",
-      productionTime: new Date(Date.now() - 15 * 60 * 1000), // 15 min ago
-      shelfLifeMinutes: 90,
-      status: "active",
-      wasteReasonInput: "",
-      showWasteReasonForm: false,
-    },
-    {
-      id: "4",
-      sushiId: "7",
-      sushiName: "Rainbow Roll",
-      plateColor: "gold",
-      productionTime: new Date(Date.now() - 60 * 60 * 1000), // 60 min ago
-      shelfLifeMinutes: 75,
-      status: "active",
-      wasteReasonInput: "",
-      showWasteReasonForm: false,
-    },
-  ])
+  // Map conveyor items to include local state
+  const items: ItemWithWasteReason[] = conveyorItems.map((item) => ({
+    ...item,
+    producedAt: new Date(item.producedAt),
+    expiresAt: new Date(item.expiresAt),
+    wasteReasonInput: itemStates[item.id]?.wasteReasonInput || "",
+    showWasteReasonForm: itemStates[item.id]?.showWasteReasonForm || false,
+  }))
 
   // Filter out expired items (time remaining <= 0)
   const activeItems = items.filter((item) => {
-    const timeRemaining = item.shelfLifeMinutes - Math.floor((Date.now() - item.productionTime.getTime()) / 60000)
+    const timeRemaining = Math.floor((item.expiresAt.getTime() - Date.now()) / 60000)
     return timeRemaining > 0
   })
 
   const filteredItems = selectedColor ? activeItems.filter((item) => item.plateColor === selectedColor) : activeItems
 
-  // Filter for buttons - sort by price
-  const sortedPlateColors = plateColors.sort((a, b) => a.price - b.price)
-
   // Sort by time remaining (expiring soon first)
   const sortedItems = [...filteredItems].sort((a, b) => {
-    const timeRemainingA = a.shelfLifeMinutes - Math.floor((Date.now() - a.productionTime.getTime()) / 60000)
-    const timeRemainingB = b.shelfLifeMinutes - Math.floor((Date.now() - b.productionTime.getTime()) / 60000)
+    const timeRemainingA = a.expiresAt.getTime() - Date.now()
+    const timeRemainingB = b.expiresAt.getTime() - Date.now()
     return timeRemainingA - timeRemainingB
   })
 
-  const handleMarkSold = (itemId: string, sushiName: string) => {
-    setItems((prev) => prev.filter((item) => item.id !== itemId))
-    toast({
-      title: "Marked as Sold",
-      description: `${sushiName} removed from conveyor`,
-    })
+  const handleMarkSold = async (itemId: string, menuName: string) => {
+    try {
+      await productionService.removeExpired([itemId])
+      await refresh()
+      toast({
+        title: "Marked as Sold",
+        description: `${menuName} removed from conveyor`,
+      })
+    } catch (error) {
+      const apiError = getApiError(error)
+      toast({
+        title: "Error",
+        description: apiError.message,
+        variant: "destructive",
+      })
+    }
   }
 
   const handleWasteClick = (itemId: string) => {
-    setItems((prev) =>
-      prev.map((item) =>
-        item.id === itemId ? { ...item, showWasteReasonForm: true } : item
-      )
-    )
+    setItemStates((prev) => ({
+      ...prev,
+      [itemId]: { ...prev[itemId], showWasteReasonForm: true, wasteReasonInput: prev[itemId]?.wasteReasonInput || "" },
+    }))
   }
 
-  const handleMarkWaste = (itemId: string, sushiName: string, reason: string) => {
+  const handleMarkWaste = async (itemId: string, menuId: string, menuName: string, reason: string) => {
     if (!reason.trim()) {
       toast({
         title: "Error",
@@ -114,22 +94,42 @@ export function ConveyorScreen() {
       })
       return
     }
-    setItems((prev) => prev.filter((item) => item.id !== itemId))
-    toast({
-      title: "Marked as Waste",
-      description: `${sushiName} - Reason: ${reason}`,
-      variant: "destructive",
-    })
+    try {
+      await productionService.recordWaste({ menuId, quantity: 1, reason, outletId: selectedOutletId || "" })
+      await productionService.removeExpired([itemId])
+      await refresh()
+      setItemStates((prev) => {
+        const newState = { ...prev }
+        delete newState[itemId]
+        return newState
+      })
+      toast({
+        title: "Marked as Waste",
+        description: `${menuName} - Reason: ${reason}`,
+        variant: "destructive",
+      })
+    } catch (error) {
+      const apiError = getApiError(error)
+      toast({
+        title: "Error",
+        description: apiError.message,
+        variant: "destructive",
+      })
+    }
   }
 
   const handleCancelWasteReason = (itemId: string) => {
-    setItems((prev) =>
-      prev.map((item) =>
-        item.id === itemId
-          ? { ...item, showWasteReasonForm: false, wasteReasonInput: "" }
-          : item
-      )
-    )
+    setItemStates((prev) => ({
+      ...prev,
+      [itemId]: { ...prev[itemId], showWasteReasonForm: false, wasteReasonInput: "" },
+    }))
+  }
+
+  const handleWasteReasonChange = (itemId: string, value: string) => {
+    setItemStates((prev) => ({
+      ...prev,
+      [itemId]: { ...prev[itemId], wasteReasonInput: value, showWasteReasonForm: prev[itemId]?.showWasteReasonForm || false },
+    }))
   }
 
   return (
@@ -152,7 +152,7 @@ export function ConveyorScreen() {
         >
           All Colors
         </Button>
-        {sortedPlateColors.map((plate) => (
+        {plateColors.map((plate) => (
           <Button
             key={plate.id}
             variant={selectedColor === plate.name ? "default" : "outline"}
@@ -165,7 +165,11 @@ export function ConveyorScreen() {
       </div>
 
       {/* Items Grid */}
-      {sortedItems.length === 0 ? (
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : sortedItems.length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center">
             <p className="text-muted-foreground text-lg">
@@ -176,7 +180,8 @@ export function ConveyorScreen() {
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
           {sortedItems.map((item) => {
-            const menuItem = sushiMenus.find((m) => m.id === item.sushiId)
+            const menuItem = menus.find((m) => m.id === item.menuId)
+            const shelfLifeMinutes = Math.floor((item.expiresAt.getTime() - item.producedAt.getTime()) / 60000)
             return (
               <Card
                 key={item.id}
@@ -186,7 +191,7 @@ export function ConveyorScreen() {
                 {menuItem?.image && (
                   <Image
                     src={menuItem.image}
-                    alt={item.sushiName}
+                    alt={item.menuName}
                     fill
                     className="object-cover group-hover:scale-105 transition-transform duration-300"
                   />
@@ -208,14 +213,14 @@ export function ConveyorScreen() {
 
                     {/* Name */}
                     <h3 className="text-sm font-semibold leading-tight line-clamp-2">
-                      {item.sushiName}
+                      {item.menuName}
                     </h3>
 
                     {/* Countdown */}
                     <div className="text-xs">
                       <ExpirationCountdown
-                        productionTime={item.productionTime}
-                        shelfLifeMinutes={item.shelfLifeMinutes}
+                        productionTime={item.producedAt}
+                        shelfLifeMinutes={shelfLifeMinutes}
                       />
                     </div>
 
@@ -226,7 +231,7 @@ export function ConveyorScreen() {
                       <Button
                         size="sm"
                         className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-8 text-xs"
-                        onClick={() => handleMarkSold(item.id, item.sushiName)}
+                        onClick={() => handleMarkSold(item.id, item.menuName)}
                       >
                         <CheckCircle className="w-3 h-3 mr-1" />
                         Sold
@@ -248,15 +253,7 @@ export function ConveyorScreen() {
                           <Input
                             placeholder="Reason for waste"
                             value={item.wasteReasonInput}
-                            onChange={(e) =>
-                              setItems((prev) =>
-                                prev.map((i) =>
-                                  i.id === item.id
-                                    ? { ...i, wasteReasonInput: e.target.value }
-                                    : i
-                                )
-                              )
-                            }
+                            onChange={(e) => handleWasteReasonChange(item.id, e.target.value)}
                             className="h-7 text-xs bg-white text-black"
                           />
                           <div className="flex gap-1">
@@ -266,7 +263,8 @@ export function ConveyorScreen() {
                               onClick={() =>
                                 handleMarkWaste(
                                   item.id,
-                                  item.sushiName,
+                                  item.menuId,
+                                  item.menuName,
                                   item.wasteReasonInput || ""
                                 )
                               }

@@ -23,15 +23,20 @@ import {
 } from '@/components/ui/dialog'
 import { PlateColorBadge } from '@/components/plate-color-badge'
 import { OutletSelector } from '@/components/outlet-selector'
-import type { ProductionItem } from '@/lib/types'
+import { useMenus } from '@/hooks/use-menus'
+import { usePlateColorsSortedByPrice } from '@/hooks/use-plate-colors'
 import { useToast } from '@/hooks/use-toast'
-import { sushiMenus, plateColors } from '@/lib/mock-data'
-import { CheckCircle, AlertCircle } from 'lucide-react'
+import { CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 
-interface ExpiredItem extends ProductionItem {
+interface ExpiredItem {
+  id: string
+  menuId: string
+  menuName: string
+  plateColor: string
+  producedAt: Date
+  expiresAt: Date
   status?: 'sold' | 'waste'
   notes?: string
-  expiredAt?: Date
 }
 
 interface ExpiredItemsManagerProps {
@@ -41,7 +46,10 @@ interface ExpiredItemsManagerProps {
 
 export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsManagerProps) {
   const { toast } = useToast()
+  const { menus, isLoading: menusLoading } = useMenus()
+  const { plateColors, isLoading: plateColorsLoading } = usePlateColorsSortedByPrice()
   const [selectedColor, setSelectedColor] = useState<string | null>(null)
+  const isLoading = menusLoading || plateColorsLoading
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState<ExpiredItem | null>(null)
   const [newStatus, setNewStatus] = useState<'sold' | 'waste'>('sold')
@@ -80,9 +88,7 @@ export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsMana
   }
 
   const calculateExpiredTime = (item: ExpiredItem) => {
-    const productionTime = new Date(item.productionTime)
-    const expiredTime = new Date(productionTime.getTime() + item.shelfLifeMinutes * 60000)
-    return expiredTime
+    return new Date(item.expiresAt)
   }
 
   return (
@@ -119,7 +125,11 @@ export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsMana
         ))}
       </div>
 
-      {filteredItems.length === 0 ? (
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : filteredItems.length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center">
             <p className="text-muted-foreground text-lg">No expired items</p>
@@ -128,8 +138,8 @@ export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsMana
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
           {filteredItems.map((item) => {
-            const menuItem = sushiMenus.find((m) => m.id === item.sushiId)
-            const productionTime = new Date(item.productionTime)
+            const menuItem = menus.find((m) => m.id === item.menuId)
+            const productionTime = new Date(item.producedAt)
             const expiredTime = calculateExpiredTime(item)
 
             return (
@@ -141,7 +151,7 @@ export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsMana
                 {menuItem?.image && (
                   <Image
                     src={menuItem.image}
-                    alt={item.sushiName}
+                    alt={item.menuName}
                     fill
                     className="object-cover group-hover:scale-105 transition-transform duration-300"
                   />
@@ -162,7 +172,7 @@ export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsMana
 
                     {/* Name */}
                     <h3 className="text-sm font-semibold ">
-                      {item.sushiName}
+                      {item.menuName}
                     </h3>
 
                     {/* Production Details */}
@@ -214,17 +224,17 @@ export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsMana
             <DialogHeader>
               <DialogTitle>Update Expired Item</DialogTitle>
               <DialogDescription>
-                Update the status and add notes for: <span className="font-semibold">{selectedItem.sushiName}</span>
+                Update the status and add notes for: <span className="font-semibold">{selectedItem.menuName}</span>
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4">
               {/* Menu Details */}
               <div className="bg-muted/30 border rounded-lg p-3 space-y-2">
-                <h3 className="font-semibold text-sm">{selectedItem.sushiName}</h3>
+                <h3 className="font-semibold text-sm">{selectedItem.menuName}</h3>
                 <div className="text-xs text-muted-foreground space-y-1">
                   <p>
-                    <span className="font-medium">Production:</span> {new Date(selectedItem.productionTime).toLocaleString()}
+                    <span className="font-medium">Production:</span> {new Date(selectedItem.producedAt).toLocaleString()}
                   </p>
                   <p>
                     <span className="font-medium">Expired:</span> {calculateExpiredTime(selectedItem).toLocaleString()}

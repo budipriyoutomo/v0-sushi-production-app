@@ -4,9 +4,11 @@ import { Card, CardContent } from "@/components/ui/card"
 import { PlateColorBadge, type PlateColor } from "@/components/plate-color-badge"
 import { StatusIndicator, type Status } from "@/components/status-indicator"
 import { OutletSelector } from "@/components/outlet-selector"
-import { mockProductionStats, plateColors } from "@/lib/mock-data"
 import { useOutlet } from "@/lib/outlet-context"
+import { useProductionStats } from "@/hooks/use-production"
+import { usePlateColorsSortedByPrice } from "@/hooks/use-plate-colors"
 import { cn } from "@/lib/utils"
+import { Loader2 } from "lucide-react"
 
 const plateColorBg: Record<PlateColor, string> = {
   green: "bg-emerald-50 border-emerald-200",
@@ -17,9 +19,8 @@ const plateColorBg: Record<PlateColor, string> = {
 
 export function KitchenDashboard() {
   const { selectedOutletId } = useOutlet()
-  
-  // Filter stats by selected outlet
-  const outletStats = mockProductionStats.filter((stat) => stat.outletId === selectedOutletId)
+  const { stats, isLoading } = useProductionStats(selectedOutletId)
+  const { plateColors } = usePlateColorsSortedByPrice()
 
   const getStatus = (produced: number, target: number, expiringSoon: number): Status => {
     const percentage = (produced / target) * 100
@@ -40,8 +41,13 @@ export function KitchenDashboard() {
       </div>
 
       {/* Production Cards Grid */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-        {outletStats
+        {stats
           .sort((a, b) => {
             const priceA = plateColors.find((pc) => pc.name === a.plateColor)?.price || 0
             const priceB = plateColors.find((pc) => pc.name === b.plateColor)?.price || 0
@@ -95,6 +101,7 @@ export function KitchenDashboard() {
           )
         })}
       </div>
+      )}
     </div>
   )
 }
