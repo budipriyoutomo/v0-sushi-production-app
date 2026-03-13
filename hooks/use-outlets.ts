@@ -2,7 +2,7 @@ import useSWR from 'swr'
 import { outletsService, type CreateOutletDTO, type UpdateOutletDTO } from '@/lib/api'
 import type { Outlet } from '@/lib/types'
 
-const OUTLETS_KEY = '/outlets'
+const OUTLETS_KEY = '/master/outlet'
 
 export function useOutlets() {
   const { data, error, isLoading, mutate } = useSWR<Outlet[]>(OUTLETS_KEY, async () => {
