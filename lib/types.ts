@@ -31,11 +31,11 @@ export interface AdminUser {
 
 export interface PlateColorConfig {
   id: string
-  outletId: string
-  name: PlateColor
+  platename: string
   price: number
+  description: string
   targetFoodCost: number
-  active: boolean
+  isActive: boolean
 }
 
 export interface SushiMenu {

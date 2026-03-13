@@ -2,7 +2,7 @@ import useSWR from 'swr'
 import { plateColorsService, type CreatePlateColorDTO, type UpdatePlateColorDTO } from '@/lib/api'
 import type { PlateColorConfig } from '@/lib/types'
 
-const PLATE_COLORS_KEY = '/plate-colors'
+const PLATE_COLORS_KEY = '/master/platecolor'
 
 export function usePlateColors() {
   const { data, error, isLoading, mutate } = useSWR<PlateColorConfig[]>(PLATE_COLORS_KEY, async () => {
