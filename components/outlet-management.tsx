@@ -28,33 +28,33 @@ export function OutletManagement() {
   const [editingOutlet, setEditingOutlet] = useState<Outlet | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [formData, setFormData] = useState({
+    code: '',
     name: '',
     brand: '',
-    location: '',
-    code: '',
-    isActive: true,
+    address: '',
+    is_active: true,
   })
 
   const handleAdd = () => {
     setEditingOutlet(null)
-    setFormData({ name: '', brand: '', location: '', code: '', isActive: true })
+    setFormData({ code: '', name: '', brand: '', address: '', is_active: true })
     setDialogOpen(true)
   }
 
   const handleEdit = (outlet: Outlet) => {
     setEditingOutlet(outlet)
     setFormData({
+      code: outlet.code,
       name: outlet.name,
       brand: outlet.brand,
-      location: outlet.location,
-      code: outlet.code,
-      isActive: outlet.isActive,
+      address: outlet.address,
+      is_active: outlet.isActive,
     })
     setDialogOpen(true)
   }
 
   const handleSave = async () => {
-    if (!formData.name || !formData.brand || !formData.location || !formData.code) {
+    if (!formData.name || !formData.brand || !formData.address || !formData.code) {
       toast({
         title: 'Error',
         description: 'Please fill in all required fields',
@@ -164,7 +164,7 @@ export function OutletManagement() {
                     <TableHead>Code</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Brand</TableHead>
-                    <TableHead>Location</TableHead>
+                    <TableHead>Address</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead className="w-20">Actions</TableHead>
@@ -188,7 +188,7 @@ export function OutletManagement() {
                           </div>
                         </TableCell>
                         <TableCell>{outlet.brand}</TableCell>
-                        <TableCell>{outlet.location}</TableCell>
+                        <TableCell>{outlet.address}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Switch
@@ -266,13 +266,13 @@ export function OutletManagement() {
                 />
               </div>
               <div>
-                <Label htmlFor="location">Location</Label>
+                <Label htmlFor="address">Address</Label>
                 <Input
-                  id="location"
-                  placeholder="e.g., Downtown"
-                  value={formData.location}
+                  id="address"
+                  placeholder="e.g., paris van java"
+                  value={formData.address}
                   onChange={(e) =>
-                    setFormData({ ...formData, location: e.target.value })
+                    setFormData({ ...formData, address: e.target.value })
                   }
                 />
               </div>
@@ -290,9 +290,9 @@ export function OutletManagement() {
               </div>
               <div className="flex items-center gap-3">
                 <Switch
-                  checked={formData.isActive}
+                  checked={formData.is_active}
                   onCheckedChange={(checked) =>
-                    setFormData({ ...formData, isActive: checked })
+                    setFormData({ ...formData, is_active: checked })
                   }
                 />
                 <Label>Active Status</Label>
