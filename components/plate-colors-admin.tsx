@@ -7,7 +7,6 @@ import { PlateColorBadge } from "@/components/plate-color-badge"
 import type { PlateColorConfig } from "@/lib/types"
 import { usePlateColors } from "@/hooks/use-plate-colors"
 import { getApiError } from "@/lib/api"
-import { useOutlet } from "@/lib/outlet-context"
 import { Plus, Pencil, Trash2, Loader2 } from "lucide-react"
 import {
   Dialog,
@@ -24,50 +23,65 @@ import { useToast } from "@/hooks/use-toast"
 
 export function PlateColorsAdmin() {
   const { toast } = useToast()
-  const { selectedOutletId } = useOutlet()
-  const { plateColors, isLoading, updatePlateColor, deletePlateColor } = usePlateColors()
+  const { plateColors, isLoading, createPlateColor, updatePlateColor, deletePlateColor } = usePlateColors()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<PlateColorConfig | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
 
   const [formData, setFormData] = useState({
-    name: "",
+    platename: "",
     price: 0,
-    targetFoodCost: 0,
-    active: true,
+    description: "",
+    target_foodcost: 0,
+    is_active: true,
   })
-
-  // Filter plate colors by selected outlet
-  const outletPlateColors = plateColors.filter((pc) => pc.outletId === selectedOutletId)
 
   const handleAdd = () => {
     setEditingItem(null)
-    setFormData({ name: "", price: 0, targetFoodCost: 0, active: true })
+    setFormData({ platename: "", price: 0, description: "", target_foodcost: 0, is_active: true })
     setIsDialogOpen(true)
   }
 
   const handleEdit = (item: PlateColorConfig) => {
     setEditingItem(item)
     setFormData({
-      name: item.name,
+      platename: item.platename,
       price: item.price,
-      targetFoodCost: item.targetFoodCost,
-      active: item.active,
+      description: item.description,
+      target_foodcost: item.targetFoodCost,
+      is_active: item.isActive,
     })
     setIsDialogOpen(true)
   }
 
   const handleSave = async () => {
-    if (!editingItem) return
+    if (!formData.platename || formData.price <= 0) {
+      toast({ title: "Error", description: "Please fill in all required fields", variant: "destructive" })
+      return
+    }
 
     setIsSaving(true)
     try {
-      await updatePlateColor(editingItem.id, {
-        price: formData.price,
-        sortOrder: formData.targetFoodCost,
-      })
-      toast({ title: "Updated", description: "Plate color updated successfully" })
+      if (editingItem) {
+        await updatePlateColor(editingItem.id, {
+          platename: formData.platename,
+          price: formData.price,
+          description: formData.description,
+          target_foodcost: formData.target_foodcost,
+          is_active: formData.is_active,
+        })
+        toast({ title: "Updated", description: "Plate color updated successfully" })
+      } else {
+        await createPlateColor({
+          platename: formData.platename,
+          price: formData.price,
+          description: formData.description,
+          target_foodcost: formData.target_foodcost,
+          is_active: formData.is_active,
+        })
+        toast({ title: "Created", description: "Plate color created successfully" })
+      }
       setIsDialogOpen(false)
     } catch (error) {
       const apiError = getApiError(error)
@@ -114,26 +128,28 @@ export function PlateColorsAdmin() {
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
               </div>
-            ) : outletPlateColors.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">No plate colors configured for this outlet</p>
+            ) : plateColors.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">No plate colors configured</p>
             ) : (
               <div className="space-y-3">
-                {outletPlateColors.map((color) => (
+                {plateColors.map((color) => (
                   <div
                     key={color.id}
                     className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50"
                   >
                     <div className="flex items-center gap-4 flex-1">
-                      <PlateColorBadge color={color.name} />
+                      <PlateColorBadge color={color.platename.toLowerCase() as "white" | "blue" | "pink" | "black" | "red" | "gold" | "choco motive" | "yellow" | "silver"} />
                       <div className="flex-1">
-                        <p className="font-medium capitalize">{color.name}</p>
-                        <p className="text-sm text-muted-foreground">Price: ${color.price.toFixed(2)} • Target Food Cost: {color.targetFoodCost}%</p>
+                        <p className="font-medium capitalize">{color.platename}</p>
+                        <p className="text-sm text-muted-foreground">
+                          Price: Rp {color.price.toLocaleString()} | Target Food Cost: {color.targetFoodCost}% | {color.description}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-muted-foreground">Active</span>
-                        <Switch checked={color.active} disabled />
+                        <Switch checked={color.isActive} disabled />
                       </div>
                       <Button
                         variant="outline"
@@ -166,13 +182,31 @@ export function PlateColorsAdmin() {
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="price">Price ($)</Label>
+                <Label htmlFor="platename">Plate Name</Label>
+                <Input
+                  id="platename"
+                  placeholder="e.g., White"
+                  value={formData.platename}
+                  onChange={(e) => setFormData({ ...formData, platename: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="price">Price (Rp)</Label>
                 <Input
                   id="price"
                   type="number"
-                  step="0.50"
+                  step="1000"
                   value={formData.price}
                   onChange={(e) => setFormData({ ...formData, price: Number.parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Input
+                  id="description"
+                  placeholder="e.g., White Plate"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
@@ -180,16 +214,17 @@ export function PlateColorsAdmin() {
                 <Input
                   id="foodCost"
                   type="number"
-                  value={formData.targetFoodCost}
-                  onChange={(e) => setFormData({ ...formData, targetFoodCost: Number.parseInt(e.target.value) || 0 })}
+                  step="0.01"
+                  value={formData.target_foodcost}
+                  onChange={(e) => setFormData({ ...formData, target_foodcost: Number.parseFloat(e.target.value) || 0 })}
                 />
               </div>
               <div className="flex items-center justify-between">
                 <Label htmlFor="active">Active Status</Label>
                 <Switch
                   id="active"
-                  checked={formData.active}
-                  onCheckedChange={(checked) => setFormData({ ...formData, active: checked })}
+                  checked={formData.is_active}
+                  onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
                 />
               </div>
             </div>

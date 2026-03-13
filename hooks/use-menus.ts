@@ -2,7 +2,7 @@ import useSWR from 'swr'
 import { menusService, type CreateMenuDTO, type UpdateMenuDTO } from '@/lib/api'
 import type { SushiMenu } from '@/lib/types'
 
-const MENUS_KEY = '/menus'
+const MENUS_KEY = '/master/menu'
 
 export function useMenus() {
   const { data, error, isLoading, mutate } = useSWR<SushiMenu[]>(MENUS_KEY, async () => {
@@ -27,10 +27,10 @@ export function useMenus() {
     await mutate()
   }
 
-  const uploadMenuImage = async (id: string, imageData: string): Promise<SushiMenu> => {
-    const menu = await menusService.uploadImage(id, imageData)
+  const uploadMenuImage = async (id: string, imageFile: File): Promise<string> => {
+    const imagePath = await menusService.uploadImage(id, imageFile)
     await mutate()
-    return menu
+    return imagePath
   }
 
   return {
