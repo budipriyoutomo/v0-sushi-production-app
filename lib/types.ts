@@ -40,12 +40,14 @@ export interface PlateColorConfig {
 
 export interface SushiMenu {
   id: string
-  outletId: string
-  name: string
-  plateColor: PlateColor
-  shelfLifeMinutes: number
-  costEstimate: number
-  image?: string
+  menuname: string
+  description: string
+  image: string
+  price: number
+  shelfLife: number
+  plateColorId: string
+  plateColorName: string
+  isActive: boolean
 }
 
 export interface ProductionItem {
