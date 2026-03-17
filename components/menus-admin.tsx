@@ -213,128 +213,183 @@ export function MenusAdmin() {
 
         {/* Edit/Add Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent>
+          <DialogContent className="sm:max-w-[640px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>{editingItem ? "Edit Menu Item" : "Add Menu Item"}</DialogTitle>
-              <DialogDescription>Configure menu item details and pricing</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="menuname">Menu Name</Label>
-                <Input
-                  id="menuname"
-                  value={formData.menuname}
-                  onChange={(e) => setFormData({ ...formData, menuname: e.target.value })}
-                  placeholder="e.g. Salmon Sushi"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="e.g. Fresh salmon sushi with premium rice"
-                  rows={3}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="image">Menu Image</Label>
-                <div className="border-2 border-dashed rounded-lg p-4 text-center">
-                  {imagePreview ? (
-                    <div className="space-y-2">
-                      <img src={imagePreview} alt="Preview" className="w-full h-40 object-cover rounded" />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        type="button"
-                        onClick={() => {
-                          setImageFile(null)
-                          setImagePreview("")
-                          setFormData({ ...formData, image: "" })
-                        }}
-                        className="w-full"
-                      >
-                        <X className="w-4 h-4 mr-2" />
-                        Remove Image
-                      </Button>
-                    </div>
-                  ) : (
-                    <div>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageChange}
-                        className="hidden"
-                        id="image-upload"
-                      />
-                      <label htmlFor="image-upload" className="cursor-pointer">
-                        <div className="flex flex-col items-center gap-2">
-                          <Upload className="w-8 h-8 text-muted-foreground" />
-                          <p className="text-sm text-muted-foreground">Click to upload image</p>
-                        </div>
-                      </label>
-                    </div>
-                  )}
+              <DialogTitle>
+                {editingItem ? "Edit Menu Item" : "Add Menu Item"}
+              </DialogTitle>
+                <DialogDescription>
+                  Configure menu item details and pricing
+                </DialogDescription>
+            </DialogHeader> 
+        <div className="grid gap-3 py-4"> 
+          <div className="grid gap-2">
+            <Label htmlFor="menuname">Menu Name</Label>
+            <Input
+              id="menuname"
+              value={formData.menuname}
+              onChange={(e) =>
+                setFormData({ ...formData, menuname: e.target.value })
+              }
+              placeholder="Salmon Sushi"
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="description">Description</Label>
+            <Textarea
+              id="description"
+              value={formData.description}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
+              rows={3}
+              placeholder="Fresh salmon sushi with premium rice"
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <Label>Menu Image</Label>
+
+            <div className="border-2 border-dashed rounded-lg p-4 text-center">
+
+              {imagePreview ? (
+                <div className="space-y-3">
+                  <img
+                    src={imagePreview}
+                    alt="Preview"
+                    className="w-full max-h-48 object-cover rounded-md"
+                  />
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    onClick={() => {
+                      setImageFile(null)
+                      setImagePreview("")
+                      setFormData({ ...formData, image: "" })
+                    }}
+                    className="w-full"
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Remove Image
+                  </Button>
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="plateColor">Plate Color</Label>
-                <Select
-                  value={formData.plate_color_id}
-                  onValueChange={(value) => setFormData({ ...formData, plate_color_id: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select plate color" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {plateColors.map((plate) => (
-                      <SelectItem key={plate.id} value={plate.id}>
-                        {plate.platename} - Rp {plate.price.toLocaleString('id-ID')}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="shelfLife">Shelf Life (hours)</Label>
-                <Input
-                  id="shelfLife"
-                  type="number"
-                  value={formData.shelf_life}
-                  onChange={(e) => setFormData({ ...formData, shelf_life: Number.parseInt(e.target.value) || 0 })}
-                  placeholder="e.g. 2"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="price">Harga Jual (Rp)</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  step="1000"
-                  value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: Number.parseFloat(e.target.value) || 0 })}
-                  placeholder="e.g. 25000"
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="is_active">Active Status</Label>
-                <Switch
-                  id="is_active"
-                  checked={formData.is_active}
-                  onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-                />
-              </div>
+              ) : (
+                <>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="hidden"
+                    id="image-upload"
+                  />
+
+                  <label htmlFor="image-upload" className="cursor-pointer">
+                    <div className="flex flex-col items-center gap-2">
+                      <Upload className="w-8 h-8 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">
+                        Click to upload image
+                      </p>
+                    </div>
+                  </label>
+                </>
+              )}
+
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSaving}>
-                Cancel
-              </Button>
-              <Button onClick={handleSave} disabled={isSaving}>
-                {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                {editingItem ? "Save Changes" : "Add Item"}
-              </Button>
-            </DialogFooter>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            <div className="grid gap-2">
+              <Label>Plate Color</Label>
+              <Select
+                value={formData.plate_color_id}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, plate_color_id: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select plate color" />
+                </SelectTrigger>
+
+                <SelectContent>
+                  {plateColors.map((plate) => (
+                    <SelectItem key={plate.id} value={plate.id}>
+                      {plate.platename} - Rp{" "}
+                      {plate.price.toLocaleString("id-ID")}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Shelf Life (hours)</Label>
+              <Input
+                type="number"
+                value={formData.shelf_life}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    shelf_life: Number.parseInt(e.target.value) || 0,
+                  })
+                }
+                placeholder="2"
+              />
+            </div>
+
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            <div className="grid gap-2">
+              <Label>Harga Jual (Rp)</Label>
+              <Input
+                type="number"
+                step="1000"
+                value={formData.price}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    price: Number.parseFloat(e.target.value) || 0,
+                  })
+                }
+                placeholder="25000"
+              />
+            </div>
+
+            <div className="flex items-center justify-between border rounded-md p-3 mt-6 md:mt-0">
+              <Label>Active Status</Label>
+              <Switch
+                checked={formData.is_active}
+                onCheckedChange={(checked) =>
+                  setFormData({ ...formData, is_active: checked })
+                }
+              />
+            </div>
+
+          </div>
+
+        </div>
+
+        <DialogFooter className="pt-2">
+          <Button
+            variant="outline"
+            onClick={() => setIsDialogOpen(false)}
+            disabled={isSaving}
+          >
+            Cancel
+          </Button>
+
+          <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving && (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            )}
+            {editingItem ? "Save Changes" : "Add Item"}
+          </Button>
+        </DialogFooter> 
           </DialogContent>
         </Dialog>
 

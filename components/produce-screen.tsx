@@ -13,8 +13,9 @@ import { usePlateColorsSortedByPrice } from "@/hooks/use-plate-colors"
 import { useConveyorItems } from "@/hooks/use-production"
 import { getApiError } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
-import type { SushiMenu } from "@/lib/types"
+import type { PlateColor, SushiMenu } from "@/lib/types"
 import { Loader2 } from "lucide-react"
+import { formatRupiah, lowercase } from "@/lib/utils"
 
 export function ProduceScreen() {
   const { toast } = useToast()
@@ -44,7 +45,7 @@ export function ProduceScreen() {
       await produceItem(selectedItem.id, quantity)
       toast({
         title: "Plates Produced",
-        description: `Successfully produced ${quantity}x ${selectedItem.name}`,
+        description: `Successfully produced ${quantity}x ${selectedItem.menuname} plates!`,
       })
     } catch (error) {
       const apiError = getApiError(error)
@@ -64,7 +65,7 @@ export function ProduceScreen() {
     setSelectedItem(null)
   }
 
-  const filteredSushi = selectedColor ? menus.filter((sushi) => sushi.plateColor === selectedColor) : menus
+  const filteredSushi = selectedColor ? menus.filter((sushi) => sushi.plateColorName.toLowerCase() === selectedColor.toLowerCase()) : menus
 
   return (
     <div className="space-y-6">
@@ -89,11 +90,11 @@ export function ProduceScreen() {
         {plateColors.map((plate) => (
             <Button
               key={plate.id}
-              variant={selectedColor === plate.name ? "default" : "outline"}
-              onClick={() => setSelectedColor(plate.name)}
+              variant={selectedColor === plate.platename.toLowerCase() ? "default" : "outline"}
+              onClick={() => setSelectedColor(plate.platename.toLowerCase())}
               className="px-4 py-2 capitalize"
             >
-              {plate.name}
+              {plate.platename}
             </Button>
           ))}
       </div>
@@ -117,7 +118,7 @@ export function ProduceScreen() {
         {sushi.image && (
           <Image
             src={sushi.image}
-            alt={sushi.name}
+            alt={sushi.menuname}
             fill
             className="object-cover group-hover:scale-105 transition-transform duration-300"
           />
@@ -131,17 +132,17 @@ export function ProduceScreen() {
 
           {/* Top */}
           <div className="flex justify-between items-start">
-            <PlateColorBadge color={sushi.plateColor} />
+            <PlateColorBadge color={(lowercase(sushi.plateColorName) as PlateColor) || "white" }  />
           </div>
 
           {/* Bottom Info */}
           <div>
             <h3 className="text-sm font-semibold leading-tight line-clamp-2">
-              {sushi.name}
+              {sushi.menuname}
             </h3>
 
             <div className="text-xs opacity-90 mt-1">
-              ⏱ {sushi.shelfLifeMinutes}m • 💰 ${sushi.costEstimate.toFixed(2)}
+              ⏱ {sushi.shelfLife}m • {formatRupiah(sushi.price) }
             </div>
 
             <Button

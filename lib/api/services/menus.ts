@@ -4,7 +4,7 @@ import type { SushiMenu } from '@/lib/types'
 export interface CreateMenuDTO {
   menuname: string
   description: string
-  image: string
+  image: File
   price: number
   shelf_life: number
   plate_color_id: string
@@ -14,7 +14,7 @@ export interface CreateMenuDTO {
 export interface UpdateMenuDTO {
   menuname?: string
   description?: string
-  image?: string
+  image?: File
   price?: number
   shelf_life?: number
   plate_color_id?: string
@@ -74,15 +74,47 @@ class MenusService extends BaseService<SushiMenu, CreateMenuDTO, UpdateMenuDTO> 
 
   // Override create to transform response
   async create(data: CreateMenuDTO): Promise<{ data: SushiMenu }> {
-    const response = await super.create(data)
+
+    const formData = new FormData()
+
+    formData.append('menuname', data.menuname)
+    formData.append('description', data.description)
+    formData.append('price', String(data.price))
+    formData.append('shelf_life', String(data.shelf_life))
+    formData.append('plate_color_id', data.plate_color_id)
+    formData.append('is_active', String(data.is_active ? 1 : 0))
+
+    if (data.image) {
+      formData.append('image', data.image)  
+    }
+
+    const response = await this.request('post', '', formData)
+
     const transformedData = transformMenu(response.data as unknown as MenuApiResponse)
+
     return { ...response, data: transformedData }
   }
 
   // Override update to transform response
   async update(id: string | number, data: UpdateMenuDTO): Promise<{ data: SushiMenu }> {
-    const response = await super.update(id, data)
+
+    const formData = new FormData()
+
+    if (data.menuname) formData.append('menuname', data.menuname)
+    if (data.description) formData.append('description', data.description)
+    if (data.price) formData.append('price', String(data.price))
+    if (data.shelf_life) formData.append('shelf_life', String(data.shelf_life))
+    if (data.plate_color_id) formData.append('plate_color_id', data.plate_color_id)
+    if (data.is_active !== undefined) formData.append('is_active', String(data.is_active ? 1 : 0))
+
+    if (data.image) {
+      formData.append('image', data.image)
+    }
+
+    const response = await this.request('post', `${id}`, formData)
+
     const transformedData = transformMenu(response.data as unknown as MenuApiResponse)
+
     return { ...response, data: transformedData }
   }
 

@@ -6,7 +6,7 @@ const apiClient: AxiosInstance = axios.create({
   baseURL: config.api.baseUrl,
   timeout: config.api.timeout,
   headers: {
-    'Content-Type': 'application/json',
+    Accept: 'application/json',
   },
 })
 

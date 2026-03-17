@@ -241,63 +241,73 @@ export function OutletManagement() {
                   ? 'Update the outlet details'
                   : 'Create a new outlet location'}
               </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="name">Outlet Name</Label>
-                <Input
-                  id="name"
-                  placeholder="e.g., Main Branch"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                />
-              </div>
-              <div>
-                <Label htmlFor="brand">Brand</Label>
-                <Input
-                  id="brand"
-                  placeholder="e.g., Sushi King"
-                  value={formData.brand}
-                  onChange={(e) =>
-                    setFormData({ ...formData, brand: e.target.value })
-                  }
-                />
-              </div>
-              <div>
-                <Label htmlFor="address">Address</Label>
-                <Input
-                  id="address"
-                  placeholder="e.g., paris van java"
-                  value={formData.address}
-                  onChange={(e) =>
-                    setFormData({ ...formData, address: e.target.value })
-                  }
-                />
-              </div>
-              <div>
-                <Label htmlFor="code">Code (max 5 chars)</Label>
-                <Input
-                  id="code"
-                  placeholder="e.g., MB"
-                  maxLength={5}
-                  value={formData.code}
-                  onChange={(e) =>
-                    setFormData({ ...formData, code: e.target.value.toUpperCase() })
-                  }
-                />
-              </div>
-              <div className="flex items-center gap-3">
-                <Switch
-                  checked={formData.is_active}
-                  onCheckedChange={(checked) =>
-                    setFormData({ ...formData, is_active: checked })
-                  }
-                />
-                <Label>Active Status</Label>
-              </div>
-            </div>
+            </DialogHeader> 
+    <div className="grid gap-4 py-4">
+
+      <div className="grid gap-2">
+        <Label htmlFor="name">Outlet Name</Label>
+        <Input
+          id="name"
+          placeholder="Main Branch"
+          value={formData.name}
+          onChange={(e) =>
+            setFormData({ ...formData, name: e.target.value })
+          }
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="grid gap-2">
+          <Label htmlFor="brand">Brand</Label>
+          <Input
+            id="brand"
+            placeholder="Sushi King"
+            value={formData.brand}
+            onChange={(e) =>
+              setFormData({ ...formData, brand: e.target.value })
+            }
+          />
+        </div>
+
+        <div className="grid gap-2">
+          <Label htmlFor="code">Outlet Code</Label>
+          <Input
+            id="code"
+            maxLength={5}
+            placeholder="STPVJ"
+            value={formData.code}
+            onChange={(e) =>
+              setFormData({
+                ...formData,
+                code: e.target.value.toUpperCase()
+              })
+            }
+          />
+        </div>
+      </div>
+
+      <div className="grid gap-2">
+        <Label htmlFor="address">Address</Label>
+        <Input
+          id="address"
+          placeholder="Paris Van Java, Bandung"
+          value={formData.address}
+          onChange={(e) =>
+            setFormData({ ...formData, address: e.target.value })
+          }
+        />
+      </div>
+
+      <div className="flex items-center justify-between rounded-md border p-3">
+        <Label className="text-sm">Active Outlet</Label>
+        <Switch
+          checked={formData.is_active}
+          onCheckedChange={(checked) =>
+            setFormData({ ...formData, is_active: checked })
+          }
+        />
+      </div> 
+    </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={isSaving}>
                 Cancel

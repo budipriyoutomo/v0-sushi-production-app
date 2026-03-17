@@ -6,9 +6,11 @@ import { useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { PlateColorBadge } from '@/components/plate-color-badge'
+import { PlateColor, PlateColorBadge } from '@/components/plate-color-badge'
 import { Minus, Plus } from 'lucide-react'
 import type { SushiMenu } from '@/lib/types'
+import { lowercase, formatRupiah } from "@/lib/utils"
+import { ImageOff } from "lucide-react"
 
 interface QuantityCalculatorProps {
   open: boolean
@@ -53,48 +55,53 @@ export function QuantityCalculator({ open, item, onConfirm, onCancel }: Quantity
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Produce {item.name}</DialogTitle>
+          <DialogTitle>Produce {item.menuname}</DialogTitle>
         </DialogHeader>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Left Column - Menu Description */}
           <div className="space-y-4">
             {/* Image */}
-            {item.image && (
-              <div className="relative w-full h-56 bg-muted rounded-lg overflow-hidden">
+            <div className="relative w-full h-65 bg-muted rounded-lg overflow-hidden flex items-center justify-center">
+              {item.image ? (
                 <Image
                   src={item.image}
-                  alt={item.name}
+                  alt={item.menuname}
                   fill
                   className="object-cover"
                   sizes="400px"
                 />
-              </div>
-            )}
+              ) : (
+                <div className="flex flex-col items-center text-muted-foreground">
+                  <ImageOff className="w-8 h-8 mb-1" />
+                  <span className="text-xs">No Image</span>
+                </div>
+              )}
+            </div>
 
             {/* Menu Info Card */}
             <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1">
-                  <h3 className="font-semibold text-lg">{item.name}</h3>
+                  <h3 className="font-semibold text-lg">{item.menuname}</h3>
                   <p className="text-sm text-muted-foreground">Menu Item</p>
                 </div>
-                <PlateColorBadge color={item.plateColor} />
+                <PlateColorBadge color={lowercase(item.plateColorName) as PlateColor} />
               </div>
 
               {/* Details Grid */}
               <div className="space-y-2 pt-3 border-t">
                 <div className="flex justify-between items-center">
                   <p className="text-sm text-muted-foreground">Plate Color</p>
-                  <p className="font-semibold text-sm capitalize">{item.plateColor}</p>
+                  <p className="font-semibold text-sm capitalize">{lowercase(item.plateColorName)}</p>
                 </div>
                 <div className="flex justify-between items-center">
                   <p className="text-sm text-muted-foreground">Shelf Life</p>
-                  <p className="font-semibold text-sm">{item.shelfLifeMinutes} minutes</p>
+                  <p className="font-semibold text-sm">{item.shelfLife}</p>
                 </div>
                 <div className="flex justify-between items-center">
-                  <p className="text-sm text-muted-foreground">Cost Estimate</p>
-                  <p className="font-semibold text-sm">${item.costEstimate.toFixed(2)}</p>
+                  <p className="text-sm text-muted-foreground">Price</p>
+                  <p className="font-semibold text-sm">{formatRupiah(item.price)}</p>
                 </div>
               </div>
             </div>
