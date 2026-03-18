@@ -1,5 +1,13 @@
 export type PlateColor = "white" | "blue" | "pink" | "black" | "red" | "gold" | "choco motive" | "yellow" | "silver"
 
+export interface User {
+  id: string
+  name: string
+  email: string
+  role: string
+  username?: string
+}
+
 export interface Outlet {
   id: string
   code: string

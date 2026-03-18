@@ -7,49 +7,32 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
-import { authService } from '@/lib/api'
-import { getApiError } from '@/lib/api'
-import { AlertCircle, Loader2 } from 'lucide-react'
+import { authService, getApiError } from '@/lib/api'
+import { Loader2 } from 'lucide-react'
 
-const ADMIN_ROLES = {
-  administrator: {
-    username: 'admin',
-    password: 'admin',
-    title: 'Administrator',
-    description: 'All Pages',
-    pages: ['admin', 'production', 'operation', 'kitchen'],
-    dashboardRoute: '/admin/plate-colors',
-  },
-  production: {
-    username: 'production',
-    password: 'production',
-    title: 'Production',
-    description: 'Production Planning, Waste Management',
-    pages: ['production'],
-    dashboardRoute: '/production/planning',
-  },
-  operation: {
-    username: 'operation',
-    password: 'operation',
-    title: 'Operation',
-    description: 'Sales Input, Closing Report',
-    pages: ['operation'],
-    dashboardRoute: '/operation/sales-input',
-  },
+// Map role from API response to dashboard route
+function getDashboardRouteByRole(role: string): string {
+  const roleLower = role.toLowerCase()
+  if (roleLower.includes('admin') || roleLower.includes('administrator') || roleLower.includes('manager')) {
+    return '/admin/plate-colors'
+  }
+  if (roleLower.includes('production')) {
+    return '/production/planning'
+  }
+  if (roleLower.includes('operation')) {
+    return '/operation/sales-input'
+  }
+  // Default fallback
+  return '/admin/plate-colors'
 }
-
-type RoleKey = keyof typeof ADMIN_ROLES
 
 export function AdminRoleLogin() {
   const router = useRouter()
   const { toast } = useToast()
-  const [selectedRole, setSelectedRole] = useState<RoleKey>('administrator')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-
-  const role = ADMIN_ROLES[selectedRole]
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -61,7 +44,8 @@ export function AdminRoleLogin() {
         title: 'Login Successful',
         description: `Welcome, ${user.name}!`,
       })
-      router.push(role.dashboardRoute)
+      const route = getDashboardRouteByRole(user.role)
+      router.push(route)
     } catch (error) {
       const apiError = getApiError(error)
       toast({
@@ -97,45 +81,9 @@ export function AdminRoleLogin() {
           </div>
         </div>
         <CardTitle className="text-2xl font-bold">Admin Login</CardTitle>
-        <CardDescription>Select your role and enter credentials</CardDescription>
+        <CardDescription>Enter your credentials to access the system</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Role Selection */}
-        <div className="space-y-3">
-          <Label className="text-sm font-medium">Select Role</Label>
-          <div className="grid grid-cols-1 gap-2">
-            {(Object.entries(ADMIN_ROLES) as [RoleKey, typeof ADMIN_ROLES[RoleKey]][]).map(
-              ([key, roleInfo]) => (
-                <button
-                  key={key}
-                  onClick={() => setSelectedRole(key)}
-                  className={`p-3 rounded-lg border-2 transition-colors text-left ${
-                    selectedRole === key
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border bg-muted/30 hover:border-primary/50'
-                  }`}
-                >
-                  <div className="font-semibold text-sm">{roleInfo.title}</div>
-                  <div className="text-xs text-muted-foreground">{roleInfo.description}</div>
-                </button>
-              )
-            )}
-          </div>
-        </div>
-
-        {/* Login Hint */}
-        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <div className="flex gap-2 items-start">
-            <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-            <div className="text-xs text-blue-700">
-              <p className="font-semibold mb-1">Demo Credentials:</p>
-              <p>Username: <span className="font-mono">{role.username}</span></p>
-              <p>Password: <span className="font-mono">{role.password}</span></p>
-            </div>
-          </div>
-        </div>
-
-        {/* Login Form */}
+      <CardContent>
         <form onSubmit={handleLogin} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="username">Username</Label>
