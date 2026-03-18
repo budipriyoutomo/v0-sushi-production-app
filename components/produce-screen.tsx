@@ -24,7 +24,7 @@ export function ProduceScreen() {
   const { plateColors, isLoading: plateColorsLoading } = usePlateColorsSortedByPrice()
   const { produceItem } = useConveyorItems(selectedOutletId)
   const [producing, setProducing] = useState<string | null>(null)
-  const [selectedColor, setSelectedColor] = useState<string | null>(null)
+  const [selectedColorId, setSelectedColorId] = useState<string | null>(null)
   const [calculatorOpen, setCalculatorOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState<SushiMenu | null>(null)
 
@@ -65,7 +65,7 @@ export function ProduceScreen() {
     setSelectedItem(null)
   }
 
-  const filteredSushi = selectedColor ? menus.filter((sushi) => sushi.plateColorName.toLowerCase() === selectedColor.toLowerCase()) : menus
+  const filteredSushi = selectedColorId ? menus.filter((sushi) => sushi.plateColorId === selectedColorId) : menus
 
   return (
     <div className="space-y-6">
@@ -81,8 +81,8 @@ export function ProduceScreen() {
       {/* Filter by Plate Color */}
       <div className="flex gap-2 flex-wrap">
         <Button
-          variant={selectedColor === null ? "default" : "outline"}
-          onClick={() => setSelectedColor(null)}
+          variant={selectedColorId === null ? "default" : "outline"}
+          onClick={() => setSelectedColorId(null)}
           className="px-4 py-2"
         >
           All Colors
@@ -90,8 +90,8 @@ export function ProduceScreen() {
         {plateColors.map((plate) => (
             <Button
               key={plate.id}
-              variant={selectedColor === plate.platename.toLowerCase() ? "default" : "outline"}
-              onClick={() => setSelectedColor(plate.platename.toLowerCase())}
+              variant={selectedColorId === plate.id ? "default" : "outline"}
+              onClick={() => setSelectedColorId(plate.id)}
               className="px-4 py-2 capitalize"
             >
               {plate.platename}

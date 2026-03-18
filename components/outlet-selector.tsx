@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/card'
 import { Store } from 'lucide-react'
 
 export function OutletSelector() {
-  const { selectedOutletId, setSelectedOutletId, outlets } = useOutlet()
+  const { selectedOutletId, setSelectedOutletId, outlets, isLoading } = useOutlet()
   const currentOutlet = outlets.find((o) => o.id === selectedOutletId)
 
   return (
@@ -19,9 +19,9 @@ export function OutletSelector() {
       </span>
     </div>
 
-    <Select value={selectedOutletId} onValueChange={setSelectedOutletId}>
-      <SelectTrigger className="h-9 bg-background">
-        <SelectValue placeholder="Select outlet" />
+    <Select value={selectedOutletId || undefined} onValueChange={setSelectedOutletId} disabled={isLoading}>
+      <SelectTrigger className="h-9 bg-background min-w-[140px]">
+        <SelectValue placeholder={isLoading ? "Loading..." : "Select outlet"} />
       </SelectTrigger>
       <SelectContent>
         {outlets.map((outlet) => (
