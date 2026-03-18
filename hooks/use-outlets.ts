@@ -5,10 +5,18 @@ import type { Outlet } from '@/lib/types'
 const OUTLETS_KEY = '/master/outlet'
 
 export function useOutlets() {
-  const { data, error, isLoading, mutate } = useSWR<Outlet[]>(OUTLETS_KEY, async () => {
-    const response = await outletsService.getAll()
-    return response.data
-  })
+  const { data, error, isLoading, mutate } = useSWR<Outlet[]>(
+    OUTLETS_KEY,
+    async () => {
+      const response = await outletsService.getAll()
+      return response.data
+    },
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: 60000, // 60 seconds deduplication
+    }
+  )
 
   const createOutlet = async (outletData: CreateOutletDTO): Promise<Outlet> => {
     const response = await outletsService.create(outletData)
@@ -46,10 +54,19 @@ export function useOutlets() {
 }
 
 export function useActiveOutlets() {
-  const { data, error, isLoading, mutate } = useSWR<Outlet[]>(`${OUTLETS_KEY}/active`, async () => {
-    const outlets = await outletsService.getActive()
-    return outlets
-  })
+  const { data, error, isLoading, mutate } = useSWR<Outlet[]>(
+    `${OUTLETS_KEY}/active`,
+    async () => {
+      const outlets = await outletsService.getActive()
+      return outlets
+    },
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      revalidateIfStale: false,
+      dedupingInterval: 60000, // 60 seconds deduplication
+    }
+  )
 
   return {
     outlets: data || [],
