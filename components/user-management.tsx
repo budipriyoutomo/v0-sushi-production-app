@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -15,159 +15,171 @@ import {
 } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/hooks/use-toast'
-import { useOutlets } from '@/hooks/use-outlets'
-import type { KitchenUser, AdminUser } from '@/lib/types'
+import { useUsers } from '@/hooks/use-users'
+import type { User, UserRole } from '@/lib/types'
 import { Plus, Trash2, Edit2, Shield, Lock, Loader2 } from 'lucide-react'
+
+const EMPTY_KITCHEN_FORM = { name: '', username: '', password: '', pin: '' }
+const EMPTY_ADMIN_FORM = { name: '', email: '', username: '', password: '', role: 'manager' as UserRole }
 
 export function UserManagement() {
   const { toast } = useToast()
-  const { outlets, isLoading: outletsLoading } = useOutlets()
+  const { users, isLoading, createUser, updateUser, deleteUser, toggleUserStatus } = useUsers()
 
-  // Kitchen Users
-  const [kitchenUsers, setKitchenUsers] = useState<KitchenUser[]>([
-    { id: '1', name: 'Chef John', pin: '123456', outletIds: ['outlet-1'], status: 'active', createdAt: new Date('2024-01-15') },
-    { id: '2', name: 'Chef Maria', pin: '567890', outletIds: ['outlet-2', 'outlet-3'], status: 'active', createdAt: new Date('2024-02-01') },
-    { id: '3', name: 'Chef Alex', pin: '901234', outletIds: ['outlet-1', 'outlet-2'], status: 'active', createdAt: new Date('2024-02-20') },
-  ])
-
-  // Admin Users
-  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([
-    { id: 'a1', name: 'Admin User', email: 'admin@sushi.com', role: 'admin', outletIds: ['outlet-1', 'outlet-2', 'outlet-3'], status: 'active', createdAt: new Date('2024-01-01') },
-    { id: 'a2', name: 'Manager 1', email: 'manager1@sushi.com', role: 'manager', outletIds: ['outlet-1'], status: 'active', createdAt: new Date('2024-01-10') },
-    { id: 'a3', name: 'Manager 2', email: 'manager2@sushi.com', role: 'manager', outletIds: ['outlet-2', 'outlet-3'], status: 'active', createdAt: new Date('2024-02-05') },
-  ])
+  const kitchenUsers = users.filter((u) => u.role === 'kitchen')
+  const adminUsers = users.filter((u) => u.role !== 'kitchen')
 
   // Kitchen User Form
   const [kitchenDialogOpen, setKitchenDialogOpen] = useState(false)
-  const [editingKitchenUser, setEditingKitchenUser] = useState<KitchenUser | null>(null)
-  const [kitchenFormData, setKitchenFormData] = useState({ name: '', pin: '', outletIds: ['outlet-1'] })
+  const [editingKitchenUser, setEditingKitchenUser] = useState<User | null>(null)
+  const [kitchenFormData, setKitchenFormData] = useState(EMPTY_KITCHEN_FORM)
+  const [kitchenSaving, setKitchenSaving] = useState(false)
 
   // Admin User Form
   const [adminDialogOpen, setAdminDialogOpen] = useState(false)
-  const [editingAdminUser, setEditingAdminUser] = useState<AdminUser | null>(null)
-  const [adminFormData, setAdminFormData] = useState({ name: '', email: '', role: 'manager' as const, outletIds: ['outlet-1'] })
+  const [editingAdminUser, setEditingAdminUser] = useState<User | null>(null)
+  const [adminFormData, setAdminFormData] = useState(EMPTY_ADMIN_FORM)
+  const [adminSaving, setAdminSaving] = useState(false)
 
   // Kitchen User Handlers
   const handleAddKitchenUser = () => {
     setEditingKitchenUser(null)
-    setKitchenFormData({ name: '', pin: '', outletIds: ['outlet-1'] })
+    setKitchenFormData(EMPTY_KITCHEN_FORM)
     setKitchenDialogOpen(true)
   }
 
-  const handleEditKitchenUser = (user: KitchenUser) => {
+  const handleEditKitchenUser = (user: User) => {
     setEditingKitchenUser(user)
-    setKitchenFormData({ name: user.name, pin: user.pin, outletIds: user.outletIds })
+    setKitchenFormData({ name: user.name, username: user.username || '', password: '', pin: '' })
     setKitchenDialogOpen(true)
   }
 
-  const handleSaveKitchenUser = () => {
-    if (!kitchenFormData.name || !kitchenFormData.pin) {
-      toast({ title: 'Error', description: 'Please fill in all fields', variant: 'destructive' })
+  const handleSaveKitchenUser = async () => {
+    if (!kitchenFormData.name || !kitchenFormData.username) {
+      toast({ title: 'Error', description: 'Please fill in name and username', variant: 'destructive' })
+      return
+    }
+    if (!editingKitchenUser && !kitchenFormData.password) {
+      toast({ title: 'Error', description: 'Password is required for new users', variant: 'destructive' })
       return
     }
 
-    if (kitchenFormData.pin.length !== 6 || !/^\d+$/.test(kitchenFormData.pin)) {
-      toast({ title: 'Error', description: 'PIN must be 6 digits', variant: 'destructive' })
-      return
+    setKitchenSaving(true)
+    try {
+      if (editingKitchenUser) {
+        await updateUser(editingKitchenUser.id, {
+          name: kitchenFormData.name,
+          username: kitchenFormData.username,
+          ...(kitchenFormData.password && { password: kitchenFormData.password }),
+          ...(kitchenFormData.pin && { pin: kitchenFormData.pin }),
+        })
+        toast({ title: 'Success', description: 'Kitchen user updated' })
+      } else {
+        await createUser({
+          name: kitchenFormData.name,
+          username: kitchenFormData.username,
+          password: kitchenFormData.password,
+          role: 'kitchen',
+          ...(kitchenFormData.pin && { pin: kitchenFormData.pin }),
+        })
+        toast({ title: 'Success', description: 'Kitchen user added' })
+      }
+      setKitchenDialogOpen(false)
+    } catch {
+      toast({ title: 'Error', description: 'Failed to save user', variant: 'destructive' })
+    } finally {
+      setKitchenSaving(false)
     }
-
-    if (kitchenFormData.outletIds.length === 0) {
-      toast({ title: 'Error', description: 'Please select at least one outlet', variant: 'destructive' })
-      return
-    }
-
-    if (editingKitchenUser) {
-      setKitchenUsers(
-        kitchenUsers.map((u) =>
-          u.id === editingKitchenUser.id ? { ...u, ...kitchenFormData } : u
-        )
-      )
-      toast({ title: 'Success', description: 'Kitchen user updated' })
-    } else {
-      setKitchenUsers([
-        ...kitchenUsers,
-        {
-          id: `k-${Date.now()}`,
-          ...kitchenFormData,
-          status: 'active',
-          createdAt: new Date(),
-        },
-      ])
-      toast({ title: 'Success', description: 'Kitchen user added' })
-    }
-    setKitchenDialogOpen(false)
   }
 
-  const handleDeleteKitchenUser = (userId: string) => {
-    if (window.confirm('Are you sure?')) {
-      setKitchenUsers(kitchenUsers.filter((u) => u.id !== userId))
+  const handleDeleteKitchenUser = async (userId: string) => {
+    if (!window.confirm('Are you sure you want to delete this user?')) return
+    try {
+      await deleteUser(userId)
       toast({ title: 'Success', description: 'Kitchen user deleted' })
+    } catch {
+      toast({ title: 'Error', description: 'Failed to delete user', variant: 'destructive' })
     }
   }
 
   // Admin User Handlers
   const handleAddAdminUser = () => {
     setEditingAdminUser(null)
-    setAdminFormData({ name: '', email: '', role: 'manager', outletIds: ['outlet-1'] })
+    setAdminFormData(EMPTY_ADMIN_FORM)
     setAdminDialogOpen(true)
   }
 
-  const handleEditAdminUser = (user: AdminUser) => {
+  const handleEditAdminUser = (user: User) => {
     setEditingAdminUser(user)
-    setAdminFormData({ name: user.name, email: user.email, role: user.role, outletIds: user.outletIds })
+    setAdminFormData({
+      name: user.name,
+      email: user.email,
+      username: user.username || '',
+      password: '',
+      role: user.role as UserRole,
+    })
     setAdminDialogOpen(true)
   }
 
-  const handleSaveAdminUser = () => {
+  const handleSaveAdminUser = async () => {
     if (!adminFormData.name || !adminFormData.email) {
-      toast({ title: 'Error', description: 'Please fill in all fields', variant: 'destructive' })
+      toast({ title: 'Error', description: 'Please fill in name and email', variant: 'destructive' })
       return
     }
-
     if (!adminFormData.email.includes('@')) {
       toast({ title: 'Error', description: 'Please enter a valid email', variant: 'destructive' })
       return
     }
-
-    if (adminFormData.outletIds.length === 0) {
-      toast({ title: 'Error', description: 'Please select at least one outlet', variant: 'destructive' })
+    if (!editingAdminUser && !adminFormData.password) {
+      toast({ title: 'Error', description: 'Password is required for new users', variant: 'destructive' })
       return
     }
 
-    if (editingAdminUser) {
-      setAdminUsers(
-        adminUsers.map((u) =>
-          u.id === editingAdminUser.id ? { ...u, ...adminFormData } : u
-        )
-      )
-      toast({ title: 'Success', description: 'Admin user updated' })
-    } else {
-      setAdminUsers([
-        ...adminUsers,
-        {
-          id: `a-${Date.now()}`,
-          ...adminFormData,
-          status: 'active',
-          createdAt: new Date(),
-        },
-      ])
-      toast({ title: 'Success', description: 'Admin user added' })
+    setAdminSaving(true)
+    try {
+      if (editingAdminUser) {
+        await updateUser(editingAdminUser.id, {
+          name: adminFormData.name,
+          email: adminFormData.email,
+          username: adminFormData.username,
+          role: adminFormData.role,
+          ...(adminFormData.password && { password: adminFormData.password }),
+        })
+        toast({ title: 'Success', description: 'Admin user updated' })
+      } else {
+        await createUser({
+          name: adminFormData.name,
+          email: adminFormData.email,
+          username: adminFormData.username,
+          password: adminFormData.password,
+          role: adminFormData.role,
+        })
+        toast({ title: 'Success', description: 'Admin user added' })
+      }
+      setAdminDialogOpen(false)
+    } catch {
+      toast({ title: 'Error', description: 'Failed to save user', variant: 'destructive' })
+    } finally {
+      setAdminSaving(false)
     }
-    setAdminDialogOpen(false)
   }
 
-  const handleDeleteAdminUser = (userId: string) => {
-    if (window.confirm('Are you sure?')) {
-      setAdminUsers(adminUsers.filter((u) => u.id !== userId))
+  const handleDeleteAdminUser = async (userId: string) => {
+    if (!window.confirm('Are you sure you want to delete this user?')) return
+    try {
+      await deleteUser(userId)
       toast({ title: 'Success', description: 'Admin user deleted' })
+    } catch {
+      toast({ title: 'Error', description: 'Failed to delete user', variant: 'destructive' })
     }
   }
 
-  const getOutletNames = (outletIds: string[]) => {
-    return outletIds
-      .map((id) => outlets.find((o) => o.id === id)?.name)
-      .filter(Boolean)
-      .join(', ')
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    )
   }
 
   return (
@@ -198,32 +210,28 @@ export function UserManagement() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Name</TableHead>
-                      <TableHead>PIN</TableHead>
-                      <TableHead>Outlets</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Created</TableHead>
+                      <TableHead>Username</TableHead>
+                      <TableHead>Role</TableHead>
                       <TableHead className="w-20">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {kitchenUsers.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                          No kitchen staff added yet
+                        <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                          No kitchen staff found
                         </TableCell>
                       </TableRow>
                     ) : (
                       kitchenUsers.map((user) => (
                         <TableRow key={user.id}>
                           <TableCell className="font-medium">{user.name}</TableCell>
-                          <TableCell className="font-mono text-sm bg-muted px-2 py-1 rounded w-fit">•••• ({user.pin.length})</TableCell>
-                          <TableCell className="text-sm">{getOutletNames(user.outletIds)}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{user.username || '-'}</TableCell>
                           <TableCell>
-                            <span className={`text-xs px-2 py-1 rounded-full ${user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                              {user.status}
+                            <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800">
+                              {user.role}
                             </span>
                           </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">{user.createdAt.toLocaleDateString()}</TableCell>
                           <TableCell>
                             <div className="flex gap-1">
                               <Button variant="ghost" size="sm" onClick={() => handleEditKitchenUser(user)}>
@@ -265,18 +273,16 @@ export function UserManagement() {
                     <TableRow>
                       <TableHead>Name</TableHead>
                       <TableHead>Email</TableHead>
+                      <TableHead>Username</TableHead>
                       <TableHead>Role</TableHead>
-                      <TableHead>Outlets</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Created</TableHead>
                       <TableHead className="w-20">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {adminUsers.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                          No admin users added yet
+                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                          No admin users found
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -284,18 +290,12 @@ export function UserManagement() {
                         <TableRow key={user.id}>
                           <TableCell className="font-medium">{user.name}</TableCell>
                           <TableCell className="text-sm">{user.email}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{user.username || '-'}</TableCell>
                           <TableCell>
-                            <span className={`text-xs px-2 py-1 rounded-full ${user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}`}>
+                            <span className={`text-xs px-2 py-1 rounded-full ${user.role === 'admin' || user.role === 'administrator' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}`}>
                               {user.role}
                             </span>
                           </TableCell>
-                          <TableCell className="text-sm">{getOutletNames(user.outletIds)}</TableCell>
-                          <TableCell>
-                            <span className={`text-xs px-2 py-1 rounded-full ${user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                              {user.status}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">{user.createdAt.toLocaleDateString()}</TableCell>
                           <TableCell>
                             <div className="flex gap-1">
                               <Button variant="ghost" size="sm" onClick={() => handleEditAdminUser(user)}>
@@ -336,52 +336,45 @@ export function UserManagement() {
                 />
               </div>
               <div>
-                <Label htmlFor="k-pin">PIN (4 digits)</Label>
+                <Label htmlFor="k-username">Username</Label>
                 <Input
-                  id="k-pin"
-                  placeholder="1234"
-                  maxLength={4}
-                  value={kitchenFormData.pin}
-                  onChange={(e) => setKitchenFormData({ ...kitchenFormData, pin: e.target.value.replace(/\D/g, '') })}
+                  id="k-username"
+                  placeholder="username"
+                  value={kitchenFormData.username}
+                  onChange={(e) => setKitchenFormData({ ...kitchenFormData, username: e.target.value })}
                 />
               </div>
               <div>
-                <Label>Access Outlets</Label>
-                <div className="space-y-2 mt-2">
-                  {outlets.map((outlet) => (
-                    <div key={outlet.id} className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        id={`k-outlet-${outlet.id}`}
-                        checked={kitchenFormData.outletIds.includes(outlet.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setKitchenFormData({
-                              ...kitchenFormData,
-                              outletIds: [...kitchenFormData.outletIds, outlet.id],
-                            })
-                          } else {
-                            setKitchenFormData({
-                              ...kitchenFormData,
-                              outletIds: kitchenFormData.outletIds.filter((id) => id !== outlet.id),
-                            })
-                          }
-                        }}
-                        className="w-4 h-4"
-                      />
-                      <label htmlFor={`k-outlet-${outlet.id}`} className="text-sm cursor-pointer">
-                        {outlet.name}
-                      </label>
-                    </div>
-                  ))}
-                </div>
+                <Label htmlFor="k-password">
+                  Password {editingKitchenUser && <span className="text-muted-foreground text-xs">(leave blank to keep current)</span>}
+                </Label>
+                <Input
+                  id="k-password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={kitchenFormData.password}
+                  onChange={(e) => setKitchenFormData({ ...kitchenFormData, password: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="k-pin">
+                  PIN {editingKitchenUser && <span className="text-muted-foreground text-xs">(leave blank to keep current)</span>}
+                </Label>
+                <Input
+                  id="k-pin"
+                  placeholder="4–6 digit PIN"
+                  maxLength={6}
+                  value={kitchenFormData.pin}
+                  onChange={(e) => setKitchenFormData({ ...kitchenFormData, pin: e.target.value.replace(/\D/g, '') })}
+                />
               </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setKitchenDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleSaveKitchenUser}>
+              <Button onClick={handleSaveKitchenUser} disabled={kitchenSaving}>
+                {kitchenSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 {editingKitchenUser ? 'Update' : 'Add'} Staff
               </Button>
             </DialogFooter>
@@ -412,9 +405,30 @@ export function UserManagement() {
                 <Input
                   id="a-email"
                   type="email"
-                  placeholder="admin@sushi.com"
+                  placeholder="admin@example.com"
                   value={adminFormData.email}
                   onChange={(e) => setAdminFormData({ ...adminFormData, email: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="a-username">Username</Label>
+                <Input
+                  id="a-username"
+                  placeholder="username"
+                  value={adminFormData.username}
+                  onChange={(e) => setAdminFormData({ ...adminFormData, username: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="a-password">
+                  Password {editingAdminUser && <span className="text-muted-foreground text-xs">(leave blank to keep current)</span>}
+                </Label>
+                <Input
+                  id="a-password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={adminFormData.password}
+                  onChange={(e) => setAdminFormData({ ...adminFormData, password: e.target.value })}
                 />
               </div>
               <div>
@@ -422,50 +436,22 @@ export function UserManagement() {
                 <select
                   id="a-role"
                   value={adminFormData.role}
-                  onChange={(e) => setAdminFormData({ ...adminFormData, role: e.target.value as 'admin' | 'manager' })}
+                  onChange={(e) => setAdminFormData({ ...adminFormData, role: e.target.value as UserRole })}
                   className="w-full px-3 py-2 border border-input rounded-md bg-background"
                 >
                   <option value="manager">Manager</option>
                   <option value="admin">Admin</option>
+                  <option value="operation">Operation</option>
+                  <option value="production">Production</option>
                 </select>
-              </div>
-              <div>
-                <Label>Access Outlets</Label>
-                <div className="space-y-2 mt-2">
-                  {outlets.map((outlet) => (
-                    <div key={outlet.id} className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        id={`a-outlet-${outlet.id}`}
-                        checked={adminFormData.outletIds.includes(outlet.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setAdminFormData({
-                              ...adminFormData,
-                              outletIds: [...adminFormData.outletIds, outlet.id],
-                            })
-                          } else {
-                            setAdminFormData({
-                              ...adminFormData,
-                              outletIds: adminFormData.outletIds.filter((id) => id !== outlet.id),
-                            })
-                          }
-                        }}
-                        className="w-4 h-4"
-                      />
-                      <label htmlFor={`a-outlet-${outlet.id}`} className="text-sm cursor-pointer">
-                        {outlet.name}
-                      </label>
-                    </div>
-                  ))}
-                </div>
               </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setAdminDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleSaveAdminUser}>
+              <Button onClick={handleSaveAdminUser} disabled={adminSaving}>
+                {adminSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 {editingAdminUser ? 'Update' : 'Add'} User
               </Button>
             </DialogFooter>

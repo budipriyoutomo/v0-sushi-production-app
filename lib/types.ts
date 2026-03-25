@@ -1,11 +1,15 @@
 export type PlateColor = "white" | "blue" | "pink" | "black" | "red" | "gold" | "choco motive" | "yellow" | "silver"
 
+export type UserRole = 'admin' | 'manager' | 'kitchen' | 'operation' | 'production'
+
 export interface User {
   id: string
   name: string
   email: string
-  role: string
+  role: UserRole | string
   username?: string
+  isActive?: boolean
+  createdAt?: string | Date
 }
 
 export interface Outlet {
