@@ -5,13 +5,11 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { authService, getApiError } from "@/lib/api"
-import { useOutlet } from "@/lib/outlet-context"
+import { authService, getApiError } from "@/lib/api" 
 import { Loader2 } from "lucide-react"
 
 export function KitchenPinLogin() {
-  const router = useRouter()
-  const { selectedOutletId } = useOutlet()
+  const router = useRouter() 
   const [pin, setPin] = useState("")
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -35,13 +33,13 @@ export function KitchenPinLogin() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (pin.length !== 6 || !selectedOutletId) return
+    if (pin.length !== 6 ) return
 
     setIsLoading(true)
     setError("")
 
     try {
-      await authService.pinLogin({ pin, outletId: selectedOutletId })
+      await authService.pinLogin({ pin })
       router.push("/kitchen/dashboard")
     } catch (err) {
       const apiError = getApiError(err)

@@ -14,6 +14,7 @@ export function useOutlets() {
     {
       revalidateOnFocus: false,
       revalidateOnReconnect: false,
+      shouldRetryOnError: false, 
       dedupingInterval: 60000, // 60 seconds deduplication
     }
   )
@@ -53,9 +54,9 @@ export function useOutlets() {
   }
 }
 
-export function useActiveOutlets() {
+export function useActiveOutlets(key?: string | null) {
   const { data, error, isLoading, mutate } = useSWR<Outlet[]>(
-    `${OUTLETS_KEY}/active`,
+    key === null ? null : `${OUTLETS_KEY}/active`, 
     async () => {
       const outlets = await outletsService.getActive()
       return outlets
@@ -64,7 +65,7 @@ export function useActiveOutlets() {
       revalidateOnFocus: false,
       revalidateOnReconnect: false,
       revalidateIfStale: false,
-      dedupingInterval: 60000, // 60 seconds deduplication
+      shouldRetryOnError: false    
     }
   )
 

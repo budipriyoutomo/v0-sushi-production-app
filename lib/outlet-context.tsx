@@ -2,7 +2,8 @@
 
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react'
 import type { Outlet } from './types'
-import { useActiveOutlets } from '@/hooks/use-outlets'
+import { useActiveOutlets } from '@/hooks/use-outlets' 
+import { usePathname } from 'next/navigation' 
 
 interface OutletContextType {
   selectedOutletId: string
@@ -14,15 +15,18 @@ interface OutletContextType {
 const OutletContext = createContext<OutletContextType | undefined>(undefined)
 
 export function OutletProvider({ children }: { children: ReactNode }) {
-  const { outlets, isLoading } = useActiveOutlets()
+  const pathname = usePathname()
+  const shouldFetch = pathname !== '/login'
+
+  const { outlets, isLoading } = useActiveOutlets(shouldFetch ? undefined : null)
   const [selectedOutletId, setSelectedOutletId] = useState<string>('')
 
   // Automatically select the first outlet if none is selected
   useEffect(() => {
-    if (outlets.length > 0 && !selectedOutletId) {
+    if (!selectedOutletId && outlets.length > 0) {
       setSelectedOutletId(outlets[0].id)
     }
-  }, [outlets, selectedOutletId])
+  }, [outlets])
 
   return (
     <OutletContext.Provider value={{ selectedOutletId, setSelectedOutletId, outlets, isLoading }}>

@@ -1,8 +1,7 @@
 "use client"
 
 import type { ReactNode } from "react"
-import { AuthProvider } from "@/hooks/use-auth"
-import { OutletProvider } from "@/lib/outlet-context"
+import { AuthProvider } from "@/hooks/use-auth" 
 import { Toaster } from "@/components/ui/toaster"
 
 interface ProvidersProps {
@@ -11,11 +10,9 @@ interface ProvidersProps {
 
 export function Providers({ children }: ProvidersProps) {
   return (
-    <AuthProvider>
-      <OutletProvider>
+    <AuthProvider> 
         {children}
-        <Toaster />
-      </OutletProvider>
+        <Toaster /> 
     </AuthProvider>
   )
 }

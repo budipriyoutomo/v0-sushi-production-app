@@ -39,9 +39,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`font-sans antialiased`}>
-        <Providers>
+          <Providers> 
           {children}
-        </Providers>
+         </Providers>  
         <Analytics />
       </body>
     </html>
