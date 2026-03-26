@@ -12,9 +12,13 @@ export interface ProductionItem {
   menuName: string
   plateColor: PlateColor
   quantity: number
-  producedAt: Date
-  expiresAt: Date
-  status: 'fresh' | 'warning' | 'expired'
+  producedAt: string
+  expiresAt: string
+  beltStatus: 'fresh' | 'warning' | 'expired'
+  finalStatus: 'sold' | 'waste' | null
+  soldAt: string | null
+  wastedAt: string | null
+
   outletId: string
 }
 
@@ -85,16 +89,23 @@ class ProductionService {
   }
 
   // Remove expired items
-  async removeExpired(itemIds: string[]): Promise<void> {
+  /*async removeExpired(itemIds: string[]): Promise<void> {
     await apiClient.post(`${this.endpoint}/remove-expired`, { itemIds })
+  }*/
+  
+  async markSold(itemIds: string[]): Promise<void> {
+    await apiClient.post(`${this.endpoint}/mark-sold`, { itemIds })
+  }
+ 
+  
+  async markWaste(itemIds: string[]): Promise<void> {
+    await apiClient.post(`${this.endpoint}/mark-waste`, { itemIds })
   }
 
   // Record waste
   async recordWaste(data: {
-    menuId: string
-    quantity: number
-    reason: string
-    outletId: string
+    itemIds: string[] 
+    reason: string 
   }): Promise<WasteRecord> {
     const response = await apiClient.post<{ data: WasteRecord }>(`${this.endpoint}/waste`, data)
     return response.data.data

@@ -37,8 +37,7 @@ export function MenusAdmin() {
 
   const [formData, setFormData] = useState({
     menuname: "",
-    description: "",
-    image: "",
+    description: "", 
     price: 0,
     shelf_life: 2,
     plate_color_id: "",
@@ -51,8 +50,7 @@ export function MenusAdmin() {
     setImagePreview("")
     setFormData({
       menuname: "",
-      description: "",
-      image: "",
+      description: "", 
       price: 0,
       shelf_life: 2,
       plate_color_id: plateColors[0]?.id || "",
@@ -67,8 +65,7 @@ export function MenusAdmin() {
     setImagePreview(item.image || "")
     setFormData({
       menuname: item.menuname,
-      description: item.description,
-      image: item.image,
+      description: item.description, 
       price: item.price,
       shelf_life: item.shelfLife,
       plate_color_id: item.plateColorId,
@@ -101,7 +98,7 @@ export function MenusAdmin() {
       // In production, you'd upload to a file server first
       const submitData = {
         ...formData,
-        image: imageFile ? `menus/${formData.menuname.toLowerCase().replace(/\s+/g, '-')}.jpg` : formData.image,
+        image: imageFile || undefined, // Use new image if selected, otherwise keep existing
       }
 
       if (editingItem) {
@@ -169,7 +166,7 @@ export function MenusAdmin() {
                     <th className="text-right p-3 font-semibold">Actions</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody> 
                   {menus.map((item) => (
                     <tr key={item.id} className="border-b hover:bg-muted/50">
                       <td className="p-3">
@@ -181,11 +178,10 @@ export function MenusAdmin() {
                       </td>
                       <td className="p-3 font-medium">{item.menuname}</td>
                       <td className="p-3 text-sm text-muted-foreground max-w-[200px] truncate">{item.description}</td>
-                      <td className="p-3">
+                      <td className="p-3 text-sm">
                         <PlateColorBadge color={item.plateColorName?.toLowerCase() as "white" | "blue" | "pink" | "black" | "red" | "gold" | "choco motive" | "yellow" | "silver"} />
-                        <span className="ml-2 text-sm">{item.plateColorName}</span>
                       </td>
-                      <td className="p-3 text-right">{item.shelfLife} hours</td>
+                      <td className="p-3 text-right">{item.shelfLife} minute</td>
                       <td className="p-3 text-right">Rp {item.price.toLocaleString('id-ID')}</td>
                       <td className="p-3 text-center">
                         <span className={`px-2 py-1 rounded-full text-xs ${item.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
@@ -326,7 +322,7 @@ export function MenusAdmin() {
             </div>
 
             <div className="grid gap-2">
-              <Label>Shelf Life (hours)</Label>
+              <Label>Shelf Life (minute)</Label>
               <Input
                 type="number"
                 value={formData.shelf_life}

@@ -27,6 +27,8 @@ import { useMenus } from '@/hooks/use-menus'
 import { usePlateColorsSortedByPrice } from '@/hooks/use-plate-colors'
 import { useToast } from '@/hooks/use-toast'
 import { CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
+import type { PlateColor, SushiMenu } from "@/lib/types"
+import { formatRupiah, lowercase } from "@/lib/utils"
 
 interface ExpiredItem {
   id: string
@@ -55,9 +57,7 @@ export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsMana
   const [newStatus, setNewStatus] = useState<'sold' | 'waste'>('sold')
   const [notes, setNotes] = useState('')
 
-  const filteredItems = selectedColor 
-    ? expiredItems.filter((item) => item.plateColor === selectedColor)
-    : expiredItems
+  const filteredItems = selectedColor ? expiredItems.filter((item) => item.plateColor === selectedColor) : expiredItems
 
   const handleOpenUpdateDialog = (item: ExpiredItem) => {
     setSelectedItem(item)
@@ -79,7 +79,7 @@ export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsMana
     if (selectedItem) {
       toast({
         title: 'Status Updated',
-        description: `${selectedItem.sushiName} marked as ${newStatus}`,
+        description: `${selectedItem.menuName} marked as ${newStatus}`,
         variant: newStatus === 'waste' ? 'destructive' : 'default',
       })
     }
@@ -116,11 +116,11 @@ export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsMana
         {plateColors.map((plate) => (
           <Button
             key={plate.id}
-            variant={selectedColor === plate.name ? "default" : "outline"}
-            onClick={() => setSelectedColor(plate.name)}
+            variant={selectedColor === plate.id ? "default" : "outline"}
+            onClick={() => setSelectedColor(plate.id)}
             className="px-4 py-2 capitalize"
           >
-            {plate.name}
+            {plate.platename}
           </Button>
         ))}
       </div>
@@ -164,7 +164,7 @@ export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsMana
 
                   {/* TOP */}
                   <div className="flex justify-between items-start">
-                    <PlateColorBadge color={item.plateColor} />
+                    <PlateColorBadge color={(lowercase(item.plateColor) as PlateColor) || "white" } />
                   </div>
 
                   {/* BOTTOM */}

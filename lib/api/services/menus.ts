@@ -4,7 +4,7 @@ import type { SushiMenu } from '@/lib/types'
 export interface CreateMenuDTO {
   menuname: string
   description: string
-  image: File
+  image?: File
   price: number
   shelf_life: number
   plate_color_id: string
@@ -26,7 +26,7 @@ interface MenuApiResponse {
   id: string
   menuname: string
   description: string
-  image: string
+  image?:  string
   price: number
   shelf_life: number
   plate_color_id: string
@@ -35,7 +35,8 @@ interface MenuApiResponse {
     platename: string
   }
   is_active: boolean
-  created_at?: string
+  created_at?: string 
+  image_url?: string
 }
 
 // Transform API response to frontend format
@@ -44,7 +45,7 @@ function transformMenu(data: MenuApiResponse): SushiMenu {
     id: data.id,
     menuname: data.menuname,
     description: data.description,
-    image: data.image,
+    image: data.image_url,
     price: data.price,
     shelfLife: data.shelf_life,
     plateColorId: data.plate_color_id,
