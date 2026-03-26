@@ -5,6 +5,7 @@ import {
   type ConveyorItem,
   type WasteRecord,
   type ProductionStats,
+  type ExpiredItem,
 } from '@/lib/api'
 
 const PRODUCTION_KEY = '/production'
@@ -111,6 +112,49 @@ export function useWasteRecords(outletId: string | null, startDate: string | nul
     isLoading,
     error,
     recordWaste,
+    refresh: mutate,
+  }
+}
+
+export function useExpiredItems(outletId: string | null) {
+  const { data, error, isLoading, mutate } = useSWR<ExpiredItem[]>(
+    outletId ? `${PRODUCTION_KEY}/expired/${outletId}` : null,
+    async () => {
+      if (!outletId) return []
+      const items = await productionService.getExpiredItems(outletId)
+      return items
+    },
+    {
+      refreshInterval: 30000, // Refresh every 30 seconds
+      revalidateOnFocus: false,
+    }
+  )
+
+  const updateExpiredItem = async (
+    itemId: string,
+    status: 'sold' | 'waste',
+    notes: string
+  ): Promise<ExpiredItem | null> => {
+    try {
+      const item = await productionService.updateExpiredItem(itemId, { status, notes })
+      await mutate()
+      return item
+    } catch (err) {
+      throw err
+    }
+  }
+
+  const removeExpiredItem = async (itemId: string): Promise<void> => {
+    await productionService.removeExpiredItem(itemId)
+    await mutate()
+  }
+
+  return {
+    expiredItems: data || [],
+    isLoading,
+    error,
+    updateExpiredItem,
+    removeExpiredItem,
     refresh: mutate,
   }
 }

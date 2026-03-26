@@ -37,6 +37,18 @@ export interface WasteRecord {
   outletId: string
 }
 
+export interface ExpiredItem {
+  id: string
+  menuId: string
+  menuName: string
+  plateColor: string
+  producedAt: Date
+  expiresAt: Date
+  status?: 'sold' | 'waste'
+  notes?: string
+  outletId: string
+}
+
 export interface ProductionStats {
   plateColor: PlateColor
   targetToday: number
@@ -117,6 +129,31 @@ class ProductionService {
       params: { outletId, startDate, endDate },
     })
     return response.data.data
+  }
+
+  // Get expired items
+  async getExpiredItems(outletId: string): Promise<ExpiredItem[]> {
+    const response = await apiClient.get<{ data: ExpiredItem[] }>(`${this.endpoint}/expired`, {
+      params: { outletId },
+    })
+    return response.data.data
+  }
+
+  // Update expired item status
+  async updateExpiredItem(
+    itemId: string,
+    data: { status: 'sold' | 'waste'; notes: string }
+  ): Promise<ExpiredItem> {
+    const response = await apiClient.put<{ data: ExpiredItem }>(
+      `${this.endpoint}/expired/${itemId}`,
+      data
+    )
+    return response.data.data
+  }
+
+  // Remove expired item
+  async removeExpiredItem(itemId: string): Promise<void> {
+    await apiClient.delete(`${this.endpoint}/expired/${itemId}`)
   }
 }
 
