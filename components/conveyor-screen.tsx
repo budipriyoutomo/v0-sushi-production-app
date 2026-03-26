@@ -16,13 +16,14 @@ import { useToast } from "@/hooks/use-toast"
 import { productionService, getApiError } from "@/lib/api"
 import { CheckCircle, XCircle, Loader2 } from "lucide-react"
 import { formatRupiah, lowercase } from "@/lib/utils"
-import type { PlateColor, SushiMenu } from "@/lib/types"
+import type { PlateColor, SushiMenu } from "@/lib/types" 
 
 interface ItemWithWasteReason {
   id: string
   menuId: string
   menuName: string
   plateColor: string
+  plateColorName: string
   producedAt: Date
   expiresAt: Date
   wasteReasonInput?: string
@@ -57,15 +58,15 @@ export function ConveyorScreen() {
 /* const activeItems = items.filter((item) => {
   return new Date(item.expiresAt).getTime() > Date.now()
 })*/
-
+  
 const activeItems = items.filter(
   (item) => item.finalStatus === null
 )
 
   const filteredItems = selectedColorId ? activeItems.filter((item) => item.plateColor === selectedColorId) : activeItems
- 
+
   // Sort by time remaining (expiring soon first)
- const sortedItems = [...activeItems].sort(
+ const sortedItems = [...filteredItems].sort(
   (a, b) => a.expiresAt.getTime() - b.expiresAt.getTime()
 )
 
@@ -217,7 +218,7 @@ const activeItems = items.filter(
 
                   {/* TOP SECTION */}
                   <div className="flex justify-between items-start">
-                    <PlateColorBadge color={(lowercase(item.plateColor) as PlateColor) || "white" }  />
+                    <PlateColorBadge color={(lowercase(item.plateColorName) as PlateColor) || "white" }  /> 
                   </div>
 
                   {/* BOTTOM SECTION */}
@@ -225,7 +226,7 @@ const activeItems = items.filter(
 
                     {/* Name */}
                     <h3 className="text-sm font-semibold leading-tight line-clamp-2">
-                      {item.menuName}
+                      {item.menuName}  
                     </h3>
 
                     {/* Countdown */}

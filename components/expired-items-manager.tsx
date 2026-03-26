@@ -31,19 +31,20 @@ import { useToast } from '@/hooks/use-toast'
 import { CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import type { PlateColor, SushiMenu } from "@/lib/types"
 import { formatRupiah, lowercase } from "@/lib/utils"
+import { log } from 'console'
 
 export function ExpiredItemsManager() {
-  const { toast } = useToast()
-  const { selectedOutlet } = useOutlet()
+  const { toast } = useToast() 
   const { menus, isLoading: menusLoading } = useMenus()
-  const { plateColors, isLoading: plateColorsLoading } = usePlateColorsSortedByPrice()
+  const { selectedOutletId } = useOutlet()
+  const { plateColors, isLoading: plateColorsLoading } = usePlateColorsSortedByPrice() 
   const {
     expiredItems,
     isLoading: expiredLoading,
     updateExpiredItem,
     removeExpiredItem,
     refresh,
-  } = useExpiredItems(selectedOutlet?.id || null)
+  } = useExpiredItems(selectedOutletId)
 
   const [selectedColor, setSelectedColor] = useState<string | null>(null)
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false)
@@ -58,6 +59,7 @@ export function ExpiredItemsManager() {
     ? expiredItems.filter((item) => item.plateColor === selectedColor)
     : expiredItems
 
+console.log("Expired items:", expiredItems)
   const handleOpenUpdateDialog = (item: typeof expiredItems[0]) => {
     setSelectedItem(item)
     setNewStatus(item.status || 'sold')
@@ -100,28 +102,7 @@ export function ExpiredItemsManager() {
   const calculateExpiredTime = (item: typeof expiredItems[0]) => {
     return new Date(item.expiresAt)
   }
-
-  if (!selectedOutlet) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-3xl md:text-4xl font-bold">Expired Items</h1>
-            <p className="text-muted-foreground mt-1">
-              Manage items that have exceeded their shelf life
-            </p>
-          </div>
-          <OutletSelector />
-        </div>
-        <Card>
-          <CardContent className="p-12 text-center">
-            <p className="text-muted-foreground text-lg">Please select an outlet first</p>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
+   
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -148,8 +129,8 @@ export function ExpiredItemsManager() {
         {plateColors.map((plate) => (
           <Button
             key={plate.id}
-            variant={selectedColor === plate.name ? 'default' : 'outline'}
-            onClick={() => setSelectedColor(plate.name)}
+            variant={selectedColor === plate.id ? 'default' : 'outline'}
+            onClick={() => setSelectedColor(plate.id)}
             className="px-4 py-2 capitalize"
           >
             {plate.platename}
@@ -195,7 +176,7 @@ export function ExpiredItemsManager() {
                 <div className="absolute inset-0 p-3 flex flex-col justify-between text-gray-900">
                   {/* TOP */}
                   <div className="flex justify-between items-start">
-                    <PlateColorBadge color={(lowercase(item.plateColor) as PlateColor) || "white" } />
+                    <PlateColorBadge color={(lowercase(item.plateColorName) as PlateColor) || "white" } />
                   </div>
 
                   {/* BOTTOM */}

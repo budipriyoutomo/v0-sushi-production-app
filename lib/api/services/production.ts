@@ -11,6 +11,7 @@ export interface ProductionItem {
   menuId: string
   menuName: string
   plateColor: PlateColor
+  plateColorName: string
   quantity: number
   producedAt: string
   expiresAt: string
@@ -42,6 +43,7 @@ export interface ExpiredItem {
   menuId: string
   menuName: string
   plateColor: string
+  plateColorName: string
   producedAt: Date
   expiresAt: Date
   status?: 'sold' | 'waste'
