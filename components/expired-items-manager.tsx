@@ -23,50 +23,47 @@ import {
 } from '@/components/ui/dialog'
 import { PlateColorBadge } from '@/components/plate-color-badge'
 import { OutletSelector } from '@/components/outlet-selector'
+import { useOutlet } from '@/lib/outlet-context'
 import { useMenus } from '@/hooks/use-menus'
 import { usePlateColorsSortedByPrice } from '@/hooks/use-plate-colors'
+import { useExpiredItems } from '@/hooks/use-production'
 import { useToast } from '@/hooks/use-toast'
 import { CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 
-interface ExpiredItem {
-  id: string
-  menuId: string
-  menuName: string
-  plateColor: string
-  producedAt: Date
-  expiresAt: Date
-  status?: 'sold' | 'waste'
-  notes?: string
-}
-
-interface ExpiredItemsManagerProps {
-  expiredItems: ExpiredItem[]
-  onRemove: (itemId: string) => void
-}
-
-export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsManagerProps) {
+export function ExpiredItemsManager() {
   const { toast } = useToast()
+  const { selectedOutlet } = useOutlet()
   const { menus, isLoading: menusLoading } = useMenus()
   const { plateColors, isLoading: plateColorsLoading } = usePlateColorsSortedByPrice()
+  const {
+    expiredItems,
+    isLoading: expiredLoading,
+    updateExpiredItem,
+    removeExpiredItem,
+    refresh,
+  } = useExpiredItems(selectedOutlet?.id || null)
+
   const [selectedColor, setSelectedColor] = useState<string | null>(null)
-  const isLoading = menusLoading || plateColorsLoading
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false)
-  const [selectedItem, setSelectedItem] = useState<ExpiredItem | null>(null)
+  const [selectedItem, setSelectedItem] = useState<typeof expiredItems[0] | null>(null)
   const [newStatus, setNewStatus] = useState<'sold' | 'waste'>('sold')
   const [notes, setNotes] = useState('')
+  const [isUpdating, setIsUpdating] = useState(false)
 
-  const filteredItems = selectedColor 
+  const isLoading = menusLoading || plateColorsLoading || expiredLoading
+
+  const filteredItems = selectedColor
     ? expiredItems.filter((item) => item.plateColor === selectedColor)
     : expiredItems
 
-  const handleOpenUpdateDialog = (item: ExpiredItem) => {
+  const handleOpenUpdateDialog = (item: typeof expiredItems[0]) => {
     setSelectedItem(item)
     setNewStatus(item.status || 'sold')
     setNotes(item.notes || '')
     setUpdateDialogOpen(true)
   }
 
-  const handleConfirmUpdate = () => {
+  const handleConfirmUpdate = async () => {
     if (!notes.trim()) {
       toast({
         title: 'Required Field',
@@ -76,19 +73,51 @@ export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsMana
       return
     }
 
-    if (selectedItem) {
+    if (!selectedItem) return
+
+    setIsUpdating(true)
+    try {
+      await updateExpiredItem(selectedItem.id, newStatus, notes)
       toast({
         title: 'Status Updated',
-        description: `${selectedItem.sushiName} marked as ${newStatus}`,
+        description: `${selectedItem.menuName} marked as ${newStatus}`,
         variant: newStatus === 'waste' ? 'destructive' : 'default',
       })
+      setUpdateDialogOpen(false)
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to update item status',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsUpdating(false)
     }
-    
-    setUpdateDialogOpen(false)
   }
 
-  const calculateExpiredTime = (item: ExpiredItem) => {
+  const calculateExpiredTime = (item: typeof expiredItems[0]) => {
     return new Date(item.expiresAt)
+  }
+
+  if (!selectedOutlet) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold">Expired Items</h1>
+            <p className="text-muted-foreground mt-1">
+              Manage items that have exceeded their shelf life
+            </p>
+          </div>
+          <OutletSelector />
+        </div>
+        <Card>
+          <CardContent className="p-12 text-center">
+            <p className="text-muted-foreground text-lg">Please select an outlet first</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -98,7 +127,8 @@ export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsMana
         <div>
           <h1 className="text-3xl md:text-4xl font-bold">Expired Items</h1>
           <p className="text-muted-foreground mt-1">
-            Manage items that have exceeded their shelf life: <span className="font-semibold text-foreground">{expiredItems.length}</span>
+            Manage items that have exceeded their shelf life:{' '}
+            <span className="font-semibold text-foreground">{expiredItems.length}</span>
           </p>
         </div>
         <OutletSelector />
@@ -107,7 +137,7 @@ export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsMana
       {/* Filter by Plate Color */}
       <div className="flex flex-wrap gap-2">
         <Button
-          variant={selectedColor === null ? "default" : "outline"}
+          variant={selectedColor === null ? 'default' : 'outline'}
           onClick={() => setSelectedColor(null)}
           className="px-4 py-2"
         >
@@ -116,7 +146,7 @@ export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsMana
         {plateColors.map((plate) => (
           <Button
             key={plate.id}
-            variant={selectedColor === plate.name ? "default" : "outline"}
+            variant={selectedColor === plate.name ? 'default' : 'outline'}
             onClick={() => setSelectedColor(plate.name)}
             className="px-4 py-2 capitalize"
           >
@@ -156,12 +186,11 @@ export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsMana
                     className="object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                 )}
- 
+
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
 
                 {/* CONTENT */}
                 <div className="absolute inset-0 p-3 flex flex-col justify-between text-gray-900">
-
                   {/* TOP */}
                   <div className="flex justify-between items-start">
                     <PlateColorBadge color={item.plateColor} />
@@ -169,24 +198,18 @@ export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsMana
 
                   {/* BOTTOM */}
                   <div className="space-y-2">
-
                     {/* Name */}
-                    <h3 className="text-sm font-semibold ">
-                      {item.menuName}
-                    </h3>
+                    <h3 className="text-sm font-semibold ">{item.menuName}</h3>
 
                     {/* Production Details */}
                     <div className="text-xs space-y-1 bg-white/70 backdrop-blur-sm p-2 rounded-md border border-gray-200">
-
                       <p>
-                        Prod:{" "}
-                        <span className="font-medium">
-                          {productionTime.toLocaleTimeString()}
-                        </span>
+                        Prod:{' '}
+                        <span className="font-medium">{productionTime.toLocaleTimeString()}</span>
                       </p>
 
                       <p>
-                        Exp:{" "}
+                        Exp:{' '}
                         <span className="font-medium text-red-600">
                           {expiredTime.toLocaleTimeString()}
                         </span>
@@ -196,7 +219,6 @@ export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsMana
                         <AlertCircle className="w-3 h-3" />
                         Time Expired
                       </p>
-
                     </div>
 
                     {/* Update Button */}
@@ -208,7 +230,6 @@ export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsMana
                       <CheckCircle className="w-3 h-3 mr-1" />
                       Update
                     </Button>
-
                   </div>
                 </div>
               </Card>
@@ -224,7 +245,8 @@ export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsMana
             <DialogHeader>
               <DialogTitle>Update Expired Item</DialogTitle>
               <DialogDescription>
-                Update the status and add notes for: <span className="font-semibold">{selectedItem.menuName}</span>
+                Update the status and add notes for:{' '}
+                <span className="font-semibold">{selectedItem.menuName}</span>
               </DialogDescription>
             </DialogHeader>
 
@@ -234,10 +256,12 @@ export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsMana
                 <h3 className="font-semibold text-sm">{selectedItem.menuName}</h3>
                 <div className="text-xs text-muted-foreground space-y-1">
                   <p>
-                    <span className="font-medium">Production:</span> {new Date(selectedItem.producedAt).toLocaleString()}
+                    <span className="font-medium">Production:</span>{' '}
+                    {new Date(selectedItem.producedAt).toLocaleString()}
                   </p>
                   <p>
-                    <span className="font-medium">Expired:</span> {calculateExpiredTime(selectedItem).toLocaleString()}
+                    <span className="font-medium">Expired:</span>{' '}
+                    {calculateExpiredTime(selectedItem).toLocaleString()}
                   </p>
                   <p className="flex items-center gap-1 text-red-600 font-medium">
                     <AlertCircle className="w-3 h-3" />
@@ -248,8 +272,13 @@ export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsMana
 
               {/* Status Selection */}
               <div className="space-y-2">
-                <Label htmlFor="status" className="font-medium">Status</Label>
-                <Select value={newStatus} onValueChange={(value) => setNewStatus(value as 'sold' | 'waste')}>
+                <Label htmlFor="status" className="font-medium">
+                  Status
+                </Label>
+                <Select
+                  value={newStatus}
+                  onValueChange={(value) => setNewStatus(value as 'sold' | 'waste')}
+                >
                   <SelectTrigger id="status">
                     <SelectValue />
                   </SelectTrigger>
@@ -262,7 +291,9 @@ export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsMana
 
               {/* Notes/Description */}
               <div className="space-y-2">
-                <Label htmlFor="notes" className="font-medium">Notes/Keterangan *</Label>
+                <Label htmlFor="notes" className="font-medium">
+                  Notes/Keterangan *
+                </Label>
                 <Input
                   id="notes"
                   placeholder="Enter description or reason..."
@@ -275,16 +306,15 @@ export function ExpiredItemsManager({ expiredItems, onRemove }: ExpiredItemsMana
             </div>
 
             <DialogFooter className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setUpdateDialogOpen(false)}
-              >
+              <Button variant="outline" onClick={() => setUpdateDialogOpen(false)}>
                 Cancel
               </Button>
               <Button
                 onClick={handleConfirmUpdate}
+                disabled={isUpdating}
                 className={`${newStatus === 'waste' ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}
               >
+                {isUpdating && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Update Status
               </Button>
             </DialogFooter>
