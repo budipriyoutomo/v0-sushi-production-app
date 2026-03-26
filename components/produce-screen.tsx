@@ -113,7 +113,7 @@ export function ProduceScreen() {
       <Card
         key={sushi.id}
         className="relative h-44 overflow-hidden cursor-pointer group"
-      >
+      >  
         {/* FULL IMAGE */}
         {sushi.image && (
           <Image

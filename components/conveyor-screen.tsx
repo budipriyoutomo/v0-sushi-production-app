@@ -15,6 +15,8 @@ import { useMenus } from "@/hooks/use-menus"
 import { useToast } from "@/hooks/use-toast"
 import { productionService, getApiError } from "@/lib/api"
 import { CheckCircle, XCircle, Loader2 } from "lucide-react"
+import { formatRupiah, lowercase } from "@/lib/utils"
+import type { PlateColor, SushiMenu } from "@/lib/types"
 
 interface ItemWithWasteReason {
   id: string
@@ -25,6 +27,10 @@ interface ItemWithWasteReason {
   expiresAt: Date
   wasteReasonInput?: string
   showWasteReasonForm?: boolean
+  finalStatus: 'sold' | 'waste' | null
+  soldAt: Date | null
+  wastedAt: Date | null
+  beltStatus: 'fresh' | 'warning' | 'expired'
 }
 
 export function ConveyorScreen() {
@@ -32,8 +38,8 @@ export function ConveyorScreen() {
   const { selectedOutletId } = useOutlet()
   const { items: conveyorItems, isLoading, refresh } = useConveyorItems(selectedOutletId)
   const { plateColors } = usePlateColorsSortedByPrice()
-  const { menus } = useMenus()
-  const [selectedColor, setSelectedColor] = useState<string | null>(null)
+  const { menus } = useMenus() 
+  const [selectedColorId, setSelectedColorId] = useState<string | null>(null)
   const [itemStates, setItemStates] = useState<Record<string, { wasteReasonInput: string; showWasteReasonForm: boolean }>>({})
 
   // Map conveyor items to include local state
@@ -41,28 +47,32 @@ export function ConveyorScreen() {
     ...item,
     producedAt: new Date(item.producedAt),
     expiresAt: new Date(item.expiresAt),
+    soldAt: item.soldAt ? new Date(item.soldAt) : null,
+    wastedAt: item.wastedAt ? new Date(item.wastedAt) : null,
     wasteReasonInput: itemStates[item.id]?.wasteReasonInput || "",
     showWasteReasonForm: itemStates[item.id]?.showWasteReasonForm || false,
   }))
 
   // Filter out expired items (time remaining <= 0)
-  const activeItems = items.filter((item) => {
-    const timeRemaining = Math.floor((item.expiresAt.getTime() - Date.now()) / 60000)
-    return timeRemaining > 0
-  })
+/* const activeItems = items.filter((item) => {
+  return new Date(item.expiresAt).getTime() > Date.now()
+})*/
 
-  const filteredItems = selectedColor ? activeItems.filter((item) => item.plateColor === selectedColor) : activeItems
+const activeItems = items.filter(
+  (item) => item.finalStatus === null
+)
 
+  const filteredItems = selectedColorId ? activeItems.filter((item) => item.plateColor === selectedColorId) : activeItems
+ 
   // Sort by time remaining (expiring soon first)
-  const sortedItems = [...filteredItems].sort((a, b) => {
-    const timeRemainingA = a.expiresAt.getTime() - Date.now()
-    const timeRemainingB = b.expiresAt.getTime() - Date.now()
-    return timeRemainingA - timeRemainingB
-  })
+ const sortedItems = [...activeItems].sort(
+  (a, b) => a.expiresAt.getTime() - b.expiresAt.getTime()
+)
 
   const handleMarkSold = async (itemId: string, menuName: string) => {
     try {
-      await productionService.removeExpired([itemId])
+      //await productionService.removeExpired([itemId])
+      await productionService.markSold([itemId])
       await refresh()
       toast({
         title: "Marked as Sold",
@@ -95,8 +105,10 @@ export function ConveyorScreen() {
       return
     }
     try {
-      await productionService.recordWaste({ menuId, quantity: 1, reason, outletId: selectedOutletId || "" })
-      await productionService.removeExpired([itemId])
+
+      await productionService.recordWaste({ itemIds: [itemId], reason })
+      //await productionService.removeExpired([itemId])
+      await productionService.markWaste([itemId])
       await refresh()
       setItemStates((prev) => {
         const newState = { ...prev }
@@ -143,28 +155,28 @@ export function ConveyorScreen() {
         <OutletSelector />
       </div>
 
-      {/* Filter by Plate Color */}
-      <div className="flex flex-wrap gap-2">
+      { /* Filter by Plate Color */ }
+      <div className="flex gap-2 flex-wrap">
         <Button
-          variant={selectedColor === null ? "default" : "outline"}
-          onClick={() => setSelectedColor(null)}
+          variant={selectedColorId === null ? "default" : "outline"}
+          onClick={() => setSelectedColorId(null)}
           className="px-4 py-2"
         >
           All Colors
         </Button>
         {plateColors.map((plate) => (
-          <Button
-            key={plate.id}
-            variant={selectedColor === plate.name ? "default" : "outline"}
-            onClick={() => setSelectedColor(plate.name)}
-            className="px-4 py-2 capitalize"
-          >
-            {plate.name}
-          </Button>
-        ))}
+            <Button
+              key={plate.id}
+              variant={selectedColorId === plate.id ? "default" : "outline"}
+              onClick={() => setSelectedColorId(plate.id)}
+              className="px-4 py-2 capitalize"
+            >
+              {plate.platename}
+            </Button>
+          ))}
       </div>
 
-      {/* Items Grid */}
+      {/* Items Grid */}  
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -205,7 +217,7 @@ export function ConveyorScreen() {
 
                   {/* TOP SECTION */}
                   <div className="flex justify-between items-start">
-                    <PlateColorBadge color={item.plateColor} />
+                    <PlateColorBadge color={(lowercase(item.plateColor) as PlateColor) || "white" }  />
                   </div>
 
                   {/* BOTTOM SECTION */}
