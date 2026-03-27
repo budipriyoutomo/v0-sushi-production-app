@@ -1,5 +1,7 @@
 import apiClient from '../client'
 import type { PlateColor } from '@/components/plate-color-badge'
+import { plateColorsService } from './plate-colors'
+
 
 export interface ProductionPlanRow {
   timeSlot: string
@@ -56,12 +58,67 @@ export interface ProductionStats {
   targetToday: number
   produced: number
   sold: number
+  waste: number
   expiringSoon: number
   outletId: string
 }
 
+export interface ProductionPlanItemPayload {
+  plateColorId: string
+  qty: number
+}
+
+export interface ProductionPlanRowPayload {
+  timeSlot: string
+  items: ProductionPlanItemPayload[]
+}
+
+function transformPlan(
+  plan: ProductionPlanRow[],
+  colorMap: Record<string, string>
+): ProductionPlanRowPayload[] {
+  return plan.map(row => {
+    const items = Object.entries(row)
+      .filter(([key]) => key !== 'timeSlot')
+      .map(([color, qty]) => {
+
+        const normalizedColor = String(color).toLowerCase()
+        const plateColorId = colorMap[normalizedColor]
+
+        if (!plateColorId) {
+          throw new Error(`Color "${color}" tidak ditemukan di master`)
+        }
+
+        return {
+          plateColorId,
+          qty: Number(qty) || 0
+        }
+      })
+
+    return {
+      timeSlot: row.timeSlot,
+      items
+    }
+  })
+}
+
 class ProductionService {
   private endpoint = '/production'
+
+  private colorMap: Record<string, string> = {}
+  private isColorLoaded = false
+
+  private async loadPlateColors() {
+    if (this.isColorLoaded) return
+
+    const res = await plateColorsService.getAll()
+
+    this.colorMap = Object.fromEntries(
+      res.data.map(c => [c.platename.toLowerCase(), c.id])
+    )
+
+    this.isColorLoaded = true
+  }
 
   // Get production stats for dashboard
   async getStats(outletId: string): Promise<ProductionStats[]> {
@@ -80,8 +137,20 @@ class ProductionService {
   }
 
   // Save production plan
-  async savePlan(outletId: string, date: string, plan: ProductionPlanRow[]): Promise<void> {
+  /*async savePlan(outletId: string, date: string, plan: ProductionPlanRow[]): Promise<void> {
     await apiClient.post(`${this.endpoint}/plan`, { outletId, date, plan })
+  }*/
+
+  async savePlan(outletId: string, date: string, plan: ProductionPlanRow[]): Promise<void> {
+    await this.loadPlateColors()
+
+    const payload = transformPlan(plan, this.colorMap)
+
+    await apiClient.post(`${this.endpoint}/plan`, {
+      outletId,
+      date,
+      plan: payload
+    })
   }
 
   // Get conveyor items (currently on belt)
@@ -157,6 +226,8 @@ class ProductionService {
   async removeExpiredItem(itemId: string): Promise<void> {
     await apiClient.delete(`${this.endpoint}/expired/${itemId}`)
   }
+
+  
 }
 
 export const productionService = new ProductionService()

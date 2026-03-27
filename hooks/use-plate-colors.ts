@@ -47,11 +47,13 @@ export function usePlateColors() {
 
 // Hook to get plate colors sorted by price (cheapest first)
 export function usePlateColorsSortedByPrice() {
-  const { data, error, isLoading, mutate } = useSWR<PlateColorConfig[]>(
-    `${PLATE_COLORS_KEY}/sorted`,
-    async () => {
-      const colors = await plateColorsService.getSortedByPrice()
-      return colors
+  const key = [PLATE_COLORS_KEY, { sortBy: 'price', sortOrder: 'asc' }]
+
+  const { data, error, isLoading, mutate } = useSWR(
+    key,
+    async ([_, params]: [string, Record<string, unknown>]) => {
+      const colors = await plateColorsService.getAll(params)
+      return colors.data
     }
   )
 

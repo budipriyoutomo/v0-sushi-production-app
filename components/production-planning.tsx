@@ -57,9 +57,10 @@ export function ProductionPlanning() {
   // Get color keys from API response
   const colorKeys = useMemo(() => {
     return plateColors
-      .filter(pc => pc && pc.name)
-      .map(pc => pc.name.toLowerCase() as PlateColor)
+      .filter(pc => pc && pc.platename )
+      .map(pc => pc.platename.toLowerCase() as PlateColor)
   }, [plateColors])
+ 
 
   // Generate default plan based on available colors
   const generateDefaultPlan = useMemo(() => {
@@ -67,7 +68,7 @@ export function ProductionPlanning() {
     return timeSlots.map((timeSlot) => {
       const row: ProductionPlanRow = { timeSlot }
       colorKeys.forEach(color => {
-        row[color] = 0
+        row[color] = 2
       })
       return row
     })

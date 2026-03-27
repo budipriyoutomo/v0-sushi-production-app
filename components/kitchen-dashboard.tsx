@@ -29,7 +29,7 @@ export function KitchenDashboard() {
 
   // ✅ O(1) lookup (no more find in loop)
   const priceMap = Object.fromEntries(
-    plateColors.map((pc) => [lowercase(pc.name), pc.price])
+    plateColors.map((pc) => [lowercase(pc.platename), pc.price])
   )
 
   const getStatus = (
@@ -104,9 +104,10 @@ export function KitchenDashboard() {
                       <StatRow label="Target" value={stat.targetToday} />
                       <StatRow label="Produced" value={stat.produced} />
                       <StatRow label="Sold" value={stat.sold} />
+                      <StatRow label="Waste" value={stat.waste} />
 
                       <StatRow
-                        label="Expiring"
+                        label="Expired"
                         value={stat.expiringSoon}
                         className={cn({
                           "text-red-600": stat.expiringSoon > 5,

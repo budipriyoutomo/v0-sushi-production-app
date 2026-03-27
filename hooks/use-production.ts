@@ -30,27 +30,45 @@ export function useProductionStats(outletId: string | null) {
     refresh: mutate,
   }
 }
-
 export function useProductionPlan(outletId: string | null, date: string | null) {
+  const key = outletId && date 
+    ? [PRODUCTION_KEY, outletId, date] 
+    : null
+
   const { data, error, isLoading, mutate } = useSWR<ProductionPlanRow[]>(
-    outletId && date ? `${PRODUCTION_KEY}/plan/${outletId}/${date}` : null,
-    async () => {
-      if (!outletId || !date) return []
-      const plan = await productionService.getPlan(outletId, date)
-      return plan
+    key,
+    async ([_, outletId, date]) => {
+      return await productionService.getPlan(outletId, date)
+    },
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
     }
   )
 
   const savePlan = async (plan: ProductionPlanRow[]): Promise<void> => {
     if (!outletId || !date) return
-    await productionService.savePlan(outletId, date, plan)
-    await mutate()
+
+    try {
+      await mutate(async () => {
+        await productionService.savePlan(outletId, date, plan)
+        return plan
+      }, {
+        optimisticData: plan,
+        rollbackOnError: true,
+        revalidate: true,
+      })
+    } catch (error) {
+      console.error(error)
+      throw error
+    }
   }
 
   return {
-    plan: data || [],
+    plan: data,
     isLoading,
     error,
+    isEmpty: data?.length === 0,
     savePlan,
     refresh: mutate,
   }
