@@ -56,7 +56,9 @@ export function ProductionPlanning() {
 
   // Get color keys from API response
   const colorKeys = useMemo(() => {
-    return plateColors.map(pc => pc.name.toLowerCase() as PlateColor)
+    return plateColors
+      .filter(pc => pc && pc.name)
+      .map(pc => pc.name.toLowerCase() as PlateColor)
   }, [plateColors])
 
   // Generate default plan based on available colors
@@ -143,11 +145,12 @@ export function ProductionPlanning() {
   }
 
   // Calculate highest producing color
-  const topColor = colorKeys.length > 0 
-    ? colorKeys.reduce((max, color) => {
-        return getColumnTotal(color) > getColumnTotal(max) ? color : max
-      })
-    : null
+  const topColor = useMemo(() => {
+    if (colorKeys.length === 0) return null
+    return colorKeys.reduce((max, color) => {
+      return getColumnTotal(color) > getColumnTotal(max) ? color : max
+    }, colorKeys[0])
+  }, [colorKeys, localPlan])
 
   const isLoading = isLoadingColors || isLoadingPlan
 
