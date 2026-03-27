@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -8,21 +8,10 @@ import { PlateColorBadge, type PlateColor } from "@/components/plate-color-badge
 import { OutletSelector } from "@/components/outlet-selector"
 import { useToast } from "@/hooks/use-toast"
 import { useOutlet } from "@/lib/outlet-context"
-import { plateColors } from "@/lib/mock-data"
-import { Save, RotateCcw, TrendingUp } from "lucide-react"
-
-interface TimeSlotPlan {
-  timeSlot: string
-  white: number
-  blue: number
-  pink: number
-  black: number
-  red: number
-  gold: number
-  "choco motive": number
-  yellow: number
-  silver: number
-}
+import { useProductionPlan } from "@/hooks/use-production"
+import { usePlateColorsSortedByPrice } from "@/hooks/use-plate-colors"
+import { Save, RotateCcw, TrendingUp, Loader2, RefreshCw } from "lucide-react"
+import type { ProductionPlanRow } from "@/lib/api"
 
 // Generate 30-minute time slots from 10:00 to 20:30
 const generateTimeSlots = (): string[] => {
@@ -49,67 +38,153 @@ const TIME_SLOT_COLORS = [
 
 const getTimeSlotColor = (index: number) => TIME_SLOT_COLORS[index % TIME_SLOT_COLORS.length]
 
-const initialPlan: TimeSlotPlan[] = generateTimeSlots().map((timeSlot) => ({
-  timeSlot,
-  white: 10,
-  blue: 8,
-  pink: 7,
-  black: 5,
-  red: 6,
-  gold: 4,
-  "choco motive": 5,
-  yellow: 9,
-  silver: 5,
-}))
-
 export function ProductionPlanning() {
   const { toast } = useToast()
   const { selectedOutletId } = useOutlet()
-  const [plan, setPlan] = useState<TimeSlotPlan[]>(initialPlan)
   const [planDate, setPlanDate] = useState(new Date().toISOString().split('T')[0])
+  const [localPlan, setLocalPlan] = useState<ProductionPlanRow[]>([])
+  const [isSaving, setIsSaving] = useState(false)
 
-  // Sort colors by price (cheapest first)
-  const colorKeys: PlateColor[] = plateColors
-    .sort((a, b) => a.price - b.price)
-    .map((pc) => pc.name as PlateColor)
+  // Fetch plate colors from API
+  const { plateColors, isLoading: isLoadingColors } = usePlateColorsSortedByPrice()
+
+  // Fetch production plan from API
+  const { plan: apiPlan, isLoading: isLoadingPlan, savePlan, refresh } = useProductionPlan(
+    selectedOutletId,
+    planDate
+  )
+
+  // Get color keys from API response
+  const colorKeys = useMemo(() => {
+    return plateColors
+      .filter(pc => pc && pc.name)
+      .map(pc => pc.name.toLowerCase() as PlateColor)
+  }, [plateColors])
+
+  // Generate default plan based on available colors
+  const generateDefaultPlan = useMemo(() => {
+    const timeSlots = generateTimeSlots()
+    return timeSlots.map((timeSlot) => {
+      const row: ProductionPlanRow = { timeSlot }
+      colorKeys.forEach(color => {
+        row[color] = 0
+      })
+      return row
+    })
+  }, [colorKeys])
+
+  // Sync local plan with API data or generate default
+  useEffect(() => {
+    if (apiPlan && apiPlan.length > 0) {
+      setLocalPlan(apiPlan)
+    } else if (colorKeys.length > 0) {
+      setLocalPlan(generateDefaultPlan)
+    }
+  }, [apiPlan, colorKeys, generateDefaultPlan])
 
   const handleChange = (index: number, color: PlateColor, value: string) => {
-    const newPlan = [...plan]
-    newPlan[index][color] = Number.parseInt(value) || 0
-    setPlan(newPlan)
+    const newPlan = [...localPlan]
+    newPlan[index] = { ...newPlan[index], [color]: Number.parseInt(value) || 0 }
+    setLocalPlan(newPlan)
   }
 
-  const getRowTotal = (row: TimeSlotPlan) => {
-    return colorKeys.reduce((sum, color) => sum + row[color], 0)
+  const getRowTotal = (row: ProductionPlanRow) => {
+    return colorKeys.reduce((sum, color) => sum + (Number(row[color]) || 0), 0)
   }
 
   const getColumnTotal = (color: PlateColor) => {
-    return plan.reduce((sum, row) => sum + row[color], 0)
+    return localPlan.reduce((sum, row) => sum + (Number(row[color]) || 0), 0)
   }
 
   const getGrandTotal = () => {
-    return plan.reduce((sum, row) => sum + getRowTotal(row), 0)
+    return localPlan.reduce((sum, row) => sum + getRowTotal(row), 0)
   }
 
-  const handleSave = () => {
-    toast({
-      title: "Production Plan Saved",
-      description: `Daily target: ${getGrandTotal()} items across ${colorKeys.length} plate colors`,
-    })
+  const handleSave = async () => {
+    if (!selectedOutletId) {
+      toast({
+        title: "Error",
+        description: "Please select an outlet first",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsSaving(true)
+    try {
+      await savePlan(localPlan)
+      toast({
+        title: "Production Plan Saved",
+        description: `Daily target: ${getGrandTotal()} items across ${colorKeys.length} plate colors`,
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save production plan. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleReset = () => {
-    setPlan(initialPlan)
+    setLocalPlan(generateDefaultPlan)
     toast({
       title: "Plan Reset",
       description: "Production plan has been reset to default values",
     })
   }
 
+  const handleRefresh = async () => {
+    await refresh()
+    toast({
+      title: "Data Refreshed",
+      description: "Production plan has been reloaded from server",
+    })
+  }
+
   // Calculate highest producing color
-  const topColor = colorKeys.reduce((max, color) => {
-    return getColumnTotal(color as PlateColor) > getColumnTotal(max as PlateColor) ? color : max
-  })
+  const topColor = useMemo(() => {
+    if (colorKeys.length === 0) return null
+    return colorKeys.reduce((max, color) => {
+      return getColumnTotal(color) > getColumnTotal(max) ? color : max
+    }, colorKeys[0])
+  }, [colorKeys, localPlan])
+
+  const isLoading = isLoadingColors || isLoadingPlan
+
+  if (isLoading && localPlan.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" />
+          <p className="mt-2 text-muted-foreground">Loading production plan...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (colorKeys.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold">Production Planning</h1>
+            <p className="text-muted-foreground mt-1">Set 30-minute production targets by plate color</p>
+          </div>
+          <OutletSelector />
+        </div>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-center text-muted-foreground">
+              No plate colors configured. Please add plate colors in the admin panel first.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -136,9 +211,11 @@ export function ProductionPlanning() {
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">Top Producer</p>
             <div className="mt-2">
-              <PlateColorBadge color={topColor as PlateColor} />
+              {topColor && <PlateColorBadge color={topColor} />}
             </div>
-            <p className="text-xs text-orange-600 mt-2">{getColumnTotal(topColor as PlateColor)} pieces</p>
+            <p className="text-xs text-orange-600 mt-2">
+              {topColor ? `${getColumnTotal(topColor)} pieces` : 'No data'}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -154,12 +231,17 @@ export function ProductionPlanning() {
               </CardTitle>
               <p className="text-sm text-muted-foreground mt-1">Input target quantities for each 30-minute time slot</p>
             </div>
-            <Input
-              type="date"
-              value={planDate}
-              onChange={(e) => setPlanDate(e.target.value)}
-              className="w-40"
-            />
+            <div className="flex items-center gap-2">
+              <Input
+                type="date"
+                value={planDate}
+                onChange={(e) => setPlanDate(e.target.value)}
+                className="w-40"
+              />
+              <Button variant="outline" size="icon" onClick={handleRefresh} disabled={isLoading}>
+                <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -183,14 +265,14 @@ export function ProductionPlanning() {
                   <th className="text-left p-4 font-semibold text-slate-700">Time Slot</th>
                   {colorKeys.map((color) => (
                     <th key={color} className="text-center p-4 min-w-28">
-                      <PlateColorBadge color={color as PlateColor} />
+                      <PlateColorBadge color={color} />
                     </th>
                   ))}
                   <th className="text-center p-4 font-semibold text-slate-700 min-w-20 bg-slate-50">Total</th>
                 </tr>
               </thead>
               <tbody>
-                {plan.map((row, index) => {
+                {localPlan.map((row, index) => {
                   const slotColor = getTimeSlotColor(index)
                   return (
                     <tr key={row.timeSlot} className={`border-b transition-colors hover:brightness-95 ${slotColor.rowBg}`}>
@@ -213,7 +295,7 @@ export function ProductionPlanning() {
                             type="number"
                             min={0}
                             value={row[color] ?? ""}
-                            onChange={(e) => handleChange(index, color as PlateColor, e.target.value === "" ? "0" : e.target.value)}
+                            onChange={(e) => handleChange(index, color, e.target.value === "" ? "0" : e.target.value)}
                             className="w-20 text-center mx-auto h-9 text-sm font-medium"
                           />
                         </td>
@@ -228,7 +310,7 @@ export function ProductionPlanning() {
                   <td className="p-4 text-slate-800">Daily Total</td>
                   {colorKeys.map((color) => (
                     <td key={color} className="p-4 text-center text-slate-800 text-sm">
-                      {getColumnTotal(color as PlateColor)}
+                      {getColumnTotal(color)}
                     </td>
                   ))}
                   <td className="p-4 text-center text-lg text-slate-900 bg-blue-100 rounded-md">
@@ -243,12 +325,16 @@ export function ProductionPlanning() {
 
       {/* Action Buttons */}
       <div className="flex justify-end gap-3">
-        <Button variant="outline" onClick={handleReset} className="gap-2">
+        <Button variant="outline" onClick={handleReset} className="gap-2" disabled={isSaving}>
           <RotateCcw className="w-4 h-4" />
           Reset Plan
         </Button>
-        <Button onClick={handleSave} size="lg" className="gap-2 bg-blue-600 hover:bg-blue-700">
-          <Save className="w-5 h-5" />
+        <Button onClick={handleSave} size="lg" className="gap-2 bg-blue-600 hover:bg-blue-700" disabled={isSaving}>
+          {isSaving ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <Save className="w-5 h-5" />
+          )}
           Save Production Plan
         </Button>
       </div>

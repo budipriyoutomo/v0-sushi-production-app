@@ -18,11 +18,11 @@ export interface PinLoginCredentials {
 }
 
 class AuthService {
-  private endpoint = ''
+  private endpoint = '/auth'
 
   // Admin login with email/password
   async login(credentials: LoginCredentials): Promise<LoginResponse> {
-    const response = await apiClient.post<{ data: LoginResponse }>(`${this.endpoint}/login`, credentials)
+    const response = await apiClient.post<{ data: LoginResponse }>(`/login`, credentials)
     const { token, user } = response.data.data
     setAuthToken(token)
     return response.data.data
@@ -30,7 +30,7 @@ class AuthService {
 
   // Kitchen login with PIN
   async pinLogin(credentials: PinLoginCredentials): Promise<LoginResponse> {
-    const response = await apiClient.post<{ data: LoginResponse }>(`${this.endpoint}/login-pin`, credentials)
+    const response = await apiClient.post<{ data: LoginResponse }>(`/login-pin`, credentials)
     const { token } = response.data.data
     setAuthToken(token)
     return response.data.data
@@ -39,7 +39,7 @@ class AuthService {
   // Logout
   async logout(): Promise<void> {
     try {
-      await apiClient.post(`${this.endpoint}/logout`)
+      await apiClient.post(`/logout`)
     } finally {
       removeAuthToken()
     }

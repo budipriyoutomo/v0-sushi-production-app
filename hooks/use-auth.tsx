@@ -33,9 +33,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return
       }
 
-      const currentUser = await authService.getCurrentUser()
-      setUser(currentUser)
-      setStatus('authenticated')
+      // Try to get current user from API
+      try {
+        const currentUser = await authService.getCurrentUser()
+        setUser(currentUser)
+        setStatus('authenticated')
+      } catch (apiError: unknown) {
+        // If 404 or 401, user is not authenticated
+        const error = apiError as { response?: { status?: number } }
+        if (error?.response?.status === 404 || error?.response?.status === 401) {
+          setUser(null)
+          setStatus('unauthenticated')
+          removeAuthToken()
+        } else {
+          // For other errors, still mark as unauthenticated but log the error
+          console.error('Auth API error:', apiError)
+          setUser(null)
+          setStatus('unauthenticated')
+          removeAuthToken()
+        }
+      }
     } catch (error) {
       console.error('Auth error:', error)
       setUser(null)
