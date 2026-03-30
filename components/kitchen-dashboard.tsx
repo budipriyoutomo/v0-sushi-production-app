@@ -31,18 +31,26 @@ export function KitchenDashboard() {
   const priceMap = Object.fromEntries(
     plateColors.map((pc) => [lowercase(pc.platename), pc.price])
   )
+  
+const getStatus = (
+  produced: number,
+  target: number,
+  expiringSoon: number
+): Status => {
+  if (target === 0) return "good"
 
-  const getStatus = (
-    produced: number,
-    target: number,
-    expiringSoon: number
-  ): Status => {
-    const percentage = target > 0 ? (produced / target) * 100 : 0
+  const percentage = (produced / target) * 100
+  const expiringRatio = produced > 0 ? (expiringSoon / produced) * 100 : 0
 
-    if (expiringSoon > 5) return "critical"
-    if (percentage < 80 || expiringSoon > 2) return "warning"
-    return "good"
-  }
+  // 🔥 Critical
+  if (expiringSoon >= 5 || expiringRatio > 30) return "critical"
+
+  // ⚠️ Warning
+  if (percentage < 80 || percentage > 120 || expiringSoon > 2) return "warning"
+
+  // ✅ Good
+  return "good"
+}
 
   return (
     <div className="space-y-6">
