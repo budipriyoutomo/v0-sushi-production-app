@@ -5,6 +5,7 @@ import Image from "next/image"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { PlateColorBadge } from "@/components/plate-color-badge"
 import { OutletSelector } from "@/components/outlet-selector"
 import { ExpirationCountdown } from "@/components/expiration-countdown"
@@ -12,6 +13,7 @@ import { useOutlet } from "@/lib/outlet-context"
 import { useConveyorItems } from "@/hooks/use-production"
 import { usePlateColorsSortedByPrice } from "@/hooks/use-plate-colors"
 import { useMenus } from "@/hooks/use-menus"
+import { useActiveWasteReasons } from "@/hooks/use-waste-reasons"
 import { useToast } from "@/hooks/use-toast"
 import { productionService, getApiError } from "@/lib/api"
 import { CheckCircle, XCircle, Loader2 } from "lucide-react"
@@ -39,7 +41,8 @@ export function ConveyorScreen() {
   const { selectedOutletId } = useOutlet()
   const { items: conveyorItems, isLoading, refresh } = useConveyorItems(selectedOutletId)
   const { plateColors } = usePlateColorsSortedByPrice()
-  const { menus } = useMenus() 
+  const { menus } = useMenus()
+  const { wasteReasons } = useActiveWasteReasons()
   const [selectedColorId, setSelectedColorId] = useState<string | null>(null)
   const [itemStates, setItemStates] = useState<Record<string, { wasteReasonInput: string; showWasteReasonForm: boolean }>>({})
 
@@ -263,12 +266,23 @@ const activeItems = items.filter(
                         </Button>
                       ) : (
                         <div className="space-y-2 bg-black/50 p-2 rounded-md">
-                          <Input
-                            placeholder="Reason for waste"
+                          <Select
                             value={item.wasteReasonInput}
-                            onChange={(e) => handleWasteReasonChange(item.id, e.target.value)}
-                            className="h-7 text-xs bg-white text-black"
-                          />
+                            onValueChange={(value) => handleWasteReasonChange(item.id, value)}
+                          >
+                            <SelectTrigger className="h-7 text-xs bg-white text-black">
+                              <SelectValue placeholder="Select reason" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {wasteReasons
+                                .filter((reason) => reason && reason.name)
+                                .map((reason) => (
+                                  <SelectItem key={reason.id} value={reason.name}>
+                                    {reason.name}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
                           <div className="flex gap-1">
                             <Button
                               size="sm"
