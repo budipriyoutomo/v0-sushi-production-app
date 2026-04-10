@@ -219,11 +219,13 @@ export function SalesInput() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {outletColors.map((color) => (
-                    <SelectItem key={color.id} value={color.name.toLowerCase()}>
-                      <PlateColorBadge color={color.name.toLowerCase() as PlateColor} />
-                    </SelectItem>
-                  ))}
+                  {outletColors
+                    .filter((color) => color && color.name)
+                    .map((color) => (
+                      <SelectItem key={color.id} value={color.name.toLowerCase()}>
+                        <PlateColorBadge color={color.name.toLowerCase() as PlateColor} />
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
