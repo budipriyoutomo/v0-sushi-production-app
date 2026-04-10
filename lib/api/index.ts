@@ -23,6 +23,7 @@ export {
 export {
   reportsService,
   type SalesData,
+  type POSData,
   type ClosingReport,
   type DailySummary,
   type SalesAnalysis,
