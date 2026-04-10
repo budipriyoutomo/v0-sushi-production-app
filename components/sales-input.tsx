@@ -10,10 +10,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { OutletSelector } from '@/components/outlet-selector'
 import { useToast } from '@/hooks/use-toast'
 import { useOutlet } from '@/lib/outlet-context'
-import { plateColors, mockProductionStats } from '@/lib/mock-data'
+import { usePlateColorsSortedByPrice } from '@/hooks/use-plate-colors'
+import { reportsService, type POSData } from '@/lib/api'
 import type { PlateColor } from '@/components/plate-color-badge'
 import { PlateColorBadge } from '@/components/plate-color-badge'
-import { Plus, Trash2, AlertCircle, CheckCircle } from 'lucide-react'
+import { Plus, Trash2, AlertCircle, CheckCircle, Download, Loader2 } from 'lucide-react'
 
 interface SalesEntry {
   id: string
@@ -28,15 +29,60 @@ export function SalesInput() {
   const { toast } = useToast()
   const { selectedOutletId } = useOutlet()
   const [salesEntries, setSalesEntries] = useState<SalesEntry[]>([])
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const today = new Date()
+    return today.toISOString().split('T')[0]
+  })
+  const [isLoadingPOS, setIsLoadingPOS] = useState(false)
 
   const [formData, setFormData] = useState({
     plateColor: 'white' as PlateColor,
     quantitySold: 0,
   })
 
-  // Filter plate colors and stats by outlet
-  const outletColors = plateColors.filter((pc) => pc.outletId === selectedOutletId)
-  const outletStats = mockProductionStats.filter((stat) => stat.outletId === selectedOutletId)
+  // Get plate colors from API
+  const { plateColors: outletColors } = usePlateColorsSortedByPrice()
+
+  // Get POS data from API
+  const handleGetPOSData = async () => {
+    if (!selectedOutletId) {
+      toast({
+        title: 'Error',
+        description: 'Please select an outlet first',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setIsLoadingPOS(true)
+    try {
+      const posData = await reportsService.getPOSData(selectedOutletId, selectedDate)
+      
+      // Convert POS data to sales entries
+      const newEntries: SalesEntry[] = posData.map((pos: POSData) => ({
+        id: `${pos.plateColor}-${Date.now()}`,
+        outletId: selectedOutletId,
+        plateColor: pos.plateColor,
+        quantitySold: pos.quantitySold,
+        systemTotal: 0, // Will be updated when we have production stats
+        discrepancy: pos.quantitySold, // Initially set as quantitySold
+      }))
+
+      setSalesEntries(newEntries)
+      toast({
+        title: 'Success',
+        description: `Loaded ${posData.length} entries from POS`,
+      })
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch POS data',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsLoadingPOS(false)
+    }
+  }
 
   const handleAddEntry = () => {
     if (formData.quantitySold <= 0) {
@@ -48,9 +94,8 @@ export function SalesInput() {
       return
     }
 
-    // Find system total for this plate color
-    const systemStats = outletStats.find((stat) => stat.plateColor === formData.plateColor)
-    const systemTotal = systemStats?.sold || 0
+    // System total would come from production stats API
+    const systemTotal = 0
     const discrepancy = formData.quantitySold - systemTotal
 
     // Check if entry already exists for this plate color
@@ -144,17 +189,43 @@ export function SalesInput() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
+              <Label htmlFor="date-select">Date</Label>
+              <Input
+                id="date-select"
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+              />
+            </div>
+
+            <Button 
+              onClick={handleGetPOSData} 
+              variant="outline" 
+              className="w-full"
+              disabled={isLoadingPOS || !selectedOutletId}
+            >
+              {isLoadingPOS ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4 mr-2" />
+              )}
+              Get Data POS
+            </Button>
+
+            <div className="border-t pt-4">
               <Label htmlFor="color-select">Plate Color</Label>
               <Select value={formData.plateColor} onValueChange={(value) => setFormData({ ...formData, plateColor: value as PlateColor })}>
                 <SelectTrigger id="color-select">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {outletColors.map((color) => (
-                    <SelectItem key={color.id} value={color.name}>
-                      <PlateColorBadge color={color.name} />
-                    </SelectItem>
-                  ))}
+                  {outletColors
+                    .filter((color) => color && color.name)
+                    .map((color) => (
+                      <SelectItem key={color.id} value={color.name.toLowerCase()}>
+                        <PlateColorBadge color={color.name.toLowerCase() as PlateColor} />
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>

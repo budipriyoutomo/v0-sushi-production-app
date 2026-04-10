@@ -10,6 +10,12 @@ export interface SalesData {
   date: string
 }
 
+export interface POSData {
+  plateColor: PlateColor
+  quantitySold: number
+  revenue: number
+}
+
 export interface ClosingReport {
   id: string
   outletId: string
@@ -113,6 +119,14 @@ class ReportsService {
     endDate: string
   }): Promise<WasteAnalysis> {
     const response = await apiClient.get<{ data: WasteAnalysis }>(`${this.endpoint}/waste-analysis`, { params })
+    return response.data.data
+  }
+
+  // Get POS data for a specific outlet and date
+  async getPOSData(outletId: string, date: string): Promise<POSData[]> {
+    const response = await apiClient.get<{ data: POSData[] }>(`${this.endpoint}/pos-data`, {
+      params: { outletId, date },
+    })
     return response.data.data
   }
 }

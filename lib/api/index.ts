@@ -8,6 +8,7 @@ export { BaseService, type ApiResponse } from './base-service'
 export { outletsService, type CreateOutletDTO, type UpdateOutletDTO } from './services/outlets'
 export { menusService, type CreateMenuDTO, type UpdateMenuDTO } from './services/menus'
 export { plateColorsService, type CreatePlateColorDTO, type UpdatePlateColorDTO } from './services/plate-colors'
+export { wasteReasonsService, type WasteReason, type CreateWasteReasonDTO, type UpdateWasteReasonDTO } from './services/waste-reasons'
 export { usersService, type CreateUserDTO, type UpdateUserDTO } from './services/users'
 export { authService, type LoginCredentials, type LoginResponse, type PinLoginCredentials } from './services/auth'
 export {
@@ -22,6 +23,7 @@ export {
 export {
   reportsService,
   type SalesData,
+  type POSData,
   type ClosingReport,
   type DailySummary,
   type SalesAnalysis,
