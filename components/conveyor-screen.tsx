@@ -4,8 +4,9 @@ import { useState } from "react"
 import Image from "next/image"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
 import { PlateColorBadge } from "@/components/plate-color-badge"
 import { OutletSelector } from "@/components/outlet-selector"
 import { ExpirationCountdown } from "@/components/expiration-countdown"
@@ -18,7 +19,7 @@ import { useToast } from "@/hooks/use-toast"
 import { productionService, getApiError } from "@/lib/api"
 import { CheckCircle, XCircle, Loader2 } from "lucide-react"
 import { formatRupiah, lowercase } from "@/lib/utils"
-import type { PlateColor, SushiMenu } from "@/lib/types" 
+import type { PlateColor, SushiMenu } from "@/lib/types"
 
 interface ItemWithWasteReason {
   id: string
@@ -28,8 +29,6 @@ interface ItemWithWasteReason {
   plateColorName: string
   producedAt: Date
   expiresAt: Date
-  wasteReasonInput?: string
-  showWasteReasonForm?: boolean
   finalStatus: 'sold' | 'waste' | null
   soldAt: Date | null
   wastedAt: Date | null
@@ -44,7 +43,14 @@ export function ConveyorScreen() {
   const { menus } = useMenus()
   const { wasteReasons } = useActiveWasteReasons()
   const [selectedColorId, setSelectedColorId] = useState<string | null>(null)
-  const [itemStates, setItemStates] = useState<Record<string, { wasteReasonInput: string; showWasteReasonForm: boolean }>>({})
+  const [wasteDialog, setWasteDialog] = useState<{
+    open: boolean
+    itemId: string
+    menuId: string
+    menuName: string
+    reason: string
+    isSubmitting: boolean
+  }>({ open: false, itemId: "", menuId: "", menuName: "", reason: "", isSubmitting: false })
 
   // Map conveyor items to include local state
   const items: ItemWithWasteReason[] = conveyorItems.map((item) => ({
@@ -53,8 +59,6 @@ export function ConveyorScreen() {
     expiresAt: new Date(item.expiresAt),
     soldAt: item.soldAt ? new Date(item.soldAt) : null,
     wastedAt: item.wastedAt ? new Date(item.wastedAt) : null,
-    wasteReasonInput: itemStates[item.id]?.wasteReasonInput || "",
-    showWasteReasonForm: itemStates[item.id]?.showWasteReasonForm || false,
   }))
 
   // Filter out expired items (time remaining <= 0)
@@ -92,60 +96,52 @@ const activeItems = items.filter(
     }
   }
 
-  const handleWasteClick = (itemId: string) => {
-    setItemStates((prev) => ({
-      ...prev,
-      [itemId]: { ...prev[itemId], showWasteReasonForm: true, wasteReasonInput: prev[itemId]?.wasteReasonInput || "" },
-    }))
+  const handleWasteClick = (item: ItemWithWasteReason) => {
+    setWasteDialog({
+      open: true,
+      itemId: item.id,
+      menuId: item.menuId,
+      menuName: item.menuName,
+      reason: "",
+      isSubmitting: false,
+    })
   }
 
-  const handleMarkWaste = async (itemId: string, menuId: string, menuName: string, reason: string) => {
-    if (!reason.trim()) {
+  const handleWasteDialogClose = () => {
+    if (!wasteDialog.isSubmitting) {
+      setWasteDialog((prev) => ({ ...prev, open: false, reason: "" }))
+    }
+  }
+
+  const handleConfirmWaste = async () => {
+    if (!wasteDialog.reason.trim()) {
       toast({
         title: "Error",
-        description: "Please enter a reason for waste",
+        description: "Please select a reason for waste",
         variant: "destructive",
       })
       return
     }
+    setWasteDialog((prev) => ({ ...prev, isSubmitting: true }))
     try {
-
-      await productionService.recordWaste({ itemIds: [itemId], reason })
-      //await productionService.removeExpired([itemId])
-      await productionService.markWaste([itemId])
+      await productionService.recordWaste({ itemIds: [wasteDialog.itemId], reason: wasteDialog.reason })
+      await productionService.markWaste([wasteDialog.itemId])
       await refresh()
-      setItemStates((prev) => {
-        const newState = { ...prev }
-        delete newState[itemId]
-        return newState
-      })
+      setWasteDialog({ open: false, itemId: "", menuId: "", menuName: "", reason: "", isSubmitting: false })
       toast({
         title: "Marked as Waste",
-        description: `${menuName} - Reason: ${reason}`,
+        description: `${wasteDialog.menuName} - Reason: ${wasteDialog.reason}`,
         variant: "destructive",
       })
     } catch (error) {
       const apiError = getApiError(error)
+      setWasteDialog((prev) => ({ ...prev, isSubmitting: false }))
       toast({
         title: "Error",
         description: apiError.message,
         variant: "destructive",
       })
     }
-  }
-
-  const handleCancelWasteReason = (itemId: string) => {
-    setItemStates((prev) => ({
-      ...prev,
-      [itemId]: { ...prev[itemId], showWasteReasonForm: false, wasteReasonInput: "" },
-    }))
-  }
-
-  const handleWasteReasonChange = (itemId: string, value: string) => {
-    setItemStates((prev) => ({
-      ...prev,
-      [itemId]: { ...prev[itemId], wasteReasonInput: value, showWasteReasonForm: prev[itemId]?.showWasteReasonForm || false },
-    }))
   }
 
   return (
@@ -253,62 +249,16 @@ const activeItems = items.filter(
                         Sold
                       </Button>
 
-                      {/* WASTE SECTION */}
-                      {!item.showWasteReasonForm ? (
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          className="w-full h-8 text-xs"
-                          onClick={() => handleWasteClick(item.id)}
-                        >
-                          <XCircle className="w-3 h-3 mr-1" />
-                          Waste
-                        </Button>
-                      ) : (
-                        <div className="space-y-2 bg-black/50 p-2 rounded-md">
-                          <Select
-                            value={item.wasteReasonInput}
-                            onValueChange={(value) => handleWasteReasonChange(item.id, value)}
-                          >
-                            <SelectTrigger className="h-7 text-xs bg-white text-black">
-                              <SelectValue placeholder="Select reason" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {wasteReasons
-                                .filter((reason) => reason && reason.name)
-                                .map((reason) => (
-                                  <SelectItem key={reason.id} value={reason.name}>
-                                    {reason.name}
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
-                          <div className="flex gap-1">
-                            <Button
-                              size="sm"
-                              className="flex-1 bg-red-600 hover:bg-red-700 text-white h-7 text-xs"
-                              onClick={() =>
-                                handleMarkWaste(
-                                  item.id,
-                                  item.menuId,
-                                  item.menuName,
-                                  item.wasteReasonInput || ""
-                                )
-                              }
-                            >
-                              Confirm
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="flex-1 h-7 text-xs bg-white text-black"
-                              onClick={() => handleCancelWasteReason(item.id)}
-                            >
-                              Cancel
-                            </Button>
-                          </div>
-                        </div>
-                      )}
+                      {/* WASTE BUTTON */}
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="w-full h-8 text-xs"
+                        onClick={() => handleWasteClick(item)}
+                      >
+                        <XCircle className="w-3 h-3 mr-1" />
+                        Waste
+                      </Button>
 
                     </div>
                   </div>
@@ -318,6 +268,63 @@ const activeItems = items.filter(
           })}
         </div>
       )}
+
+      {/* Waste Reason Dialog */}
+      <Dialog open={wasteDialog.open} onOpenChange={handleWasteDialogClose}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Mark as Waste</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <p className="text-sm text-muted-foreground mb-4">
+                Item: <span className="font-medium text-foreground">{wasteDialog.menuName}</span>
+              </p>
+              <Label htmlFor="waste-reason" className="mb-2 block">
+                Reason for Waste
+              </Label>
+              <Select
+                value={wasteDialog.reason}
+                onValueChange={(value) => setWasteDialog((prev) => ({ ...prev, reason: value }))}
+              >
+                <SelectTrigger id="waste-reason">
+                  <SelectValue placeholder="Select a reason..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {wasteReasons
+                    .filter((reason) => reason && reason.name)
+                    .map((reason) => (
+                      <SelectItem key={reason.id} value={reason.name}>
+                        {reason.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={handleWasteDialogClose}
+              disabled={wasteDialog.isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmWaste}
+              disabled={wasteDialog.isSubmitting || !wasteDialog.reason}
+            >
+              {wasteDialog.isSubmitting ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <XCircle className="w-4 h-4 mr-2" />
+              )}
+              Confirm Waste
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
