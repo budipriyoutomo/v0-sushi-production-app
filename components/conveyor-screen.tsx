@@ -275,10 +275,10 @@ const activeItems = items.filter(
                             </SelectTrigger>
                             <SelectContent>
                               {wasteReasons
-                                .filter((reason) => reason && reason.name)
+                                .filter((reason) => reason && reason.reason_name)
                                 .map((reason) => (
-                                  <SelectItem key={reason.id} value={reason.name}>
-                                    {reason.name}
+                                  <SelectItem key={reason.id} value={reason.reason_name}>
+                                    {reason.reason_name}
                                   </SelectItem>
                                 ))}
                             </SelectContent>
