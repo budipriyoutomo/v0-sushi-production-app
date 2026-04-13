@@ -249,16 +249,62 @@ const activeItems = items.filter(
                         Sold
                       </Button>
 
-                      {/* WASTE BUTTON */}
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="w-full h-8 text-xs"
-                        onClick={() => handleWasteClick(item)}
-                      >
-                        <XCircle className="w-3 h-3 mr-1" />
-                        Waste
-                      </Button>
+                      {/* WASTE SECTION */}
+                      {!item.showWasteReasonForm ? (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="w-full h-8 text-xs"
+                          onClick={() => handleWasteClick(item.id)}
+                        >
+                          <XCircle className="w-3 h-3 mr-1" />
+                          Waste
+                        </Button>
+                      ) : (
+                        <div className="space-y-2 bg-black/50 p-2 rounded-md">
+                          <Select
+                            value={item.wasteReasonInput}
+                            onValueChange={(value) => handleWasteReasonChange(item.id, value)}
+                          >
+                            <SelectTrigger className="h-7 text-xs bg-white text-black">
+                              <SelectValue placeholder="Select reason" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {wasteReasons
+                                .filter((reason) => reason && reason.reason_name)
+                                .map((reason) => (
+                                  <SelectItem key={reason.id} value={reason.reason_name}>
+                                    {reason.reason_name}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              className="flex-1 bg-red-600 hover:bg-red-700 text-white h-7 text-xs"
+                              onClick={() =>
+                                handleMarkWaste(
+                                  item.id,
+                                  item.menuId,
+                                  item.menuName,
+                                  item.wasteReasonInput || ""
+                                )
+                              }
+                            >
+                              Confirm
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="flex-1 h-7 text-xs bg-white text-black"
+                              onClick={() => handleCancelWasteReason(item.id)}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      )}
 
                     </div>
                   </div>
