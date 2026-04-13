@@ -4,7 +4,6 @@ import { useState } from 'react'
 import Image from 'next/image'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -31,7 +30,7 @@ import { useToast } from '@/hooks/use-toast'
 import { CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import type { PlateColor, SushiMenu } from "@/lib/types"
 import { formatRupiah, lowercase } from "@/lib/utils"
-import { log } from 'console'
+import { useActiveWasteReasons } from '@/hooks/use-waste-reasons'
 
 export function ExpiredItemsManager() {
   const { toast } = useToast() 
@@ -46,11 +45,13 @@ export function ExpiredItemsManager() {
     refresh,
   } = useExpiredItems(selectedOutletId)
 
+  const { wasteReasons } = useActiveWasteReasons()
+
   const [selectedColor, setSelectedColor] = useState<string | null>(null)
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState<typeof expiredItems[0] | null>(null)
   const [newStatus, setNewStatus] = useState<'sold' | 'waste'>('sold')
-  const [notes, setNotes] = useState('')
+  const [wasteReason, setWasteReason] = useState('')
   const [isUpdating, setIsUpdating] = useState(false)
 
   const isLoading = menusLoading || plateColorsLoading || expiredLoading
@@ -59,19 +60,18 @@ export function ExpiredItemsManager() {
     ? expiredItems.filter((item) => item.plateColor === selectedColor)
     : expiredItems
 
-console.log("Expired items:", expiredItems)
   const handleOpenUpdateDialog = (item: typeof expiredItems[0]) => {
     setSelectedItem(item)
     setNewStatus(item.status || 'sold')
-    setNotes(item.notes || '')
+    setWasteReason(item.notes || '')
     setUpdateDialogOpen(true)
   }
 
   const handleConfirmUpdate = async () => {
-    if (!notes.trim()) {
+    if (newStatus === 'waste' && !wasteReason.trim()) {
       toast({
         title: 'Required Field',
-        description: 'Please fill in the notes/description',
+        description: 'Please select a waste reason',
         variant: 'destructive',
       })
       return
@@ -81,7 +81,7 @@ console.log("Expired items:", expiredItems)
 
     setIsUpdating(true)
     try {
-      await updateExpiredItem(selectedItem.id, newStatus, notes)
+      await updateExpiredItem(selectedItem.id, newStatus, newStatus === 'waste' ? wasteReason : '')
       toast({
         title: 'Status Updated',
         description: `${selectedItem.menuName} marked as ${newStatus}`,
@@ -272,20 +272,32 @@ console.log("Expired items:", expiredItems)
                 </Select>
               </div>
 
-              {/* Notes/Description */}
-              <div className="space-y-2">
-                <Label htmlFor="notes" className="font-medium">
-                  Notes/Keterangan *
-                </Label>
-                <Input
-                  id="notes"
-                  placeholder="Enter description or reason..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="text-sm"
-                />
-                <p className="text-xs text-muted-foreground">This field is required</p>
-              </div>
+              {/* Waste Reason Dropdown - only shown when status is waste */}
+              {newStatus === 'waste' && (
+                <div className="space-y-2">
+                  <Label htmlFor="waste-reason" className="font-medium">
+                    Waste Reason <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={wasteReason}
+                    onValueChange={setWasteReason}
+                  >
+                    <SelectTrigger id="waste-reason">
+                      <SelectValue placeholder="Select a waste reason..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {wasteReasons
+                        .filter((reason) => reason && reason.name)
+                        .map((reason) => (
+                          <SelectItem key={reason.id} value={reason.name}>
+                            {reason.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">This field is required when status is Waste</p>
+                </div>
+              )}
             </div>
 
             <DialogFooter className="flex gap-2">
