@@ -48,9 +48,11 @@ export function ConveyorScreen() {
     itemId: string
     menuId: string
     menuName: string
+    plateColorName: string
+    producedAt: Date | null
     reason: string
     isSubmitting: boolean
-  }>({ open: false, itemId: "", menuId: "", menuName: "", reason: "", isSubmitting: false })
+  }>({ open: false, itemId: "", menuId: "", menuName: "", plateColorName: "", producedAt: null, reason: "", isSubmitting: false })
 
   // Map conveyor items to include local state
   const items: ItemWithWasteReason[] = conveyorItems.map((item) => ({
@@ -102,6 +104,8 @@ const activeItems = items.filter(
       itemId: item.id,
       menuId: item.menuId,
       menuName: item.menuName,
+      plateColorName: item.plateColorName,
+      producedAt: item.producedAt,
       reason: "",
       isSubmitting: false,
     })
@@ -127,7 +131,7 @@ const activeItems = items.filter(
       await productionService.recordWaste({ itemIds: [wasteDialog.itemId], reason: wasteDialog.reason })
       await productionService.markWaste([wasteDialog.itemId])
       await refresh()
-      setWasteDialog({ open: false, itemId: "", menuId: "", menuName: "", reason: "", isSubmitting: false })
+      setWasteDialog({ open: false, itemId: "", menuId: "", menuName: "", plateColorName: "", producedAt: null, reason: "", isSubmitting: false })
       toast({
         title: "Marked as Waste",
         description: `${wasteDialog.menuName} - Reason: ${wasteDialog.reason}`,
@@ -249,62 +253,16 @@ const activeItems = items.filter(
                         Sold
                       </Button>
 
-                      {/* WASTE SECTION */}
-                      {!item.showWasteReasonForm ? (
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          className="w-full h-8 text-xs"
-                          onClick={() => handleWasteClick(item.id)}
-                        >
-                          <XCircle className="w-3 h-3 mr-1" />
-                          Waste
-                        </Button>
-                      ) : (
-                        <div className="space-y-2 bg-black/50 p-2 rounded-md">
-                          <Select
-                            value={item.wasteReasonInput}
-                            onValueChange={(value) => handleWasteReasonChange(item.id, value)}
-                          >
-                            <SelectTrigger className="h-7 text-xs bg-white text-black">
-                              <SelectValue placeholder="Select reason" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {wasteReasons
-                                .filter((reason) => reason && reason.reason_name)
-                                .map((reason) => (
-                                  <SelectItem key={reason.id} value={reason.reason_name}>
-                                    {reason.reason_name}
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
-                          <div className="flex gap-1">
-                            <Button
-                              size="sm"
-                              className="flex-1 bg-red-600 hover:bg-red-700 text-white h-7 text-xs"
-                              onClick={() =>
-                                handleMarkWaste(
-                                  item.id,
-                                  item.menuId,
-                                  item.menuName,
-                                  item.wasteReasonInput || ""
-                                )
-                              }
-                            >
-                              Confirm
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="flex-1 h-7 text-xs bg-white text-black"
-                              onClick={() => handleCancelWasteReason(item.id)}
-                            >
-                              Cancel
-                            </Button>
-                          </div>
-                        </div>
-                      )}
+                      {/* WASTE BUTTON */}
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="w-full h-8 text-xs"
+                        onClick={() => handleWasteClick(item)}
+                      >
+                        <XCircle className="w-3 h-3 mr-1" />
+                        Waste
+                      </Button>
 
                     </div>
                   </div>
@@ -322,10 +280,36 @@ const activeItems = items.filter(
             <DialogTitle>Mark as Waste</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            {/* Item Details */}
+            <div className="flex items-center gap-4 p-3 bg-muted rounded-lg">
+              {(() => {
+                const menuItem = menus.find((m) => m.id === wasteDialog.menuId)
+                return menuItem?.image ? (
+                  <div className="relative w-16 h-16 rounded-md overflow-hidden flex-shrink-0">
+                    <Image
+                      src={menuItem.image}
+                      alt={wasteDialog.menuName}
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                ) : null
+              })()}
+              <div className="flex-1 min-w-0">
+                <h4 className="font-semibold text-foreground truncate">{wasteDialog.menuName}</h4>
+                <div className="mt-1 flex items-center gap-2">
+                  <PlateColorBadge color={(lowercase(wasteDialog.plateColorName) as PlateColor) || "white"} />
+                </div>
+                {wasteDialog.producedAt && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Prod: {wasteDialog.producedAt.toLocaleDateString("id-ID")} {wasteDialog.producedAt.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Waste Reason */}
             <div>
-              <p className="text-sm text-muted-foreground mb-4">
-                Item: <span className="font-medium text-foreground">{wasteDialog.menuName}</span>
-              </p>
               <Label htmlFor="waste-reason" className="mb-2 block">
                 Reason for Waste
               </Label>
