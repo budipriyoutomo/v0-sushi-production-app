@@ -21,6 +21,30 @@ import { CheckCircle, XCircle, Loader2 } from "lucide-react"
 import { formatRupiah, lowercase } from "@/lib/utils"
 import type { PlateColor, SushiMenu } from "@/lib/types"
 
+// Siklus warna penanda waktu sesuai production-planning: Biru → Hitam → Merah → Kuning → Hijau
+const TIME_SLOT_COLORS = [
+  { label: "Biru",   bg: "bg-blue-500",   ring: "ring-blue-300" },
+  { label: "Hitam",  bg: "bg-gray-800",   ring: "ring-gray-500" },
+  { label: "Merah",  bg: "bg-red-500",    ring: "ring-red-300" },
+  { label: "Kuning", bg: "bg-yellow-400", ring: "ring-yellow-300" },
+  { label: "Hijau",  bg: "bg-green-500",  ring: "ring-green-300" },
+]
+
+// Hitung index slot 30 menit dari jam produksi (slot 0 = 10:00)
+function getTimeSlotIndex(producedAt: Date): number {
+  const h = producedAt.getHours()
+  const m = producedAt.getMinutes()
+  const totalMinutes = h * 60 + m
+  const baseMinutes = 10 * 60 // 10:00
+  const slotIndex = Math.floor((totalMinutes - baseMinutes) / 30)
+  return Math.max(0, slotIndex)
+}
+
+function getTimeSlotColor(producedAt: Date) {
+  const idx = getTimeSlotIndex(producedAt)
+  return TIME_SLOT_COLORS[idx % TIME_SLOT_COLORS.length]
+}
+
 interface ItemWithWasteReason {
   id: string
   menuId: string
@@ -221,7 +245,19 @@ const activeItems = items.filter(
 
                   {/* TOP SECTION */}
                   <div className="flex justify-between items-start">
-                    <PlateColorBadge color={(lowercase(item.plateColorName) as PlateColor) || "white" }  /> 
+                    <PlateColorBadge color={(lowercase(item.plateColorName) as PlateColor) || "white"} />
+                    {/* Penanda waktu produksi */}
+                    {(() => {
+                      const slotColor = getTimeSlotColor(item.producedAt)
+                      return (
+                        <span
+                          className={`inline-flex items-center justify-center w-6 h-6 rounded-full ${slotColor.bg} text-white text-[10px] font-bold ring-2 ${slotColor.ring} shadow-md`}
+                          title={`${slotColor.label} — ${item.producedAt.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}`}
+                        >
+                          {slotColor.label[0]}
+                        </span>
+                      )
+                    })()}
                   </div>
 
                   {/* BOTTOM SECTION */}
