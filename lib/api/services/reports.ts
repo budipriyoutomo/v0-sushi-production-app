@@ -11,9 +11,11 @@ export interface SalesData {
 }
 
 export interface POSData {
-  plateColor: PlateColor
-  quantitySold: number
-  revenue: number
+  plateColorId: string
+  plateColorName: string
+  posSold: number
+  productionSold: number
+  selisih: number
 }
 
 export interface ClosingReport {
