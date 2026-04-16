@@ -22,6 +22,8 @@ interface SalesEntry {
   plateColorName: string
   posSold: number
   productionSold: number
+  adjustment: number
+  compensation: number
   selisih: number
 }
 
@@ -65,6 +67,8 @@ export function SalesInput() {
         plateColorName: pos.plateColorName,
         posSold: pos.posSold,
         productionSold: pos.productionSold,
+        adjustment: 0,
+        compensation: 0,
         selisih: pos.selisih,
       }))
 
@@ -122,6 +126,8 @@ export function SalesInput() {
         plateColorName: formData.plateColor,
         posSold: formData.quantitySold,
         productionSold: 0,
+        adjustment: 0,
+        compensation: 0,
         selisih: formData.quantitySold,
       }
       setSalesEntries([...salesEntries, newEntry])
@@ -135,6 +141,26 @@ export function SalesInput() {
       plateColor: 'white',
       quantitySold: 0,
     })
+  }
+
+  const handleAdjustmentChange = (id: string, value: number) => {
+    setSalesEntries((prev) =>
+      prev.map((entry) => {
+        if (entry.id !== id) return entry
+        const selisih = entry.posSold - entry.productionSold + value + entry.compensation
+        return { ...entry, adjustment: value, selisih }
+      })
+    )
+  }
+
+  const handleCompensationChange = (id: string, value: number) => {
+    setSalesEntries((prev) =>
+      prev.map((entry) => {
+        if (entry.id !== id) return entry
+        const selisih = entry.posSold - entry.productionSold + entry.adjustment + value
+        return { ...entry, compensation: value, selisih }
+      })
+    )
   }
 
   const handleDeleteEntry = (id: string) => {
@@ -266,6 +292,8 @@ export function SalesInput() {
                       <TableHead>Plate Color</TableHead>
                       <TableHead className="text-right">POS Sold</TableHead>
                       <TableHead className="text-right">Production Sold</TableHead>
+                      <TableHead className="text-center w-32">Adjustment</TableHead>
+                      <TableHead className="text-center w-32">Compensation</TableHead>
                       <TableHead className="text-right">Selisih</TableHead>
                       <TableHead className="w-10"></TableHead>
                     </TableRow>
@@ -278,6 +306,28 @@ export function SalesInput() {
                         </TableCell>
                         <TableCell className="text-right font-medium">{entry.posSold}</TableCell>
                         <TableCell className="text-right">{entry.productionSold}</TableCell>
+                        <TableCell className="text-center">
+                          <Input
+                            type="number"
+                            className="h-8 w-24 text-center mx-auto"
+                            value={entry.adjustment === 0 ? '' : entry.adjustment}
+                            placeholder="0"
+                            onChange={(e) =>
+                              handleAdjustmentChange(entry.id, Number.parseInt(e.target.value) || 0)
+                            }
+                          />
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Input
+                            type="number"
+                            className="h-8 w-24 text-center mx-auto"
+                            value={entry.compensation === 0 ? '' : entry.compensation}
+                            placeholder="0"
+                            onChange={(e) =>
+                              handleCompensationChange(entry.id, Number.parseInt(e.target.value) || 0)
+                            }
+                          />
+                        </TableCell>
                         <TableCell className="text-right">
                           <span className={entry.selisih !== 0 ? 'text-destructive font-semibold' : 'text-green-600 font-semibold'}>
                             {entry.selisih > 0 ? '+' : ''}{entry.selisih}
