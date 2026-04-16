@@ -18,11 +18,11 @@ import { Plus, Trash2, AlertCircle, CheckCircle, Download, Loader2 } from 'lucid
 
 interface SalesEntry {
   id: string
-  outletId: string
-  plateColor: PlateColor
-  quantitySold: number
-  systemTotal: number
-  discrepancy: number
+  plateColorId: string
+  plateColorName: string
+  posSold: number
+  productionSold: number
+  selisih: number
 }
 
 export function SalesInput() {
@@ -60,12 +60,12 @@ export function SalesInput() {
       
       // Convert POS data to sales entries
       const newEntries: SalesEntry[] = posData.map((pos: POSData) => ({
-        id: `${pos.plateColor}-${Date.now()}`,
-        outletId: selectedOutletId,
-        plateColor: pos.plateColor,
-        quantitySold: pos.quantitySold,
-        systemTotal: 0, // Will be updated when we have production stats
-        discrepancy: pos.quantitySold, // Initially set as quantitySold
+        id: pos.plateColorId,
+        plateColorId: pos.plateColorId,
+        plateColorName: pos.plateColorName,
+        posSold: pos.posSold,
+        productionSold: pos.productionSold,
+        selisih: pos.selisih,
       }))
 
       setSalesEntries(newEntries)
@@ -94,20 +94,20 @@ export function SalesInput() {
       return
     }
 
-    // System total would come from production stats API
-    const systemTotal = 0
-    const discrepancy = formData.quantitySold - systemTotal
-
+    // Find selected plate color details
+    const selectedColor = outletColors.find((c) => c.name.toLowerCase() === formData.plateColor)
+    
     // Check if entry already exists for this plate color
-    const existingIndex = salesEntries.findIndex((entry) => entry.plateColor === formData.plateColor)
+    const existingIndex = salesEntries.findIndex((entry) => entry.plateColorName.toLowerCase() === formData.plateColor)
     
     if (existingIndex >= 0) {
       // Update existing entry
       const updatedEntries = [...salesEntries]
+      const existingEntry = updatedEntries[existingIndex]
       updatedEntries[existingIndex] = {
-        ...updatedEntries[existingIndex],
-        quantitySold: formData.quantitySold,
-        discrepancy,
+        ...existingEntry,
+        posSold: formData.quantitySold,
+        selisih: formData.quantitySold - existingEntry.productionSold,
       }
       setSalesEntries(updatedEntries)
       toast({
@@ -117,12 +117,12 @@ export function SalesInput() {
     } else {
       // Add new entry
       const newEntry: SalesEntry = {
-        id: Date.now().toString(),
-        outletId: selectedOutletId,
-        plateColor: formData.plateColor,
-        quantitySold: formData.quantitySold,
-        systemTotal,
-        discrepancy,
+        id: selectedColor?.id || Date.now().toString(),
+        plateColorId: selectedColor?.id || '',
+        plateColorName: formData.plateColor,
+        posSold: formData.quantitySold,
+        productionSold: 0,
+        selisih: formData.quantitySold,
       }
       setSalesEntries([...salesEntries, newEntry])
       toast({
@@ -167,8 +167,8 @@ export function SalesInput() {
     setSalesEntries([])
   }
 
-  const totalDiscrepancy = salesEntries.reduce((sum, entry) => sum + entry.discrepancy, 0)
-  const hasDiscrepancies = salesEntries.some((entry) => entry.discrepancy !== 0)
+  const totalSelisih = salesEntries.reduce((sum, entry) => sum + entry.selisih, 0)
+  const hasDiscrepancies = salesEntries.some((entry) => entry.selisih !== 0)
 
   return (
     <div className="space-y-6">
@@ -263,10 +263,10 @@ export function SalesInput() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Color</TableHead>
-                      <TableHead className="text-right">Quantity Sold</TableHead>
-                      <TableHead className="text-right">System Total</TableHead>
-                      <TableHead className="text-right">Discrepancy</TableHead>
+                      <TableHead>Plate Color</TableHead>
+                      <TableHead className="text-right">POS Sold</TableHead>
+                      <TableHead className="text-right">Production Sold</TableHead>
+                      <TableHead className="text-right">Selisih</TableHead>
                       <TableHead className="w-10"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -274,13 +274,13 @@ export function SalesInput() {
                     {salesEntries.map((entry) => (
                       <TableRow key={entry.id}>
                         <TableCell>
-                          <PlateColorBadge color={entry.plateColor} />
+                          <PlateColorBadge color={entry.plateColorName.toLowerCase() as PlateColor} />
                         </TableCell>
-                        <TableCell className="text-right font-medium">{entry.quantitySold}</TableCell>
-                        <TableCell className="text-right">{entry.systemTotal}</TableCell>
+                        <TableCell className="text-right font-medium">{entry.posSold}</TableCell>
+                        <TableCell className="text-right">{entry.productionSold}</TableCell>
                         <TableCell className="text-right">
-                          <span className={entry.discrepancy !== 0 ? 'text-destructive font-semibold' : 'text-green-600 font-semibold'}>
-                            {entry.discrepancy > 0 ? '+' : ''}{entry.discrepancy}
+                          <span className={entry.selisih !== 0 ? 'text-destructive font-semibold' : 'text-green-600 font-semibold'}>
+                            {entry.selisih > 0 ? '+' : ''}{entry.selisih}
                           </span>
                         </TableCell>
                         <TableCell>
@@ -316,7 +316,7 @@ export function SalesInput() {
                 <CardTitle>{hasDiscrepancies ? 'Discrepancies Found' : 'All Sales Match System'}</CardTitle>
               </div>
               <span className={`text-2xl font-bold ${hasDiscrepancies ? 'text-destructive' : 'text-green-600'}`}>
-                {totalDiscrepancy > 0 ? '+' : ''}{totalDiscrepancy}
+                {totalSelisih > 0 ? '+' : ''}{totalSelisih}
               </span>
             </div>
           </CardHeader>
