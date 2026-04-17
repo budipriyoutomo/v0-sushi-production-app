@@ -5,13 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { OutletSelector } from '@/components/outlet-selector'
 import { useToast } from '@/hooks/use-toast'
 import { useOutlet } from '@/lib/outlet-context'
-import { reportsService, type POSData } from '@/lib/api'
+import { reportsService, type POSData, type ProductionMenuDetail } from '@/lib/api'
 import type { PlateColor } from '@/components/plate-color-badge'
 import { PlateColorBadge } from '@/components/plate-color-badge'
-import { Eye, AlertCircle, CheckCircle, Download, Loader2, Save } from 'lucide-react'
+import { Pencil, AlertCircle, CheckCircle, Download, Loader2, Save } from 'lucide-react'
 
 interface SalesEntry {
   id: string
@@ -34,6 +35,10 @@ export function SalesInput() {
     return today.toISOString().split('T')[0]
   })
   const [isLoadingPOS, setIsLoadingPOS] = useState(false)
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false)
+  const [selectedEntryDetail, setSelectedEntryDetail] = useState<SalesEntry | null>(null)
+  const [productionDetail, setProductionDetail] = useState<ProductionMenuDetail | null>(null)
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false)
 
   // Get POS data from API
   const handleGetPOSData = async () => {
@@ -99,11 +104,30 @@ export function SalesInput() {
     )
   }
 
-  const handleViewDetail = (entry: SalesEntry) => {
-    toast({
-      title: `Detail: ${entry.plateColorName}`,
-      description: `POS: ${entry.posSold}, Prod: ${entry.productionSold}, Waste: ${entry.productionWaste}, Adj: ${entry.adjustment}, Comp: ${entry.compensation}`,
-    })
+  const handleOpenDetail = async (entry: SalesEntry) => {
+    setSelectedEntryDetail(entry)
+    setProductionDetail(null)
+    setDetailDialogOpen(true)
+
+    if (!selectedOutletId) return
+
+    setIsLoadingDetail(true)
+    try {
+      const detail = await reportsService.getProductionMenuDetail(
+        selectedOutletId,
+        selectedDate,
+        entry.plateColorId
+      )
+      setProductionDetail(detail)
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to load production detail',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsLoadingDetail(false)
+    }
   }
 
   const handleSaveDraft = async () => {
@@ -212,7 +236,7 @@ export function SalesInput() {
                       <TableHead className="text-center w-28">Adjustment</TableHead>
                       <TableHead className="text-center w-28">Compensation</TableHead>
                       <TableHead className="text-right">Selisih</TableHead>
-                      <TableHead className="w-10"></TableHead>
+                      <TableHead className="w-14"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -252,14 +276,16 @@ export function SalesInput() {
                           </span>
                         </TableCell>
                         <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleViewDetail(entry)}
-                            title="View Detail"
-                          >
-                            <Eye className="w-4 h-4 text-muted-foreground" />
-                          </Button>
+                          {entry.selisih !== 0 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleOpenDetail(entry)}
+                              title="Edit / View Detail"
+                            >
+                              <Pencil className="w-4 h-4 text-destructive" />
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -317,6 +343,89 @@ export function SalesInput() {
           </CardContent>
         </Card>
       )}
+
+      {/* Production Detail Dialog */}
+      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {selectedEntryDetail && (
+                <PlateColorBadge color={selectedEntryDetail.plateColorName.toLowerCase() as PlateColor} />
+              )}
+              Production Menu Detail
+            </DialogTitle>
+            <DialogDescription>
+              Detail produksi per menu untuk plate color{' '}
+              <span className="font-medium">{selectedEntryDetail?.plateColorName}</span> pada tanggal{' '}
+              <span className="font-medium">{selectedDate}</span>
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Summary stats */}
+          {selectedEntryDetail && (
+            <div className="grid grid-cols-3 gap-3 py-2">
+              <div className="rounded-lg border bg-muted/40 p-3 text-center">
+                <p className="text-xs text-muted-foreground">POS Sold</p>
+                <p className="text-xl font-bold">{selectedEntryDetail.posSold}</p>
+              </div>
+              <div className="rounded-lg border bg-muted/40 p-3 text-center">
+                <p className="text-xs text-muted-foreground">Production Sold</p>
+                <p className="text-xl font-bold">{selectedEntryDetail.productionSold}</p>
+              </div>
+              <div className="rounded-lg border bg-muted/40 p-3 text-center">
+                <p className="text-xs text-muted-foreground">Selisih</p>
+                <p className={`text-xl font-bold ${selectedEntryDetail.selisih !== 0 ? 'text-destructive' : 'text-green-600'}`}>
+                  {selectedEntryDetail.selisih > 0 ? '+' : ''}{selectedEntryDetail.selisih}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Menu detail table */}
+          {isLoadingDetail ? (
+            <div className="flex items-center justify-center py-10 gap-2 text-muted-foreground">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span>Loading production detail...</span>
+            </div>
+          ) : productionDetail ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Menu</TableHead>
+                    <TableHead className="text-right">Produced</TableHead>
+                    <TableHead className="text-right">Sold</TableHead>
+                    <TableHead className="text-right">Waste</TableHead>
+                    <TableHead className="text-right">Remaining</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {productionDetail.items.map((item) => (
+                    <TableRow key={item.menuId}>
+                      <TableCell className="font-medium">{item.menuName}</TableCell>
+                      <TableCell className="text-right">{item.produced}</TableCell>
+                      <TableCell className="text-right">{item.sold}</TableCell>
+                      <TableCell className="text-right text-destructive">{item.waste}</TableCell>
+                      <TableCell className="text-right">{item.remaining}</TableCell>
+                    </TableRow>
+                  ))}
+                  <TableRow className="bg-muted/50 font-semibold border-t-2">
+                    <TableCell>Total</TableCell>
+                    <TableCell className="text-right">{productionDetail.totalProduced}</TableCell>
+                    <TableCell className="text-right">{productionDetail.totalSold}</TableCell>
+                    <TableCell className="text-right text-destructive">{productionDetail.totalWaste}</TableCell>
+                    <TableCell className="text-right">
+                      {productionDetail.totalProduced - productionDetail.totalSold - productionDetail.totalWaste}
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <p className="text-center text-muted-foreground py-6">No production data available.</p>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
