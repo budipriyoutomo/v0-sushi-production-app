@@ -14,7 +14,7 @@ import { usePlateColorsSortedByPrice } from '@/hooks/use-plate-colors'
 import { reportsService, type POSData } from '@/lib/api'
 import type { PlateColor } from '@/components/plate-color-badge'
 import { PlateColorBadge } from '@/components/plate-color-badge'
-import { Plus, Trash2, AlertCircle, CheckCircle, Download, Loader2 } from 'lucide-react'
+import { Plus, Eye, AlertCircle, CheckCircle, Download, Loader2 } from 'lucide-react'
 
 interface SalesEntry {
   id: string
@@ -22,6 +22,7 @@ interface SalesEntry {
   plateColorName: string
   posSold: number
   productionSold: number
+  productionWaste: number
   adjustment: number
   compensation: number
   selisih: number
@@ -67,6 +68,7 @@ export function SalesInput() {
         plateColorName: pos.plateColorName,
         posSold: pos.posSold,
         productionSold: pos.productionSold,
+        productionWaste: (pos as POSData & { productionWaste?: number }).productionWaste || 0,
         adjustment: 0,
         compensation: 0,
         selisih: pos.selisih,
@@ -126,6 +128,7 @@ export function SalesInput() {
         plateColorName: formData.plateColor,
         posSold: formData.quantitySold,
         productionSold: 0,
+        productionWaste: 0,
         adjustment: 0,
         compensation: 0,
         selisih: formData.quantitySold,
@@ -163,12 +166,10 @@ export function SalesInput() {
     )
   }
 
-  const handleDeleteEntry = (id: string) => {
-    setSalesEntries(salesEntries.filter((entry) => entry.id !== id))
+  const handleViewDetail = (entry: SalesEntry) => {
     toast({
-      title: 'Deleted',
-      description: 'Sales entry removed',
-      variant: 'destructive',
+      title: `Detail: ${entry.plateColorName}`,
+      description: `POS: ${entry.posSold}, Prod: ${entry.productionSold}, Waste: ${entry.productionWaste}, Adj: ${entry.adjustment}, Comp: ${entry.compensation}`,
     })
   }
 
@@ -193,7 +194,15 @@ export function SalesInput() {
     setSalesEntries([])
   }
 
-  const totalSelisih = salesEntries.reduce((sum, entry) => sum + entry.selisih, 0)
+  // Calculate totals
+  const totals = {
+    posSold: salesEntries.reduce((sum, entry) => sum + entry.posSold, 0),
+    productionSold: salesEntries.reduce((sum, entry) => sum + entry.productionSold, 0),
+    productionWaste: salesEntries.reduce((sum, entry) => sum + entry.productionWaste, 0),
+    adjustment: salesEntries.reduce((sum, entry) => sum + entry.adjustment, 0),
+    compensation: salesEntries.reduce((sum, entry) => sum + entry.compensation, 0),
+    selisih: salesEntries.reduce((sum, entry) => sum + entry.selisih, 0),
+  }
   const hasDiscrepancies = salesEntries.some((entry) => entry.selisih !== 0)
 
   return (
@@ -291,9 +300,10 @@ export function SalesInput() {
                     <TableRow>
                       <TableHead>Plate Color</TableHead>
                       <TableHead className="text-right">POS Sold</TableHead>
-                      <TableHead className="text-right">Production Sold</TableHead>
-                      <TableHead className="text-center w-32">Adjustment</TableHead>
-                      <TableHead className="text-center w-32">Compensation</TableHead>
+                      <TableHead className="text-right">Prod. Sold</TableHead>
+                      <TableHead className="text-right">Prod. Waste</TableHead>
+                      <TableHead className="text-center w-28">Adjustment</TableHead>
+                      <TableHead className="text-center w-28">Compensation</TableHead>
                       <TableHead className="text-right">Selisih</TableHead>
                       <TableHead className="w-10"></TableHead>
                     </TableRow>
@@ -306,10 +316,11 @@ export function SalesInput() {
                         </TableCell>
                         <TableCell className="text-right font-medium">{entry.posSold}</TableCell>
                         <TableCell className="text-right">{entry.productionSold}</TableCell>
+                        <TableCell className="text-right">{entry.productionWaste}</TableCell>
                         <TableCell className="text-center">
                           <Input
                             type="number"
-                            className="h-8 w-24 text-center mx-auto"
+                            className="h-8 w-20 text-center mx-auto"
                             value={entry.adjustment === 0 ? '' : entry.adjustment}
                             placeholder="0"
                             onChange={(e) =>
@@ -320,7 +331,7 @@ export function SalesInput() {
                         <TableCell className="text-center">
                           <Input
                             type="number"
-                            className="h-8 w-24 text-center mx-auto"
+                            className="h-8 w-20 text-center mx-auto"
                             value={entry.compensation === 0 ? '' : entry.compensation}
                             placeholder="0"
                             onChange={(e) =>
@@ -337,13 +348,29 @@ export function SalesInput() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleDeleteEntry(entry.id)}
+                            onClick={() => handleViewDetail(entry)}
+                            title="View Detail"
                           >
-                            <Trash2 className="w-4 h-4 text-destructive" />
+                            <Eye className="w-4 h-4 text-muted-foreground" />
                           </Button>
                         </TableCell>
                       </TableRow>
                     ))}
+                    {/* Totals Row */}
+                    <TableRow className="bg-muted/50 font-semibold border-t-2">
+                      <TableCell>Total</TableCell>
+                      <TableCell className="text-right">{totals.posSold}</TableCell>
+                      <TableCell className="text-right">{totals.productionSold}</TableCell>
+                      <TableCell className="text-right">{totals.productionWaste}</TableCell>
+                      <TableCell className="text-center">{totals.adjustment}</TableCell>
+                      <TableCell className="text-center">{totals.compensation}</TableCell>
+                      <TableCell className="text-right">
+                        <span className={totals.selisih !== 0 ? 'text-destructive' : 'text-green-600'}>
+                          {totals.selisih > 0 ? '+' : ''}{totals.selisih}
+                        </span>
+                      </TableCell>
+                      <TableCell></TableCell>
+                    </TableRow>
                   </TableBody>
                 </Table>
               </div>
@@ -366,7 +393,7 @@ export function SalesInput() {
                 <CardTitle>{hasDiscrepancies ? 'Discrepancies Found' : 'All Sales Match System'}</CardTitle>
               </div>
               <span className={`text-2xl font-bold ${hasDiscrepancies ? 'text-destructive' : 'text-green-600'}`}>
-                {totalSelisih > 0 ? '+' : ''}{totalSelisih}
+                {totals.selisih > 0 ? '+' : ''}{totals.selisih}
               </span>
             </div>
           </CardHeader>
