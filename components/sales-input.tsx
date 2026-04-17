@@ -4,17 +4,14 @@ import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { OutletSelector } from '@/components/outlet-selector'
 import { useToast } from '@/hooks/use-toast'
 import { useOutlet } from '@/lib/outlet-context'
-import { usePlateColorsSortedByPrice } from '@/hooks/use-plate-colors'
 import { reportsService, type POSData } from '@/lib/api'
 import type { PlateColor } from '@/components/plate-color-badge'
 import { PlateColorBadge } from '@/components/plate-color-badge'
-import { Plus, Eye, AlertCircle, CheckCircle, Download, Loader2 } from 'lucide-react'
+import { Eye, AlertCircle, CheckCircle, Download, Loader2, Save } from 'lucide-react'
 
 interface SalesEntry {
   id: string
@@ -37,14 +34,6 @@ export function SalesInput() {
     return today.toISOString().split('T')[0]
   })
   const [isLoadingPOS, setIsLoadingPOS] = useState(false)
-
-  const [formData, setFormData] = useState({
-    plateColor: 'white' as PlateColor,
-    quantitySold: 0,
-  })
-
-  // Get plate colors from API
-  const { plateColors: outletColors } = usePlateColorsSortedByPrice()
 
   // Get POS data from API
   const handleGetPOSData = async () => {
@@ -90,62 +79,6 @@ export function SalesInput() {
     }
   }
 
-  const handleAddEntry = () => {
-    if (formData.quantitySold <= 0) {
-      toast({
-        title: 'Error',
-        description: 'Please enter a valid quantity',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    // Find selected plate color details
-    const selectedColor = outletColors.find((c) => c.name.toLowerCase() === formData.plateColor)
-    
-    // Check if entry already exists for this plate color
-    const existingIndex = salesEntries.findIndex((entry) => entry.plateColorName.toLowerCase() === formData.plateColor)
-    
-    if (existingIndex >= 0) {
-      // Update existing entry
-      const updatedEntries = [...salesEntries]
-      const existingEntry = updatedEntries[existingIndex]
-      updatedEntries[existingIndex] = {
-        ...existingEntry,
-        posSold: formData.quantitySold,
-        selisih: formData.quantitySold - existingEntry.productionSold,
-      }
-      setSalesEntries(updatedEntries)
-      toast({
-        title: 'Updated',
-        description: `${formData.plateColor} quantity updated`,
-      })
-    } else {
-      // Add new entry
-      const newEntry: SalesEntry = {
-        id: selectedColor?.id || Date.now().toString(),
-        plateColorId: selectedColor?.id || '',
-        plateColorName: formData.plateColor,
-        posSold: formData.quantitySold,
-        productionSold: 0,
-        productionWaste: 0,
-        adjustment: 0,
-        compensation: 0,
-        selisih: formData.quantitySold,
-      }
-      setSalesEntries([...salesEntries, newEntry])
-      toast({
-        title: 'Success',
-        description: 'Sales entry added successfully',
-      })
-    }
-
-    setFormData({
-      plateColor: 'white',
-      quantitySold: 0,
-    })
-  }
-
   const handleAdjustmentChange = (id: string, value: number) => {
     setSalesEntries((prev) =>
       prev.map((entry) => {
@@ -170,6 +103,24 @@ export function SalesInput() {
     toast({
       title: `Detail: ${entry.plateColorName}`,
       description: `POS: ${entry.posSold}, Prod: ${entry.productionSold}, Waste: ${entry.productionWaste}, Adj: ${entry.adjustment}, Comp: ${entry.compensation}`,
+    })
+  }
+
+  const handleSaveDraft = async () => {
+    if (salesEntries.length === 0) {
+      toast({
+        title: 'Error',
+        description: 'No entries to save as draft',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 500))
+
+    toast({
+      title: 'Draft Saved',
+      description: `${salesEntries.length} entries saved as draft`,
     })
   }
 
@@ -216,79 +167,35 @@ export function SalesInput() {
         <OutletSelector />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Entry Form */}
-        <Card className="lg:col-span-1">
+      {/* Sales Entries List */}
+      <Card>
           <CardHeader>
-            <CardTitle>Add Sales Entry</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="date-select">Date</Label>
-              <Input
-                id="date-select"
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-              />
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <CardTitle>Sales Entries</CardTitle>
+                <CardDescription>Total entries: {salesEntries.length}</CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="w-40"
+                />
+                <Button
+                  onClick={handleGetPOSData}
+                  variant="outline"
+                  disabled={isLoadingPOS || !selectedOutletId}
+                >
+                  {isLoadingPOS ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4 mr-2" />
+                  )}
+                  Get Data POS
+                </Button>
+              </div>
             </div>
-
-            <Button 
-              onClick={handleGetPOSData} 
-              variant="outline" 
-              className="w-full"
-              disabled={isLoadingPOS || !selectedOutletId}
-            >
-              {isLoadingPOS ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Download className="w-4 h-4 mr-2" />
-              )}
-              Get Data POS
-            </Button>
-
-            <div className="border-t pt-4">
-              <Label htmlFor="color-select">Plate Color</Label>
-              <Select value={formData.plateColor} onValueChange={(value) => setFormData({ ...formData, plateColor: value as PlateColor })}>
-                <SelectTrigger id="color-select">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {outletColors
-                    .filter((color) => color && color.name)
-                    .map((color) => (
-                      <SelectItem key={color.id} value={color.name.toLowerCase()}>
-                        <PlateColorBadge color={color.name.toLowerCase() as PlateColor} />
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="quantity">Quantity Sold</Label>
-              <Input
-                id="quantity"
-                type="number"
-                min="0"
-                placeholder="Enter quantity"
-                value={formData.quantitySold || ''}
-                onChange={(e) => setFormData({ ...formData, quantitySold: Number.parseInt(e.target.value) || 0 })}
-              />
-            </div>
-
-            <Button onClick={handleAddEntry} className="w-full">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Entry
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Sales Entries List */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Sales Entries</CardTitle>
-            <CardDescription>Total entries: {salesEntries.length}</CardDescription>
           </CardHeader>
           <CardContent>
             {salesEntries.length === 0 ? (
@@ -377,7 +284,6 @@ export function SalesInput() {
             )}
           </CardContent>
         </Card>
-      </div>
 
       {/* Summary Card */}
       {salesEntries.length > 0 && (
@@ -398,10 +304,16 @@ export function SalesInput() {
             </div>
           </CardHeader>
           <CardContent>
-            <Button onClick={handleSubmit} className="w-full">
-              <CheckCircle className="w-4 h-4 mr-2" />
-              Submit Sales Data
-            </Button>
+            <div className="flex gap-3">
+              <Button onClick={handleSaveDraft} variant="outline" className="flex-1">
+                <Save className="w-4 h-4 mr-2" />
+                Save Draft
+              </Button>
+              <Button onClick={handleSubmit} className="flex-1">
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Submit Sales Data
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
