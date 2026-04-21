@@ -18,6 +18,25 @@ export interface POSData {
   selisih: number
 }
 
+export interface ProductionMenuDetailItem {
+  menuId: string
+  menuName: string
+  produced: number
+  sold: number
+  waste: number
+  remaining: number
+}
+
+export interface ProductionMenuDetail {
+  plateColorId: string
+  plateColorName: string
+  date: string
+  totalProduced: number
+  totalSold: number
+  totalWaste: number
+  items: ProductionMenuDetailItem[]
+}
+
 export interface ClosingReport {
   id: string
   outletId: string
@@ -129,6 +148,19 @@ class ReportsService {
     const response = await apiClient.get<{ data: POSData[] }>(`${this.endpoint}/pos-data`, {
       params: { outletId, date },
     })
+    return response.data.data
+  }
+
+  // Get production menu detail per plate color
+  async getProductionMenuDetail(
+    outletId: string,
+    date: string,
+    plateColorId: string
+  ): Promise<ProductionMenuDetail> {
+    const response = await apiClient.get<{ data: ProductionMenuDetail }>(
+      `${this.endpoint}/production-menu-detail`,
+      { params: { outletId, date, plateColorId } }
+    )
     return response.data.data
   }
 }

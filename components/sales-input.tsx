@@ -4,17 +4,15 @@ import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { OutletSelector } from '@/components/outlet-selector'
 import { useToast } from '@/hooks/use-toast'
 import { useOutlet } from '@/lib/outlet-context'
-import { usePlateColorsSortedByPrice } from '@/hooks/use-plate-colors'
-import { reportsService, type POSData } from '@/lib/api'
+import { reportsService, type POSData, type ProductionMenuDetail } from '@/lib/api'
 import type { PlateColor } from '@/components/plate-color-badge'
 import { PlateColorBadge } from '@/components/plate-color-badge'
-import { Plus, Trash2, AlertCircle, CheckCircle, Download, Loader2 } from 'lucide-react'
+import { Pencil, AlertCircle, CheckCircle, Download, Loader2, Save } from 'lucide-react'
 
 interface SalesEntry {
   id: string
@@ -22,6 +20,7 @@ interface SalesEntry {
   plateColorName: string
   posSold: number
   productionSold: number
+  productionWaste: number
   adjustment: number
   compensation: number
   selisih: number
@@ -36,14 +35,10 @@ export function SalesInput() {
     return today.toISOString().split('T')[0]
   })
   const [isLoadingPOS, setIsLoadingPOS] = useState(false)
-
-  const [formData, setFormData] = useState({
-    plateColor: 'white' as PlateColor,
-    quantitySold: 0,
-  })
-
-  // Get plate colors from API
-  const { plateColors: outletColors } = usePlateColorsSortedByPrice()
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false)
+  const [selectedEntryDetail, setSelectedEntryDetail] = useState<SalesEntry | null>(null)
+  const [productionDetail, setProductionDetail] = useState<ProductionMenuDetail | null>(null)
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false)
 
   // Get POS data from API
   const handleGetPOSData = async () => {
@@ -67,6 +62,7 @@ export function SalesInput() {
         plateColorName: pos.plateColorName,
         posSold: pos.posSold,
         productionSold: pos.productionSold,
+        productionWaste: (pos as POSData & { productionWaste?: number }).productionWaste || 0,
         adjustment: 0,
         compensation: 0,
         selisih: pos.selisih,
@@ -86,61 +82,6 @@ export function SalesInput() {
     } finally {
       setIsLoadingPOS(false)
     }
-  }
-
-  const handleAddEntry = () => {
-    if (formData.quantitySold <= 0) {
-      toast({
-        title: 'Error',
-        description: 'Please enter a valid quantity',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    // Find selected plate color details
-    const selectedColor = outletColors.find((c) => c.name.toLowerCase() === formData.plateColor)
-    
-    // Check if entry already exists for this plate color
-    const existingIndex = salesEntries.findIndex((entry) => entry.plateColorName.toLowerCase() === formData.plateColor)
-    
-    if (existingIndex >= 0) {
-      // Update existing entry
-      const updatedEntries = [...salesEntries]
-      const existingEntry = updatedEntries[existingIndex]
-      updatedEntries[existingIndex] = {
-        ...existingEntry,
-        posSold: formData.quantitySold,
-        selisih: formData.quantitySold - existingEntry.productionSold,
-      }
-      setSalesEntries(updatedEntries)
-      toast({
-        title: 'Updated',
-        description: `${formData.plateColor} quantity updated`,
-      })
-    } else {
-      // Add new entry
-      const newEntry: SalesEntry = {
-        id: selectedColor?.id || Date.now().toString(),
-        plateColorId: selectedColor?.id || '',
-        plateColorName: formData.plateColor,
-        posSold: formData.quantitySold,
-        productionSold: 0,
-        adjustment: 0,
-        compensation: 0,
-        selisih: formData.quantitySold,
-      }
-      setSalesEntries([...salesEntries, newEntry])
-      toast({
-        title: 'Success',
-        description: 'Sales entry added successfully',
-      })
-    }
-
-    setFormData({
-      plateColor: 'white',
-      quantitySold: 0,
-    })
   }
 
   const handleAdjustmentChange = (id: string, value: number) => {
@@ -163,12 +104,47 @@ export function SalesInput() {
     )
   }
 
-  const handleDeleteEntry = (id: string) => {
-    setSalesEntries(salesEntries.filter((entry) => entry.id !== id))
+  const handleOpenDetail = async (entry: SalesEntry) => {
+    setSelectedEntryDetail(entry)
+    setProductionDetail(null)
+    setDetailDialogOpen(true)
+
+    if (!selectedOutletId) return
+
+    setIsLoadingDetail(true)
+    try {
+      const detail = await reportsService.getProductionMenuDetail(
+        selectedOutletId,
+        selectedDate,
+        entry.plateColorId
+      )
+      setProductionDetail(detail)
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to load production detail',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsLoadingDetail(false)
+    }
+  }
+
+  const handleSaveDraft = async () => {
+    if (salesEntries.length === 0) {
+      toast({
+        title: 'Error',
+        description: 'No entries to save as draft',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 500))
+
     toast({
-      title: 'Deleted',
-      description: 'Sales entry removed',
-      variant: 'destructive',
+      title: 'Draft Saved',
+      description: `${salesEntries.length} entries saved as draft`,
     })
   }
 
@@ -193,7 +169,15 @@ export function SalesInput() {
     setSalesEntries([])
   }
 
-  const totalSelisih = salesEntries.reduce((sum, entry) => sum + entry.selisih, 0)
+  // Calculate totals
+  const totals = {
+    posSold: salesEntries.reduce((sum, entry) => sum + entry.posSold, 0),
+    productionSold: salesEntries.reduce((sum, entry) => sum + entry.productionSold, 0),
+    productionWaste: salesEntries.reduce((sum, entry) => sum + entry.productionWaste, 0),
+    adjustment: salesEntries.reduce((sum, entry) => sum + entry.adjustment, 0),
+    compensation: salesEntries.reduce((sum, entry) => sum + entry.compensation, 0),
+    selisih: salesEntries.reduce((sum, entry) => sum + entry.selisih, 0),
+  }
   const hasDiscrepancies = salesEntries.some((entry) => entry.selisih !== 0)
 
   return (
@@ -207,79 +191,35 @@ export function SalesInput() {
         <OutletSelector />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Entry Form */}
-        <Card className="lg:col-span-1">
+      {/* Sales Entries List */}
+      <Card>
           <CardHeader>
-            <CardTitle>Add Sales Entry</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="date-select">Date</Label>
-              <Input
-                id="date-select"
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-              />
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <CardTitle>Sales Entries</CardTitle>
+                <CardDescription>Total entries: {salesEntries.length}</CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="w-40"
+                />
+                <Button
+                  onClick={handleGetPOSData}
+                  variant="outline"
+                  disabled={isLoadingPOS || !selectedOutletId}
+                >
+                  {isLoadingPOS ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4 mr-2" />
+                  )}
+                  Get Data POS
+                </Button>
+              </div>
             </div>
-
-            <Button 
-              onClick={handleGetPOSData} 
-              variant="outline" 
-              className="w-full"
-              disabled={isLoadingPOS || !selectedOutletId}
-            >
-              {isLoadingPOS ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Download className="w-4 h-4 mr-2" />
-              )}
-              Get Data POS
-            </Button>
-
-            <div className="border-t pt-4">
-              <Label htmlFor="color-select">Plate Color</Label>
-              <Select value={formData.plateColor} onValueChange={(value) => setFormData({ ...formData, plateColor: value as PlateColor })}>
-                <SelectTrigger id="color-select">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {outletColors
-                    .filter((color) => color && color.name)
-                    .map((color) => (
-                      <SelectItem key={color.id} value={color.name.toLowerCase()}>
-                        <PlateColorBadge color={color.name.toLowerCase() as PlateColor} />
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="quantity">Quantity Sold</Label>
-              <Input
-                id="quantity"
-                type="number"
-                min="0"
-                placeholder="Enter quantity"
-                value={formData.quantitySold || ''}
-                onChange={(e) => setFormData({ ...formData, quantitySold: Number.parseInt(e.target.value) || 0 })}
-              />
-            </div>
-
-            <Button onClick={handleAddEntry} className="w-full">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Entry
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Sales Entries List */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Sales Entries</CardTitle>
-            <CardDescription>Total entries: {salesEntries.length}</CardDescription>
           </CardHeader>
           <CardContent>
             {salesEntries.length === 0 ? (
@@ -291,11 +231,12 @@ export function SalesInput() {
                     <TableRow>
                       <TableHead>Plate Color</TableHead>
                       <TableHead className="text-right">POS Sold</TableHead>
-                      <TableHead className="text-right">Production Sold</TableHead>
-                      <TableHead className="text-center w-32">Adjustment</TableHead>
-                      <TableHead className="text-center w-32">Compensation</TableHead>
+                      <TableHead className="text-right">Prod. Sold</TableHead>
+                      <TableHead className="text-right">Prod. Waste</TableHead>
+                      <TableHead className="text-center w-28">Adjustment</TableHead>
+                      <TableHead className="text-center w-28">Compensation</TableHead>
                       <TableHead className="text-right">Selisih</TableHead>
-                      <TableHead className="w-10"></TableHead>
+                      <TableHead className="w-14"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -306,10 +247,11 @@ export function SalesInput() {
                         </TableCell>
                         <TableCell className="text-right font-medium">{entry.posSold}</TableCell>
                         <TableCell className="text-right">{entry.productionSold}</TableCell>
+                        <TableCell className="text-right">{entry.productionWaste}</TableCell>
                         <TableCell className="text-center">
                           <Input
                             type="number"
-                            className="h-8 w-24 text-center mx-auto"
+                            className="h-8 w-20 text-center mx-auto"
                             value={entry.adjustment === 0 ? '' : entry.adjustment}
                             placeholder="0"
                             onChange={(e) =>
@@ -320,7 +262,7 @@ export function SalesInput() {
                         <TableCell className="text-center">
                           <Input
                             type="number"
-                            className="h-8 w-24 text-center mx-auto"
+                            className="h-8 w-20 text-center mx-auto"
                             value={entry.compensation === 0 ? '' : entry.compensation}
                             placeholder="0"
                             onChange={(e) =>
@@ -334,23 +276,40 @@ export function SalesInput() {
                           </span>
                         </TableCell>
                         <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteEntry(entry.id)}
-                          >
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
+                          {entry.selisih !== 0 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleOpenDetail(entry)}
+                              title="Edit / View Detail"
+                            >
+                              <Pencil className="w-4 h-4 text-destructive" />
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
+                    {/* Totals Row */}
+                    <TableRow className="bg-muted/50 font-semibold border-t-2">
+                      <TableCell>Total</TableCell>
+                      <TableCell className="text-right">{totals.posSold}</TableCell>
+                      <TableCell className="text-right">{totals.productionSold}</TableCell>
+                      <TableCell className="text-right">{totals.productionWaste}</TableCell>
+                      <TableCell className="text-center">{totals.adjustment}</TableCell>
+                      <TableCell className="text-center">{totals.compensation}</TableCell>
+                      <TableCell className="text-right">
+                        <span className={totals.selisih !== 0 ? 'text-destructive' : 'text-green-600'}>
+                          {totals.selisih > 0 ? '+' : ''}{totals.selisih}
+                        </span>
+                      </TableCell>
+                      <TableCell></TableCell>
+                    </TableRow>
                   </TableBody>
                 </Table>
               </div>
             )}
           </CardContent>
         </Card>
-      </div>
 
       {/* Summary Card */}
       {salesEntries.length > 0 && (
@@ -366,18 +325,107 @@ export function SalesInput() {
                 <CardTitle>{hasDiscrepancies ? 'Discrepancies Found' : 'All Sales Match System'}</CardTitle>
               </div>
               <span className={`text-2xl font-bold ${hasDiscrepancies ? 'text-destructive' : 'text-green-600'}`}>
-                {totalSelisih > 0 ? '+' : ''}{totalSelisih}
+                {totals.selisih > 0 ? '+' : ''}{totals.selisih}
               </span>
             </div>
           </CardHeader>
           <CardContent>
-            <Button onClick={handleSubmit} className="w-full">
-              <CheckCircle className="w-4 h-4 mr-2" />
-              Submit Sales Data
-            </Button>
+            <div className="flex gap-3">
+              <Button onClick={handleSaveDraft} variant="outline" className="flex-1">
+                <Save className="w-4 h-4 mr-2" />
+                Save Draft
+              </Button>
+              <Button onClick={handleSubmit} className="flex-1">
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Submit Sales Data
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
+
+      {/* Production Detail Dialog */}
+      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {selectedEntryDetail && (
+                <PlateColorBadge color={selectedEntryDetail.plateColorName.toLowerCase() as PlateColor} />
+              )}
+              Production Menu Detail
+            </DialogTitle>
+            <DialogDescription>
+              Detail produksi per menu untuk plate color{' '}
+              <span className="font-medium">{selectedEntryDetail?.plateColorName}</span> pada tanggal{' '}
+              <span className="font-medium">{selectedDate}</span>
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Summary stats */}
+          {selectedEntryDetail && (
+            <div className="grid grid-cols-3 gap-3 py-2">
+              <div className="rounded-lg border bg-muted/40 p-3 text-center">
+                <p className="text-xs text-muted-foreground">POS Sold</p>
+                <p className="text-xl font-bold">{selectedEntryDetail.posSold}</p>
+              </div>
+              <div className="rounded-lg border bg-muted/40 p-3 text-center">
+                <p className="text-xs text-muted-foreground">Production Sold</p>
+                <p className="text-xl font-bold">{selectedEntryDetail.productionSold}</p>
+              </div>
+              <div className="rounded-lg border bg-muted/40 p-3 text-center">
+                <p className="text-xs text-muted-foreground">Selisih</p>
+                <p className={`text-xl font-bold ${selectedEntryDetail.selisih !== 0 ? 'text-destructive' : 'text-green-600'}`}>
+                  {selectedEntryDetail.selisih > 0 ? '+' : ''}{selectedEntryDetail.selisih}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Menu detail table */}
+          {isLoadingDetail ? (
+            <div className="flex items-center justify-center py-10 gap-2 text-muted-foreground">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span>Loading production detail...</span>
+            </div>
+          ) : productionDetail ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Menu</TableHead>
+                    <TableHead className="text-right">Produced</TableHead>
+                    <TableHead className="text-right">Sold</TableHead>
+                    <TableHead className="text-right">Waste</TableHead>
+                    <TableHead className="text-right">Remaining</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {productionDetail.items.map((item) => (
+                    <TableRow key={item.menuId}>
+                      <TableCell className="font-medium">{item.menuName}</TableCell>
+                      <TableCell className="text-right">{item.produced}</TableCell>
+                      <TableCell className="text-right">{item.sold}</TableCell>
+                      <TableCell className="text-right text-destructive">{item.waste}</TableCell>
+                      <TableCell className="text-right">{item.remaining}</TableCell>
+                    </TableRow>
+                  ))}
+                  <TableRow className="bg-muted/50 font-semibold border-t-2">
+                    <TableCell>Total</TableCell>
+                    <TableCell className="text-right">{productionDetail.totalProduced}</TableCell>
+                    <TableCell className="text-right">{productionDetail.totalSold}</TableCell>
+                    <TableCell className="text-right text-destructive">{productionDetail.totalWaste}</TableCell>
+                    <TableCell className="text-right">
+                      {productionDetail.totalProduced - productionDetail.totalSold - productionDetail.totalWaste}
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <p className="text-center text-muted-foreground py-6">No production data available.</p>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
