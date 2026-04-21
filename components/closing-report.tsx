@@ -9,10 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { OutletSelector } from '@/components/outlet-selector'
 import { useToast } from '@/hooks/use-toast'
 import { useOutlet } from '@/lib/outlet-context'
-import { sushiMenus } from '@/lib/mock-data'
 import { PlateColorBadge } from '@/components/plate-color-badge'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { CheckCircle, AlertCircle, Download, Edit2, Upload } from 'lucide-react'
+import { CheckCircle, AlertCircle, Download, Upload } from 'lucide-react'
 
 interface MenuSalesEntry {
   menuId: string
@@ -43,38 +41,6 @@ export function ClosingReport() {
   const [operationLeader, setOperationLeader] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [status, setStatus] = useState<'draft' | 'submitted'>('draft')
-  const [updateModalOpen, setUpdateModalOpen] = useState(false)
-  const [selectedEntryIndex, setSelectedEntryIndex] = useState<number | null>(null)
-  const [compReason, setCompReason] = useState('')
-
-  // Filter menus by outlet
-  const outletMenus = sushiMenus.filter((m) => m.outletId === selectedOutletId)
-
-  const updateEntry = (index: number, field: keyof MenuSalesEntry, value: any) => {
-    const newEntries = [...salesEntries]
-    newEntries[index][field] = value
-    setSalesEntries(newEntries)
-  }
-
-  const openUpdateModal = (index: number) => {
-    setSelectedEntryIndex(index)
-    setCompReason(salesEntries[index].compensationReason || '')
-    setUpdateModalOpen(true)
-  }
-
-  const handleCompensationUpdate = () => {
-    if (selectedEntryIndex !== null) {
-      const newEntries = [...salesEntries]
-      newEntries[selectedEntryIndex].compensationReason = compReason
-      setSalesEntries(newEntries)
-      setUpdateModalOpen(false)
-      toast({
-        title: 'Updated',
-        description: 'Compensation reason saved',
-      })
-    }
-  }
-
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       setWastePhotos(Array.from(e.target.files))
@@ -96,13 +62,10 @@ export function ClosingReport() {
     produced: salesEntries.reduce((sum, e) => sum + e.produced, 0),
     sold: salesEntries.reduce((sum, e) => sum + e.sold, 0),
     waste: salesEntries.reduce((sum, e) => sum + e.waste, 0),
-    posSold: salesEntries.reduce((sum, e) => sum + e.posSold, 0),
     adjustment: salesEntries.reduce((sum, e) => sum + e.adjustment, 0),
     compensation: salesEntries.reduce((sum, e) => sum + e.compensation, 0),
     compensationValue: salesEntries.reduce((sum, e) => sum + (e.compensation * e.sellingPrice), 0),
   }
-
-  const getSelisih = (entry: MenuSalesEntry) => entry.posSold - entry.sold
 
   const handleSubmit = async () => {
     if (!kitchenLeader || !operationLeader) {
@@ -159,7 +122,7 @@ export function ClosingReport() {
       )}
 
       {/* Discrepancy Alert */}
-      {salesEntries.some((e) => Math.abs(getSelisih(e)) > 0) && status !== 'submitted' && (
+      {salesEntries.some((e) => Math.abs(e.adjustment) > 0 || Math.abs(e.compensation) > 0) && status !== 'submitted' && (
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="pt-6 flex items-center gap-3">
             <AlertCircle className="w-6 h-6 text-amber-600" />
@@ -212,158 +175,46 @@ export function ClosingReport() {
                   <TableHead>Color</TableHead>
                   <TableHead className="text-right">Harga Jual</TableHead>
                   <TableHead colSpan={3} className="text-center">COLORPLATE</TableHead>
-                  <TableHead className="text-center">POS</TableHead>
                   <TableHead className="text-center">Adjustment</TableHead>
                   <TableHead className="text-center">Compensation</TableHead>
-                  <TableHead className="text-center">Selisih</TableHead>
-                  <TableHead className="w-10"></TableHead>
                 </TableRow>
                 <TableRow className="bg-muted/50">
                   <TableHead></TableHead>
                   <TableHead></TableHead>
                   <TableHead></TableHead>
-                  <TableHead className="text-right text-xs"></TableHead>
+                  <TableHead></TableHead>
                   <TableHead className="text-right text-xs">Produce</TableHead>
                   <TableHead className="text-right text-xs">Sold</TableHead>
                   <TableHead className="text-right text-xs">Waste</TableHead>
-                  <TableHead className="text-right text-xs">Sold</TableHead>
                   <TableHead className="text-right text-xs">Adj</TableHead>
                   <TableHead className="text-right text-xs">Qty</TableHead>
-                  <TableHead className="text-center text-xs"></TableHead>
-                  <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {salesEntries.map((entry, index) => {
-                  const selisih = entry.posSold - entry.sold
-                  return (
-                    <TableRow key={index}>
-                      <TableCell className="font-mono font-semibold text-sm">{entry.code}</TableCell>
-                      <TableCell className="font-medium">{entry.menuName}</TableCell>
-                      <TableCell>
-                        <PlateColorBadge color={entry.plateColor as any} />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Input
-                          type="number"
-                          value={entry.sellingPrice}
-                          onChange={(e) => updateEntry(index, 'sellingPrice', parseInt(e.target.value) || 0)}
-                          disabled={status === 'submitted'}
-                          className="w-20 text-right text-sm"
-                        />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Input
-                          type="number"
-                          value={entry.produced}
-                          onChange={(e) => updateEntry(index, 'produced', parseInt(e.target.value) || 0)}
-                          disabled={status === 'submitted'}
-                          className="w-16 text-right text-sm"
-                        />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Input
-                          type="number"
-                          value={entry.sold}
-                          onChange={(e) => updateEntry(index, 'sold', parseInt(e.target.value) || 0)}
-                          disabled={status === 'submitted'}
-                          className="w-16 text-right text-sm"
-                        />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Input
-                          type="number"
-                          value={entry.waste}
-                          onChange={(e) => updateEntry(index, 'waste', parseInt(e.target.value) || 0)}
-                          disabled={status === 'submitted'}
-                          className="w-16 text-right text-sm"
-                        />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Input
-                          type="number"
-                          value={entry.posSold}
-                          onChange={(e) => updateEntry(index, 'posSold', parseInt(e.target.value) || 0)}
-                          disabled={status === 'submitted'}
-                          className="w-16 text-right text-sm"
-                        />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Input
-                          type="number"
-                          value={entry.adjustment}
-                          onChange={(e) => updateEntry(index, 'adjustment', parseInt(e.target.value) || 0)}
-                          disabled={status === 'submitted'}
-                          className="w-16 text-right text-sm"
-                        />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Input
-                          type="number"
-                          value={entry.compensation}
-                          onChange={(e) => updateEntry(index, 'compensation', parseInt(e.target.value) || 0)}
-                          disabled={status === 'submitted'}
-                          className="w-16 text-right text-sm"
-                        />
-                      </TableCell>
-                      <TableCell className={`text-right font-semibold ${selisih !== 0 ? 'text-destructive' : 'text-green-600'}`}>
-                        {selisih > 0 ? '+' : ''}{selisih}
-                      </TableCell>
-                      <TableCell>
-                        <Dialog open={updateModalOpen && selectedEntryIndex === index} onOpenChange={setUpdateModalOpen}>
-                          <DialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openUpdateModal(index)}
-                              disabled={status === 'submitted'}
-                            >
-                              <Edit2 className="w-4 h-4 text-blue-600" />
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader>
-                              <DialogTitle>Update Compensation Reason</DialogTitle>
-                              <DialogDescription>{entry.menuName}</DialogDescription>
-                            </DialogHeader>
-                            <div className="space-y-4">
-                              <div>
-                                <Label htmlFor="reason">Reason / Keterangan</Label>
-                                <Input
-                                  id="reason"
-                                  placeholder="e.g., Quality issue, Customer request..."
-                                  value={compReason}
-                                  onChange={(e) => setCompReason(e.target.value)}
-                                  className="mt-2"
-                                />
-                              </div>
-                              <div className="flex gap-2 justify-end">
-                                <Button variant="outline" onClick={() => setUpdateModalOpen(false)}>
-                                  Cancel
-                                </Button>
-                                <Button onClick={handleCompensationUpdate}>
-                                  Save
-                                </Button>
-                              </div>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
+                {salesEntries.map((entry, index) => (
+                  <TableRow key={index}>
+                    <TableCell className="font-mono font-semibold text-sm">{entry.code}</TableCell>
+                    <TableCell className="font-medium">{entry.menuName}</TableCell>
+                    <TableCell>
+                      <PlateColorBadge color={entry.plateColor as any} />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {entry.sellingPrice.toLocaleString('id-ID')}
+                    </TableCell>
+                    <TableCell className="text-right">{entry.produced}</TableCell>
+                    <TableCell className="text-right">{entry.sold}</TableCell>
+                    <TableCell className="text-right text-destructive">{entry.waste}</TableCell>
+                    <TableCell className="text-right">{entry.adjustment > 0 ? '+' : ''}{entry.adjustment}</TableCell>
+                    <TableCell className="text-right">{entry.compensation > 0 ? '+' : ''}{entry.compensation}</TableCell>
+                  </TableRow>
+                ))}
                 <TableRow className="bg-muted/50 font-semibold">
                   <TableCell colSpan={4}>TOTAL</TableCell>
                   <TableCell className="text-right">{totals.produced}</TableCell>
                   <TableCell className="text-right">{totals.sold}</TableCell>
-                  <TableCell className="text-right">{totals.waste}</TableCell>
-                  <TableCell className="text-right">{totals.posSold}</TableCell>
+                  <TableCell className="text-right text-destructive">{totals.waste}</TableCell>
                   <TableCell className="text-right">{totals.adjustment > 0 ? '+' : ''}{totals.adjustment}</TableCell>
                   <TableCell className="text-right">{totals.compensation > 0 ? '+' : ''}{totals.compensation}</TableCell>
-                  <TableCell className={`text-right ${salesEntries.reduce((sum, e) => sum + (e.posSold - e.sold), 0) !== 0 ? 'text-destructive' : 'text-green-600'}`}>
-                    {salesEntries.reduce((sum, e) => sum + (e.posSold - e.sold), 0) > 0 ? '+' : ''}{salesEntries.reduce((sum, e) => sum + (e.posSold - e.sold), 0)}
-                  </TableCell>
-                  <TableCell></TableCell>
                 </TableRow>
               </TableBody>
             </Table>
@@ -410,12 +261,6 @@ export function ClosingReport() {
                     <p className="text-sm"><span className="text-muted-foreground">Sold:</span> <span className="font-bold text-green-600">{totals.sold}</span></p>
                     <p className="text-sm"><span className="text-muted-foreground">Waste:</span> <span className="font-bold text-red-600">{totals.waste}</span></p>
                   </div>
-                </CardContent>
-              </Card>
-              <Card className="bg-green-50 border-green-200">
-                <CardContent className="pt-4">
-                  <p className="text-xs text-muted-foreground mb-2">POS TOTAL</p>
-                  <p className="text-2xl font-bold text-green-600">{totals.posSold}</p>
                 </CardContent>
               </Card>
               <Card className="bg-orange-50 border-orange-200">
