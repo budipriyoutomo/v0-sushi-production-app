@@ -38,6 +38,7 @@ export function SalesInput() {
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
   const [selectedEntryDetail, setSelectedEntryDetail] = useState<SalesEntry | null>(null)
   const [productionDetail, setProductionDetail] = useState<ProductionMenuDetailItem[] | null>(null)
+  const [editableDetail, setEditableDetail] = useState<ProductionMenuDetailItem[] | null>(null)
   const [isLoadingDetail, setIsLoadingDetail] = useState(false)
 
   // Get POS data from API
@@ -107,6 +108,7 @@ export function SalesInput() {
   const handleOpenDetail = async (entry: SalesEntry) => {
     setSelectedEntryDetail(entry)
     setProductionDetail(null)
+    setEditableDetail(null)
     setDetailDialogOpen(true)
 
     if (!selectedOutletId) return
@@ -119,6 +121,12 @@ export function SalesInput() {
         entry.plateColorId
       )
       setProductionDetail(detail)
+      // Initialize editable detail with current values
+      setEditableDetail(detail.map(item => ({
+        ...item,
+        adjustment: item.adjustment || 0,
+        compensation: item.compensation || 0,
+      })))
     } catch (error) {
       toast({
         title: 'Error',
@@ -128,6 +136,51 @@ export function SalesInput() {
     } finally {
       setIsLoadingDetail(false)
     }
+  }
+
+  // Handle adjustment change in detail dialog
+  const handleDetailAdjustmentChange = (menuId: string, value: number) => {
+    setEditableDetail(prev => 
+      prev?.map(item => 
+        item.menuId === menuId ? { ...item, adjustment: value } : item
+      ) || null
+    )
+  }
+
+  // Handle compensation change in detail dialog
+  const handleDetailCompensationChange = (menuId: string, value: number) => {
+    setEditableDetail(prev => 
+      prev?.map(item => 
+        item.menuId === menuId ? { ...item, compensation: value } : item
+      ) || null
+    )
+  }
+
+  // Save detail totals to parent entry
+  const handleSaveDetailToParent = () => {
+    if (!selectedEntryDetail || !editableDetail) return
+
+    const totalAdjustment = editableDetail.reduce((sum, item) => sum + (item.adjustment || 0), 0)
+    const totalCompensation = editableDetail.reduce((sum, item) => sum + (item.compensation || 0), 0)
+
+    // Update the parent entry with totals from detail
+    handleAdjustmentChange(selectedEntryDetail.id, totalAdjustment)
+    handleCompensationChange(selectedEntryDetail.id, totalCompensation)
+
+    // Update selected entry detail for display
+    setSelectedEntryDetail(prev => prev ? {
+      ...prev,
+      adjustment: totalAdjustment,
+      compensation: totalCompensation,
+      selisih: prev.posSold - prev.productionSold + totalAdjustment + totalCompensation,
+    } : null)
+
+    toast({
+      title: 'Saved',
+      description: `Adjustment: ${totalAdjustment}, Compensation: ${totalCompensation} applied to ${selectedEntryDetail.plateColorName}`,
+    })
+
+    setDetailDialogOpen(false)
   }
 
   const handleSaveDraft = async () => {
@@ -346,7 +399,7 @@ export function SalesInput() {
 
       {/* Production Detail Dialog */}
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {selectedEntryDetail && (
@@ -363,7 +416,7 @@ export function SalesInput() {
 
           {/* Summary stats */}
           {selectedEntryDetail && (
-            <div className="grid grid-cols-3 gap-3 py-2">
+            <div className="grid grid-cols-4 gap-3 py-2">
               <div className="rounded-lg border bg-muted/40 p-3 text-center">
                 <p className="text-xs text-muted-foreground">POS Sold</p>
                 <p className="text-xl font-bold">{selectedEntryDetail.posSold}</p>
@@ -371,6 +424,10 @@ export function SalesInput() {
               <div className="rounded-lg border bg-muted/40 p-3 text-center">
                 <p className="text-xs text-muted-foreground">Production Sold</p>
                 <p className="text-xl font-bold">{selectedEntryDetail.productionSold}</p>
+              </div>
+              <div className="rounded-lg border bg-muted/40 p-3 text-center">
+                <p className="text-xs text-muted-foreground">Production Waste</p>
+                <p className="text-xl font-bold">{selectedEntryDetail.productionWaste}</p>
               </div>
               <div className="rounded-lg border bg-muted/40 p-3 text-center">
                 <p className="text-xs text-muted-foreground">Selisih</p>
@@ -387,7 +444,7 @@ export function SalesInput() {
               <Loader2 className="w-5 h-5 animate-spin" />
               <span>Loading production detail...</span>
             </div>
-          ) : productionDetail && productionDetail.length > 0 ? (
+          ) : editableDetail && editableDetail.length > 0 ? (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -396,41 +453,69 @@ export function SalesInput() {
                     <TableHead className="text-right">Produced</TableHead>
                     <TableHead className="text-right">Sold</TableHead>
                     <TableHead className="text-right">Waste</TableHead>
-                    <TableHead className="text-right">Adjustment</TableHead>
-                    <TableHead className="text-right">Compensation</TableHead>
+                    <TableHead className="text-center w-28">Adjustment</TableHead>
+                    <TableHead className="text-center w-28">Compensation</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {productionDetail.map((item) => (
+                  {editableDetail.map((item) => (
                     <TableRow key={item.menuId}>
                       <TableCell className="font-medium">{item.menuName}</TableCell>
                       <TableCell className="text-right">{item.totalProduced}</TableCell>
                       <TableCell className="text-right">{item.totalSold}</TableCell>
                       <TableCell className="text-right text-destructive">{item.totalWasted}</TableCell>
-                      <TableCell className="text-right">{item.adjustment || 0}</TableCell>
-                      <TableCell className="text-right">{item.compensation || 0}</TableCell>
+                      <TableCell className="text-center">
+                        <Input
+                          type="number"
+                          className="h-8 w-20 text-center mx-auto"
+                          value={item.adjustment === 0 ? '' : item.adjustment}
+                          placeholder="0"
+                          onChange={(e) =>
+                            handleDetailAdjustmentChange(item.menuId, Number.parseInt(e.target.value) || 0)
+                          }
+                        />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Input
+                          type="number"
+                          className="h-8 w-20 text-center mx-auto"
+                          value={item.compensation === 0 ? '' : item.compensation}
+                          placeholder="0"
+                          onChange={(e) =>
+                            handleDetailCompensationChange(item.menuId, Number.parseInt(e.target.value) || 0)
+                          }
+                        />
+                      </TableCell>
                     </TableRow>
                   ))}
                   <TableRow className="bg-muted/50 font-semibold border-t-2">
                     <TableCell>Total</TableCell>
                     <TableCell className="text-right">
-                      {productionDetail.reduce((sum, item) => sum + item.totalProduced, 0)}
+                      {editableDetail.reduce((sum, item) => sum + item.totalProduced, 0)}
                     </TableCell>
                     <TableCell className="text-right">
-                      {productionDetail.reduce((sum, item) => sum + item.totalSold, 0)}
+                      {editableDetail.reduce((sum, item) => sum + item.totalSold, 0)}
                     </TableCell>
                     <TableCell className="text-right text-destructive">
-                      {productionDetail.reduce((sum, item) => sum + item.totalWasted, 0)}
+                      {editableDetail.reduce((sum, item) => sum + item.totalWasted, 0)}
                     </TableCell>
-                    <TableCell className="text-right">
-                      {productionDetail.reduce((sum, item) => sum + (item.adjustment || 0), 0)}
+                    <TableCell className="text-center font-bold">
+                      {editableDetail.reduce((sum, item) => sum + (item.adjustment || 0), 0)}
                     </TableCell>
-                    <TableCell className="text-right">
-                      {productionDetail.reduce((sum, item) => sum + (item.compensation || 0), 0)}
+                    <TableCell className="text-center font-bold">
+                      {editableDetail.reduce((sum, item) => sum + (item.compensation || 0), 0)}
                     </TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
+
+              {/* Save button */}
+              <div className="flex justify-end mt-4 pt-4 border-t">
+                <Button onClick={handleSaveDetailToParent}>
+                  <Save className="w-4 h-4 mr-2" />
+                  Save to Plate Color
+                </Button>
+              </div>
             </div>
           ) : (
             <p className="text-center text-muted-foreground py-6">No production data available.</p>
