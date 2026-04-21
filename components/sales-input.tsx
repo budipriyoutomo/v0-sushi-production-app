@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { OutletSelector } from '@/components/outlet-selector'
 import { useToast } from '@/hooks/use-toast'
 import { useOutlet } from '@/lib/outlet-context'
-import { reportsService, type POSData, type ProductionMenuDetail } from '@/lib/api'
+import { reportsService, type POSData, type ProductionMenuDetailItem } from '@/lib/api'
 import type { PlateColor } from '@/components/plate-color-badge'
 import { PlateColorBadge } from '@/components/plate-color-badge'
 import { Pencil, AlertCircle, CheckCircle, Download, Loader2, Save } from 'lucide-react'
@@ -37,7 +37,7 @@ export function SalesInput() {
   const [isLoadingPOS, setIsLoadingPOS] = useState(false)
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
   const [selectedEntryDetail, setSelectedEntryDetail] = useState<SalesEntry | null>(null)
-  const [productionDetail, setProductionDetail] = useState<ProductionMenuDetail | null>(null)
+  const [productionDetail, setProductionDetail] = useState<ProductionMenuDetailItem[] | null>(null)
   const [isLoadingDetail, setIsLoadingDetail] = useState(false)
 
   // Get POS data from API
@@ -387,7 +387,7 @@ export function SalesInput() {
               <Loader2 className="w-5 h-5 animate-spin" />
               <span>Loading production detail...</span>
             </div>
-          ) : productionDetail ? (
+          ) : productionDetail && productionDetail.length > 0 ? (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -396,26 +396,37 @@ export function SalesInput() {
                     <TableHead className="text-right">Produced</TableHead>
                     <TableHead className="text-right">Sold</TableHead>
                     <TableHead className="text-right">Waste</TableHead>
-                    <TableHead className="text-right">Remaining</TableHead>
+                    <TableHead className="text-right">Adjustment</TableHead>
+                    <TableHead className="text-right">Compensation</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {productionDetail.items.map((item) => (
+                  {productionDetail.map((item) => (
                     <TableRow key={item.menuId}>
                       <TableCell className="font-medium">{item.menuName}</TableCell>
-                      <TableCell className="text-right">{item.produced}</TableCell>
-                      <TableCell className="text-right">{item.sold}</TableCell>
-                      <TableCell className="text-right text-destructive">{item.waste}</TableCell>
-                      <TableCell className="text-right">{item.remaining}</TableCell>
+                      <TableCell className="text-right">{item.totalProduced}</TableCell>
+                      <TableCell className="text-right">{item.totalSold}</TableCell>
+                      <TableCell className="text-right text-destructive">{item.totalWasted}</TableCell>
+                      <TableCell className="text-right">{item.adjustment || 0}</TableCell>
+                      <TableCell className="text-right">{item.compensation || 0}</TableCell>
                     </TableRow>
                   ))}
                   <TableRow className="bg-muted/50 font-semibold border-t-2">
                     <TableCell>Total</TableCell>
-                    <TableCell className="text-right">{productionDetail.totalProduced}</TableCell>
-                    <TableCell className="text-right">{productionDetail.totalSold}</TableCell>
-                    <TableCell className="text-right text-destructive">{productionDetail.totalWaste}</TableCell>
                     <TableCell className="text-right">
-                      {productionDetail.totalProduced - productionDetail.totalSold - productionDetail.totalWaste}
+                      {productionDetail.reduce((sum, item) => sum + item.totalProduced, 0)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {productionDetail.reduce((sum, item) => sum + item.totalSold, 0)}
+                    </TableCell>
+                    <TableCell className="text-right text-destructive">
+                      {productionDetail.reduce((sum, item) => sum + item.totalWasted, 0)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {productionDetail.reduce((sum, item) => sum + (item.adjustment || 0), 0)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {productionDetail.reduce((sum, item) => sum + (item.compensation || 0), 0)}
                     </TableCell>
                   </TableRow>
                 </TableBody>
