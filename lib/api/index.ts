@@ -28,6 +28,5 @@ export {
   type DailySummary,
   type SalesAnalysis,
   type WasteAnalysis,
-  type ProductionMenuDetail,
   type ProductionMenuDetailItem,
 } from './services/reports'
