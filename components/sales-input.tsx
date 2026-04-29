@@ -156,9 +156,9 @@ export function SalesInput() {
     )
   }
 
-  // Save detail totals to parent entry
+  // Save detail totals to parent entry and localStorage
   const handleSaveDetailToParent = () => {
-    if (!selectedEntryDetail || !editableDetail) return
+    if (!selectedEntryDetail || !editableDetail || !selectedOutletId) return
 
     const totalAdjustment = editableDetail.reduce((sum, item) => sum + (item.adjustment || 0), 0)
     const totalCompensation = editableDetail.reduce((sum, item) => sum + (item.compensation || 0), 0)
@@ -175,9 +175,31 @@ export function SalesInput() {
       selisih: prev.posSold - prev.productionSold + totalAdjustment + totalCompensation,
     } : null)
 
+    // Save to localStorage
+    const storageKey = `sales-input-detail-${selectedOutletId}-${selectedDate}-${selectedEntryDetail.plateColorId}`
+    const dataToStore = {
+      plateColorId: selectedEntryDetail.plateColorId,
+      plateColorName: selectedEntryDetail.plateColorName,
+      outletId: selectedOutletId,
+      date: selectedDate,
+      totalAdjustment,
+      totalCompensation,
+      menuDetails: editableDetail.map(item => ({
+        menuId: item.menuId,
+        menuName: item.menuName,
+        totalProduced: item.totalProduced,
+        totalSold: item.totalSold,
+        totalWasted: item.totalWasted,
+        adjustment: item.adjustment || 0,
+        compensation: item.compensation || 0,
+      })),
+      savedAt: new Date().toISOString(),
+    }
+    localStorage.setItem(storageKey, JSON.stringify(dataToStore))
+
     toast({
       title: 'Saved',
-      description: `Adjustment: ${totalAdjustment}, Compensation: ${totalCompensation} applied to ${selectedEntryDetail.plateColorName}`,
+      description: `Adjustment: ${totalAdjustment}, Compensation: ${totalCompensation} applied to ${selectedEntryDetail.plateColorName} and saved to local storage`,
     })
 
     setDetailDialogOpen(false)
@@ -415,28 +437,42 @@ export function SalesInput() {
           </DialogHeader>
 
           {/* Summary stats */}
-          {selectedEntryDetail && (
-            <div className="grid grid-cols-4 gap-3 py-2">
-              <div className="rounded-lg border bg-muted/40 p-3 text-center">
-                <p className="text-xs text-muted-foreground">POS Sold</p>
-                <p className="text-xl font-bold">{selectedEntryDetail.posSold}</p>
+          {selectedEntryDetail && editableDetail && (() => {
+            const totalDetailAdjustment = editableDetail.reduce((sum, item) => sum + (item.adjustment || 0), 0)
+            const totalDetailCompensation = editableDetail.reduce((sum, item) => sum + (item.compensation || 0), 0)
+            const calculatedSelisih = selectedEntryDetail.posSold - selectedEntryDetail.productionSold + totalDetailAdjustment + totalDetailCompensation
+
+            return (
+              <div className="grid grid-cols-6 gap-3 py-2">
+                <div className="rounded-lg border bg-muted/40 p-3 text-center">
+                  <p className="text-xs text-muted-foreground">POS Sold</p>
+                  <p className="text-xl font-bold">{selectedEntryDetail.posSold}</p>
+                </div>
+                <div className="rounded-lg border bg-muted/40 p-3 text-center">
+                  <p className="text-xs text-muted-foreground">Production Sold</p>
+                  <p className="text-xl font-bold">{selectedEntryDetail.productionSold}</p>
+                </div>
+                <div className="rounded-lg border bg-muted/40 p-3 text-center">
+                  <p className="text-xs text-muted-foreground">Production Waste</p>
+                  <p className="text-xl font-bold">{selectedEntryDetail.productionWaste}</p>
+                </div>
+                <div className="rounded-lg border bg-blue-50 border-blue-200 p-3 text-center">
+                  <p className="text-xs text-muted-foreground">Total Adjustment</p>
+                  <p className="text-xl font-bold text-blue-600">{totalDetailAdjustment > 0 ? '+' : ''}{totalDetailAdjustment}</p>
+                </div>
+                <div className="rounded-lg border bg-orange-50 border-orange-200 p-3 text-center">
+                  <p className="text-xs text-muted-foreground">Total Compensation</p>
+                  <p className="text-xl font-bold text-orange-600">{totalDetailCompensation > 0 ? '+' : ''}{totalDetailCompensation}</p>
+                </div>
+                <div className={`rounded-lg border p-3 text-center ${calculatedSelisih === 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                  <p className="text-xs text-muted-foreground">Selisih</p>
+                  <p className={`text-xl font-bold ${calculatedSelisih !== 0 ? 'text-destructive' : 'text-green-600'}`}>
+                    {calculatedSelisih > 0 ? '+' : ''}{calculatedSelisih}
+                  </p>
+                </div>
               </div>
-              <div className="rounded-lg border bg-muted/40 p-3 text-center">
-                <p className="text-xs text-muted-foreground">Production Sold</p>
-                <p className="text-xl font-bold">{selectedEntryDetail.productionSold}</p>
-              </div>
-              <div className="rounded-lg border bg-muted/40 p-3 text-center">
-                <p className="text-xs text-muted-foreground">Production Waste</p>
-                <p className="text-xl font-bold">{selectedEntryDetail.productionWaste}</p>
-              </div>
-              <div className="rounded-lg border bg-muted/40 p-3 text-center">
-                <p className="text-xs text-muted-foreground">Selisih</p>
-                <p className={`text-xl font-bold ${selectedEntryDetail.selisih !== 0 ? 'text-destructive' : 'text-green-600'}`}>
-                  {selectedEntryDetail.selisih > 0 ? '+' : ''}{selectedEntryDetail.selisih}
-                </p>
-              </div>
-            </div>
-          )}
+            )
+          })()}
 
           {/* Menu detail table */}
           {isLoadingDetail ? (
@@ -510,12 +546,34 @@ export function SalesInput() {
               </Table>
 
               {/* Save button */}
-              <div className="flex justify-end mt-4 pt-4 border-t">
-                <Button onClick={handleSaveDetailToParent}>
-                  <Save className="w-4 h-4 mr-2" />
-                  Save to Plate Color
-                </Button>
-              </div>
+              {(() => {
+                const totalDetailAdjustment = editableDetail.reduce((sum, item) => sum + (item.adjustment || 0), 0)
+                const totalDetailCompensation = editableDetail.reduce((sum, item) => sum + (item.compensation || 0), 0)
+                const calculatedSelisih = selectedEntryDetail 
+                  ? selectedEntryDetail.posSold - selectedEntryDetail.productionSold + totalDetailAdjustment + totalDetailCompensation 
+                  : 1
+                const isSelisihZero = calculatedSelisih === 0
+
+                return (
+                  <div className="flex flex-col gap-2 mt-4 pt-4 border-t">
+                    {!isSelisihZero && (
+                      <p className="text-sm text-destructive text-center">
+                        Selisih harus 0 untuk menyimpan. Silakan sesuaikan nilai Adjustment atau Compensation.
+                      </p>
+                    )}
+                    <div className="flex justify-end">
+                      <Button 
+                        onClick={handleSaveDetailToParent} 
+                        disabled={!isSelisihZero}
+                        className={isSelisihZero ? '' : 'opacity-50 cursor-not-allowed'}
+                      >
+                        <Save className="w-4 h-4 mr-2" />
+                        Save to Plate Color
+                      </Button>
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
           ) : (
             <p className="text-center text-muted-foreground py-6">No production data available.</p>
