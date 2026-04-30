@@ -6,11 +6,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { OutletSelector } from '@/components/outlet-selector'
 import { useToast } from '@/hooks/use-toast'
 import { useOutlet } from '@/lib/outlet-context'
 import { PlateColorBadge } from '@/components/plate-color-badge'
-import { CheckCircle, AlertCircle, Download, Upload } from 'lucide-react'
+import { CheckCircle, AlertCircle, Download, Upload, FileText, Loader2 } from 'lucide-react'
+import { salesService, type SalesDraft } from '@/lib/api'
 
 interface MenuSalesEntry {
   menuId: string
@@ -41,6 +43,14 @@ export function ClosingReport() {
   const [operationLeader, setOperationLeader] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [status, setStatus] = useState<'draft' | 'submitted'>('draft')
+
+  // Sales Draft Dialog state
+  const [draftDialogOpen, setDraftDialogOpen] = useState(false)
+  const [salesDrafts, setSalesDrafts] = useState<SalesDraft[]>([])
+  const [isLoadingDrafts, setIsLoadingDrafts] = useState(false)
+  const [expandedDraftId, setExpandedDraftId] = useState<string | null>(null)
+  const [draftDetailMap, setDraftDetailMap] = useState<Record<string, SalesDraft>>({})
+  const [loadingDetailId, setLoadingDetailId] = useState<string | null>(null)
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       setWastePhotos(Array.from(e.target.files))
@@ -56,6 +66,96 @@ export function ClosingReport() {
       title: 'Data Loaded',
       description: `Loading data for ${date}...`,
     })
+  }
+
+  // Get Sales Drafts from API
+  const handleGetSalesDrafts = async () => {
+    setDraftDialogOpen(true)
+    setIsLoadingDrafts(true)
+    try {
+      const drafts = await salesService.getAll({
+        outletId: selectedOutletId || undefined,
+        status: 'draft',
+      })
+      setSalesDrafts(drafts)
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch sales drafts',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsLoadingDrafts(false)
+    }
+  }
+
+  // View draft detail from GET /sales/{id}
+  const handleViewDraft = async (draft: SalesDraft) => {
+    if (expandedDraftId === draft.id) {
+      setExpandedDraftId(null)
+      return
+    }
+    if (draftDetailMap[draft.id]) {
+      setExpandedDraftId(draft.id)
+      return
+    }
+    setLoadingDetailId(draft.id)
+    try {
+      const detail = await salesService.getById(draft.id)
+      setDraftDetailMap((prev) => ({ ...prev, [draft.id]: detail }))
+      setExpandedDraftId(draft.id)
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch draft detail',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoadingDetailId(null)
+    }
+  }
+
+  // Load draft into current form
+  const handleLoadDraft = async (draft: SalesDraft) => {
+    try {
+      const fullDraft = await salesService.getById(draft.id)
+      
+      if (fullDraft.details && fullDraft.details.length > 0) {
+        // Transform draft details to MenuSalesEntry format
+        const entries: MenuSalesEntry[] = fullDraft.details.map((d) => ({
+          menuId: d.plateColorId,
+          menuName: d.plateColorName,
+          code: '',
+          plateColor: d.plateColorName.toLowerCase(),
+          sellingPrice: 0,
+          produced: d.productionSold + d.productionWaste,
+          sold: d.productionSold,
+          waste: d.productionWaste,
+          posSold: d.posSold,
+          adjustment: d.adjustment,
+          compensation: d.compensation,
+        }))
+        setSalesEntries(entries)
+        setDate(fullDraft.date)
+        setDraftDialogOpen(false)
+        toast({
+          title: 'Draft Loaded',
+          description: `Loaded draft from ${fullDraft.date} with ${entries.length} entries`,
+        })
+      } else {
+        toast({
+          title: 'Error',
+          description: 'Draft has no detail entries',
+          variant: 'destructive',
+        })
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to load draft details',
+        variant: 'destructive',
+      })
+    }
   }
 
   const totals = {
@@ -160,6 +260,15 @@ export function ClosingReport() {
               >
                 <Download className="w-4 h-4" />
                 Get Data
+              </Button>
+              <Button
+                onClick={handleGetSalesDrafts}
+                variant="outline"
+                disabled={status === 'submitted'}
+                className="gap-2"
+              >
+                <FileText className="w-4 h-4" />
+                Get Sales Draft
               </Button>
             </div>
           </div>
@@ -333,6 +442,144 @@ export function ClosingReport() {
           {isSubmitting ? 'Submitting...' : 'Submit Closing Report'}
         </Button>
       </div>
+
+      {/* Sales Draft List Dialog */}
+      <Dialog open={draftDialogOpen} onOpenChange={setDraftDialogOpen}>
+        <DialogContent className="max-w-3xl w-full max-h-[85vh] flex flex-col p-0 gap-0">
+          <div className="px-6 pt-6 pb-4 border-b">
+            <DialogTitle className="text-lg font-semibold">Sales Drafts</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground mt-1">
+              Select a draft to load into the closing report. Only drafts with status &quot;draft&quot; are shown.
+            </DialogDescription>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-6 py-4">
+            {isLoadingDrafts ? (
+              <div className="flex items-center justify-center py-16 gap-3 text-muted-foreground">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span className="text-sm">Loading sales drafts...</span>
+              </div>
+            ) : salesDrafts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                <FileText className="w-12 h-12 mb-3 opacity-30" />
+                <p className="text-sm">No draft sales found.</p>
+              </div>
+            ) : (
+              <div className="rounded-lg border overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="font-semibold">Date</TableHead>
+                      <TableHead className="font-semibold">Outlet</TableHead>
+                      <TableHead className="text-right font-semibold">POS Sold</TableHead>
+                      <TableHead className="text-right font-semibold">Prod. Sold</TableHead>
+                      <TableHead className="text-right font-semibold">Selisih</TableHead>
+                      <TableHead className="text-center font-semibold">Status</TableHead>
+                      <TableHead className="w-36 text-right font-semibold">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {salesDrafts.map((draft) => (
+                      <>
+                        <TableRow key={draft.id} className="hover:bg-muted/30">
+                          <TableCell className="font-medium">{draft.date}</TableCell>
+                          <TableCell>{draft.outletName}</TableCell>
+                          <TableCell className="text-right tabular-nums">{draft.totalPosSold}</TableCell>
+                          <TableCell className="text-right tabular-nums">{draft.totalProductionSold}</TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            <span className={draft.totalSelisih !== 0 ? 'text-destructive font-semibold' : 'text-green-600 font-semibold'}>
+                              {draft.totalSelisih > 0 ? '+' : ''}{draft.totalSelisih}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                              {draft.status}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleViewDraft(draft)}
+                                disabled={loadingDetailId === draft.id}
+                              >
+                                {loadingDetailId === draft.id ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : expandedDraftId === draft.id ? (
+                                  'Hide'
+                                ) : (
+                                  'View'
+                                )}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleLoadDraft(draft)}
+                              >
+                                Load
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                        {expandedDraftId === draft.id && draftDetailMap[draft.id] && (
+                          <TableRow key={`${draft.id}-detail`} className="bg-muted/20">
+                            <TableCell colSpan={7} className="py-0">
+                              <div className="px-4 py-3 space-y-2">
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                  Detail — {draftDetailMap[draft.id].details?.length ?? 0} Plate Color(s)
+                                </p>
+                                <div className="rounded-md border overflow-hidden">
+                                  <Table>
+                                    <TableHeader>
+                                      <TableRow className="bg-muted/60">
+                                        <TableHead className="text-xs font-semibold py-2">Plate Color</TableHead>
+                                        <TableHead className="text-right text-xs font-semibold py-2">POS Sold</TableHead>
+                                        <TableHead className="text-right text-xs font-semibold py-2">Prod. Sold</TableHead>
+                                        <TableHead className="text-right text-xs font-semibold py-2">Waste</TableHead>
+                                        <TableHead className="text-right text-xs font-semibold py-2">Adjustment</TableHead>
+                                        <TableHead className="text-right text-xs font-semibold py-2">Compensation</TableHead>
+                                        <TableHead className="text-right text-xs font-semibold py-2">Selisih</TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {(draftDetailMap[draft.id].details ?? []).map((d) => (
+                                        <TableRow key={d.id} className="hover:bg-muted/20">
+                                          <TableCell className="text-sm py-2">{d.plateColorName}</TableCell>
+                                          <TableCell className="text-right tabular-nums text-sm py-2">{d.posSold}</TableCell>
+                                          <TableCell className="text-right tabular-nums text-sm py-2">{d.productionSold}</TableCell>
+                                          <TableCell className="text-right tabular-nums text-sm py-2 text-destructive">{d.productionWaste}</TableCell>
+                                          <TableCell className="text-right tabular-nums text-sm py-2 text-blue-600">{d.adjustment > 0 ? '+' : ''}{d.adjustment}</TableCell>
+                                          <TableCell className="text-right tabular-nums text-sm py-2 text-orange-600">{d.compensation > 0 ? '+' : ''}{d.compensation}</TableCell>
+                                          <TableCell className="text-right tabular-nums text-sm py-2">
+                                            <span className={d.selisih !== 0 ? 'text-destructive font-semibold' : 'text-green-600 font-semibold'}>
+                                              {d.selisih > 0 ? '+' : ''}{d.selisih}
+                                            </span>
+                                          </TableCell>
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
+                                </div>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t bg-muted/30">
+            <Button variant="outline" onClick={() => setDraftDialogOpen(false)}>
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

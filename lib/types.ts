@@ -52,6 +52,7 @@ export interface PlateColorConfig {
 
 export interface SushiMenu {
   id: string
+  code: string
   menuname: string
   description: string
   image: string

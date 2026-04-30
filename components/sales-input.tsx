@@ -9,10 +9,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { OutletSelector } from '@/components/outlet-selector'
 import { useToast } from '@/hooks/use-toast'
 import { useOutlet } from '@/lib/outlet-context'
-import { reportsService, type POSData, type ProductionMenuDetailItem } from '@/lib/api'
+import { reportsService, salesService, type POSData, type ProductionMenuDetailItem, type SalesDraft } from '@/lib/api'
 import type { PlateColor } from '@/components/plate-color-badge'
 import { PlateColorBadge } from '@/components/plate-color-badge'
-import { Pencil, AlertCircle, CheckCircle, Download, Loader2, Save } from 'lucide-react'
+import { Pencil, AlertCircle, CheckCircle, Download, Loader2, Save, FileText } from 'lucide-react'
 
 interface SalesEntry {
   id: string
@@ -40,6 +40,103 @@ export function SalesInput() {
   const [productionDetail, setProductionDetail] = useState<ProductionMenuDetailItem[] | null>(null)
   const [editableDetail, setEditableDetail] = useState<ProductionMenuDetailItem[] | null>(null)
   const [isLoadingDetail, setIsLoadingDetail] = useState(false)
+
+  // Sales Draft Dialog state
+  const [draftDialogOpen, setDraftDialogOpen] = useState(false)
+  const [salesDrafts, setSalesDrafts] = useState<SalesDraft[]>([])
+  const [isLoadingDrafts, setIsLoadingDrafts] = useState(false)
+  const [expandedDraftId, setExpandedDraftId] = useState<string | null>(null)
+  const [draftDetailMap, setDraftDetailMap] = useState<Record<string, SalesDraft>>({})
+  const [loadingDetailId, setLoadingDetailId] = useState<string | null>(null)
+
+  // Get Sales Drafts from API
+  const handleGetSalesDrafts = async () => {
+    setDraftDialogOpen(true)
+    setIsLoadingDrafts(true)
+    try {
+      const drafts = await salesService.getAll({
+        outletId: selectedOutletId || undefined,
+        status: 'draft',
+      })
+      setSalesDrafts(drafts)
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch sales drafts',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsLoadingDrafts(false)
+    }
+  }
+
+  // View draft detail from GET /sales/{id}
+  const handleViewDraft = async (draft: SalesDraft) => {
+    if (expandedDraftId === draft.id) {
+      setExpandedDraftId(null)
+      return
+    }
+    // Use cached detail if already fetched
+    if (draftDetailMap[draft.id]) {
+      setExpandedDraftId(draft.id)
+      return
+    }
+    setLoadingDetailId(draft.id)
+    try {
+      const detail = await salesService.getById(draft.id)
+      setDraftDetailMap((prev) => ({ ...prev, [draft.id]: detail }))
+      setExpandedDraftId(draft.id)
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch draft detail',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoadingDetailId(null)
+    }
+  }
+
+  // Load draft into current form
+  const handleLoadDraft = async (draft: SalesDraft) => {
+    try {
+      // Fetch full draft detail
+      const fullDraft = await salesService.getById(draft.id)
+      
+      if (fullDraft.details && fullDraft.details.length > 0) {
+        const entries: SalesEntry[] = fullDraft.details.map((d) => ({
+          id: d.plateColorId,
+          plateColorId: d.plateColorId,
+          plateColorName: d.plateColorName,
+          posSold: d.posSold,
+          productionSold: d.productionSold,
+          productionWaste: d.productionWaste,
+          adjustment: d.adjustment,
+          compensation: d.compensation,
+          selisih: d.selisih,
+        }))
+        setSalesEntries(entries)
+        setSelectedDate(fullDraft.date)
+        setDraftDialogOpen(false)
+        toast({
+          title: 'Draft Loaded',
+          description: `Loaded draft from ${fullDraft.date} with ${entries.length} entries`,
+        })
+      } else {
+        toast({
+          title: 'Error',
+          description: 'Draft has no detail entries',
+          variant: 'destructive',
+        })
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to load draft details',
+        variant: 'destructive',
+      })
+    }
+  }
 
   // Get POS data from API
   const handleGetPOSData = async () => {
@@ -293,6 +390,13 @@ export function SalesInput() {
                   )}
                   Get Data POS
                 </Button>
+                <Button
+                  onClick={handleGetSalesDrafts}
+                  variant="outline"
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  Get Sales Draft
+                </Button>
               </div>
             </div>
           </CardHeader>
@@ -421,163 +525,320 @@ export function SalesInput() {
 
       {/* Production Detail Dialog */}
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {selectedEntryDetail && (
-                <PlateColorBadge color={selectedEntryDetail.plateColorName.toLowerCase() as PlateColor} />
-              )}
-              Production Menu Detail
-            </DialogTitle>
-            <DialogDescription>
-              Detail produksi per menu untuk plate color{' '}
-              <span className="font-medium">{selectedEntryDetail?.plateColorName}</span> pada tanggal{' '}
-              <span className="font-medium">{selectedDate}</span>
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="w-[95vw] max-w-[95vw] max-h-[92vh] flex flex-col p-0 gap-0">
 
-          {/* Summary stats */}
-          {selectedEntryDetail && editableDetail && (() => {
-            const totalDetailAdjustment = editableDetail.reduce((sum, item) => sum + (item.adjustment || 0), 0)
-            const totalDetailCompensation = editableDetail.reduce((sum, item) => sum + (item.compensation || 0), 0)
-            const calculatedSelisih = selectedEntryDetail.posSold - selectedEntryDetail.productionSold + totalDetailAdjustment + totalDetailCompensation
+          {/* Dialog Header */}
+          <div className="flex items-start justify-between gap-4 px-6 pt-6 pb-4 border-b">
+            <div className="flex flex-col gap-1">
+              <DialogTitle className="text-lg font-semibold flex items-center gap-2">
+                Production Menu Detail
+                {selectedEntryDetail && (
+                  <PlateColorBadge color={selectedEntryDetail.plateColorName.toLowerCase() as PlateColor} />
+                )}
+              </DialogTitle>
+              <DialogDescription className="text-sm text-muted-foreground">
+                Tanggal: <span className="font-medium text-foreground">{selectedDate}</span>
+                {' '}&mdash;{' '}
+                Input adjustment dan compensation per menu, lalu simpan ke plate color.
+              </DialogDescription>
+            </div>
+          </div>
+
+          {/* Scrollable body */}
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
+
+            {/* Summary Stats */}
+            {selectedEntryDetail && editableDetail && (() => {
+              const totalAdj = editableDetail.reduce((s, i) => s + (i.adjustment || 0), 0)
+              const totalComp = editableDetail.reduce((s, i) => s + (i.compensation || 0), 0)
+              const selisih = selectedEntryDetail.posSold - selectedEntryDetail.productionSold + totalAdj + totalComp
+
+              return (
+                <div className="space-y-2">
+                  {/* Row 1: production facts */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="rounded-lg border bg-muted/40 px-4 py-3">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">POS Sold</p>
+                      <p className="text-2xl font-bold">{selectedEntryDetail.posSold}</p>
+                    </div>
+                    <div className="rounded-lg border bg-muted/40 px-4 py-3">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Production Sold</p>
+                      <p className="text-2xl font-bold">{selectedEntryDetail.productionSold}</p>
+                    </div>
+                    <div className="rounded-lg border bg-muted/40 px-4 py-3">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Production Waste</p>
+                      <p className="text-2xl font-bold">{selectedEntryDetail.productionWaste}</p>
+                    </div>
+                  </div>
+                  {/* Row 2: adjustment totals + selisih */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+                      <p className="text-xs font-medium text-blue-600 uppercase tracking-wide mb-1">Total Adjustment</p>
+                      <p className="text-2xl font-bold text-blue-700">{totalAdj > 0 ? '+' : ''}{totalAdj}</p>
+                    </div>
+                    <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3">
+                      <p className="text-xs font-medium text-orange-600 uppercase tracking-wide mb-1">Total Compensation</p>
+                      <p className="text-2xl font-bold text-orange-700">{totalComp > 0 ? '+' : ''}{totalComp}</p>
+                    </div>
+                    <div className={`rounded-lg border px-4 py-3 ${selisih === 0 ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
+                      <p className={`text-xs font-medium uppercase tracking-wide mb-1 ${selisih === 0 ? 'text-green-600' : 'text-red-600'}`}>Selisih</p>
+                      <p className={`text-2xl font-bold ${selisih === 0 ? 'text-green-700' : 'text-red-700'}`}>
+                        {selisih > 0 ? '+' : ''}{selisih}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* Menu Detail Table */}
+            {isLoadingDetail ? (
+              <div className="flex items-center justify-center py-16 gap-3 text-muted-foreground">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span className="text-sm">Loading production detail...</span>
+              </div>
+            ) : editableDetail && editableDetail.length > 0 ? (
+              <div className="rounded-lg border overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="font-semibold w-[40%]">Menu</TableHead>
+                      <TableHead className="text-right font-semibold">Produced</TableHead>
+                      <TableHead className="text-right font-semibold">Sold</TableHead>
+                      <TableHead className="text-right font-semibold">Waste</TableHead>
+                      <TableHead className="text-center font-semibold w-32">Adjustment</TableHead>
+                      <TableHead className="text-center font-semibold w-32">Compensation</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {editableDetail.map((item) => (
+                      <TableRow key={item.menuId} className="hover:bg-muted/30">
+                        <TableCell className="font-medium py-3">{item.menuName}</TableCell>
+                        <TableCell className="text-right tabular-nums">{item.totalProduced}</TableCell>
+                        <TableCell className="text-right tabular-nums">{item.totalSold}</TableCell>
+                        <TableCell className="text-right tabular-nums text-destructive">{item.totalWasted}</TableCell>
+                        <TableCell className="py-2">
+                          <Input
+                            type="number"
+                            className="h-8 w-24 text-center mx-auto tabular-nums"
+                            value={item.adjustment === 0 ? '' : item.adjustment}
+                            placeholder="0"
+                            onChange={(e) =>
+                              handleDetailAdjustmentChange(item.menuId, Number.parseInt(e.target.value) || 0)
+                            }
+                          />
+                        </TableCell>
+                        <TableCell className="py-2">
+                          <Input
+                            type="number"
+                            className="h-8 w-24 text-center mx-auto tabular-nums"
+                            value={item.compensation === 0 ? '' : item.compensation}
+                            placeholder="0"
+                            onChange={(e) =>
+                              handleDetailCompensationChange(item.menuId, Number.parseInt(e.target.value) || 0)
+                            }
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="bg-muted/50 font-semibold border-t-2">
+                      <TableCell className="py-3">Total</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {editableDetail.reduce((s, i) => s + i.totalProduced, 0)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {editableDetail.reduce((s, i) => s + i.totalSold, 0)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-destructive">
+                        {editableDetail.reduce((s, i) => s + i.totalWasted, 0)}
+                      </TableCell>
+                      <TableCell className="text-center tabular-nums font-bold text-blue-700">
+                        {editableDetail.reduce((s, i) => s + (i.adjustment || 0), 0)}
+                      </TableCell>
+                      <TableCell className="text-center tabular-nums font-bold text-orange-700">
+                        {editableDetail.reduce((s, i) => s + (i.compensation || 0), 0)}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">
+                No production data available.
+              </div>
+            )}
+          </div>
+
+          {/* Sticky Footer */}
+          {editableDetail && editableDetail.length > 0 && selectedEntryDetail && (() => {
+            const totalAdj = editableDetail.reduce((s, i) => s + (i.adjustment || 0), 0)
+            const totalComp = editableDetail.reduce((s, i) => s + (i.compensation || 0), 0)
+            const selisih = selectedEntryDetail.posSold - selectedEntryDetail.productionSold + totalAdj + totalComp
+            const canSave = selisih === 0
 
             return (
-              <div className="grid grid-cols-6 gap-3 py-2">
-                <div className="rounded-lg border bg-muted/40 p-3 text-center">
-                  <p className="text-xs text-muted-foreground">POS Sold</p>
-                  <p className="text-xl font-bold">{selectedEntryDetail.posSold}</p>
+              <div className="flex items-center justify-between gap-4 px-6 py-4 border-t bg-muted/30">
+                <div className="text-sm">
+                  {canSave ? (
+                    <span className="flex items-center gap-1.5 text-green-600 font-medium">
+                      <CheckCircle className="w-4 h-4" />
+                      Selisih sudah 0, data siap disimpan.
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1.5 text-destructive font-medium">
+                      <AlertCircle className="w-4 h-4" />
+                      Selisih harus 0 sebelum dapat disimpan.
+                    </span>
+                  )}
                 </div>
-                <div className="rounded-lg border bg-muted/40 p-3 text-center">
-                  <p className="text-xs text-muted-foreground">Production Sold</p>
-                  <p className="text-xl font-bold">{selectedEntryDetail.productionSold}</p>
-                </div>
-                <div className="rounded-lg border bg-muted/40 p-3 text-center">
-                  <p className="text-xs text-muted-foreground">Production Waste</p>
-                  <p className="text-xl font-bold">{selectedEntryDetail.productionWaste}</p>
-                </div>
-                <div className="rounded-lg border bg-blue-50 border-blue-200 p-3 text-center">
-                  <p className="text-xs text-muted-foreground">Total Adjustment</p>
-                  <p className="text-xl font-bold text-blue-600">{totalDetailAdjustment > 0 ? '+' : ''}{totalDetailAdjustment}</p>
-                </div>
-                <div className="rounded-lg border bg-orange-50 border-orange-200 p-3 text-center">
-                  <p className="text-xs text-muted-foreground">Total Compensation</p>
-                  <p className="text-xl font-bold text-orange-600">{totalDetailCompensation > 0 ? '+' : ''}{totalDetailCompensation}</p>
-                </div>
-                <div className={`rounded-lg border p-3 text-center ${calculatedSelisih === 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-                  <p className="text-xs text-muted-foreground">Selisih</p>
-                  <p className={`text-xl font-bold ${calculatedSelisih !== 0 ? 'text-destructive' : 'text-green-600'}`}>
-                    {calculatedSelisih > 0 ? '+' : ''}{calculatedSelisih}
-                  </p>
-                </div>
+                <Button
+                  onClick={handleSaveDetailToParent}
+                  disabled={!canSave}
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  Save to Plate Color
+                </Button>
               </div>
             )
           })()}
+        </DialogContent>
+      </Dialog>
 
-          {/* Menu detail table */}
-          {isLoadingDetail ? (
-            <div className="flex items-center justify-center py-10 gap-2 text-muted-foreground">
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span>Loading production detail...</span>
-            </div>
-          ) : editableDetail && editableDetail.length > 0 ? (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Menu</TableHead>
-                    <TableHead className="text-right">Produced</TableHead>
-                    <TableHead className="text-right">Sold</TableHead>
-                    <TableHead className="text-right">Waste</TableHead>
-                    <TableHead className="text-center w-28">Adjustment</TableHead>
-                    <TableHead className="text-center w-28">Compensation</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {editableDetail.map((item) => (
-                    <TableRow key={item.menuId}>
-                      <TableCell className="font-medium">{item.menuName}</TableCell>
-                      <TableCell className="text-right">{item.totalProduced}</TableCell>
-                      <TableCell className="text-right">{item.totalSold}</TableCell>
-                      <TableCell className="text-right text-destructive">{item.totalWasted}</TableCell>
-                      <TableCell className="text-center">
-                        <Input
-                          type="number"
-                          className="h-8 w-20 text-center mx-auto"
-                          value={item.adjustment === 0 ? '' : item.adjustment}
-                          placeholder="0"
-                          onChange={(e) =>
-                            handleDetailAdjustmentChange(item.menuId, Number.parseInt(e.target.value) || 0)
-                          }
-                        />
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Input
-                          type="number"
-                          className="h-8 w-20 text-center mx-auto"
-                          value={item.compensation === 0 ? '' : item.compensation}
-                          placeholder="0"
-                          onChange={(e) =>
-                            handleDetailCompensationChange(item.menuId, Number.parseInt(e.target.value) || 0)
-                          }
-                        />
-                      </TableCell>
+      {/* Sales Draft List Dialog */}
+      <Dialog open={draftDialogOpen} onOpenChange={setDraftDialogOpen}>
+        <DialogContent className="max-w-3xl w-full max-h-[85vh] flex flex-col p-0 gap-0">
+          <div className="px-6 pt-6 pb-4 border-b">
+            <DialogTitle className="text-lg font-semibold">Sales Drafts</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground mt-1">
+              Select a draft to load into the current form. Only drafts with status &quot;draft&quot; are shown.
+            </DialogDescription>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-6 py-4">
+            {isLoadingDrafts ? (
+              <div className="flex items-center justify-center py-16 gap-3 text-muted-foreground">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span className="text-sm">Loading sales drafts...</span>
+              </div>
+            ) : salesDrafts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                <FileText className="w-12 h-12 mb-3 opacity-30" />
+                <p className="text-sm">No draft sales found.</p>
+              </div>
+            ) : (
+              <div className="rounded-lg border overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="font-semibold">Date</TableHead>
+                      <TableHead className="font-semibold">Outlet</TableHead>
+                      <TableHead className="text-right font-semibold">POS Sold</TableHead>
+                      <TableHead className="text-right font-semibold">Prod. Sold</TableHead>
+                      <TableHead className="text-right font-semibold">Selisih</TableHead>
+                      <TableHead className="text-center font-semibold">Status</TableHead>
+                      <TableHead className="w-36 text-right font-semibold">Actions</TableHead>
                     </TableRow>
-                  ))}
-                  <TableRow className="bg-muted/50 font-semibold border-t-2">
-                    <TableCell>Total</TableCell>
-                    <TableCell className="text-right">
-                      {editableDetail.reduce((sum, item) => sum + item.totalProduced, 0)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {editableDetail.reduce((sum, item) => sum + item.totalSold, 0)}
-                    </TableCell>
-                    <TableCell className="text-right text-destructive">
-                      {editableDetail.reduce((sum, item) => sum + item.totalWasted, 0)}
-                    </TableCell>
-                    <TableCell className="text-center font-bold">
-                      {editableDetail.reduce((sum, item) => sum + (item.adjustment || 0), 0)}
-                    </TableCell>
-                    <TableCell className="text-center font-bold">
-                      {editableDetail.reduce((sum, item) => sum + (item.compensation || 0), 0)}
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {salesDrafts.map((draft) => (
+                      <>
+                        <TableRow key={draft.id} className="hover:bg-muted/30">
+                          <TableCell className="font-medium">{draft.date}</TableCell>
+                          <TableCell>{draft.outletName}</TableCell>
+                          <TableCell className="text-right tabular-nums">{draft.totalPosSold}</TableCell>
+                          <TableCell className="text-right tabular-nums">{draft.totalProductionSold}</TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            <span className={draft.totalSelisih !== 0 ? 'text-destructive font-semibold' : 'text-green-600 font-semibold'}>
+                              {draft.totalSelisih > 0 ? '+' : ''}{draft.totalSelisih}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                              {draft.status}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleViewDraft(draft)}
+                                disabled={loadingDetailId === draft.id}
+                              >
+                                {loadingDetailId === draft.id ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : expandedDraftId === draft.id ? (
+                                  'Hide'
+                                ) : (
+                                  'View'
+                                )}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleLoadDraft(draft)}
+                              >
+                                Load
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                        {expandedDraftId === draft.id && draftDetailMap[draft.id] && (
+                          <TableRow key={`${draft.id}-detail`} className="bg-muted/20">
+                            <TableCell colSpan={7} className="py-0">
+                              <div className="px-4 py-3 space-y-2">
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                  Detail — {draftDetailMap[draft.id].details?.length ?? 0} Plate Color(s)
+                                </p>
+                                <div className="rounded-md border overflow-hidden">
+                                  <Table>
+                                    <TableHeader>
+                                      <TableRow className="bg-muted/60">
+                                        <TableHead className="text-xs font-semibold py-2">Plate Color</TableHead>
+                                        <TableHead className="text-right text-xs font-semibold py-2">POS Sold</TableHead>
+                                        <TableHead className="text-right text-xs font-semibold py-2">Prod. Sold</TableHead>
+                                        <TableHead className="text-right text-xs font-semibold py-2">Waste</TableHead>
+                                        <TableHead className="text-right text-xs font-semibold py-2">Adjustment</TableHead>
+                                        <TableHead className="text-right text-xs font-semibold py-2">Compensation</TableHead>
+                                        <TableHead className="text-right text-xs font-semibold py-2">Selisih</TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {(draftDetailMap[draft.id].details ?? []).map((d) => (
+                                        <TableRow key={d.id} className="hover:bg-muted/20">
+                                          <TableCell className="text-sm py-2">{d.plateColorName}</TableCell>
+                                          <TableCell className="text-right tabular-nums text-sm py-2">{d.posSold}</TableCell>
+                                          <TableCell className="text-right tabular-nums text-sm py-2">{d.productionSold}</TableCell>
+                                          <TableCell className="text-right tabular-nums text-sm py-2 text-destructive">{d.productionWaste}</TableCell>
+                                          <TableCell className="text-right tabular-nums text-sm py-2 text-blue-600">{d.adjustment > 0 ? '+' : ''}{d.adjustment}</TableCell>
+                                          <TableCell className="text-right tabular-nums text-sm py-2 text-orange-600">{d.compensation > 0 ? '+' : ''}{d.compensation}</TableCell>
+                                          <TableCell className="text-right tabular-nums text-sm py-2">
+                                            <span className={d.selisih !== 0 ? 'text-destructive font-semibold' : 'text-green-600 font-semibold'}>
+                                              {d.selisih > 0 ? '+' : ''}{d.selisih}
+                                            </span>
+                                          </TableCell>
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
+                                </div>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
 
-              {/* Save button */}
-              {(() => {
-                const totalDetailAdjustment = editableDetail.reduce((sum, item) => sum + (item.adjustment || 0), 0)
-                const totalDetailCompensation = editableDetail.reduce((sum, item) => sum + (item.compensation || 0), 0)
-                const calculatedSelisih = selectedEntryDetail 
-                  ? selectedEntryDetail.posSold - selectedEntryDetail.productionSold + totalDetailAdjustment + totalDetailCompensation 
-                  : 1
-                const isSelisihZero = calculatedSelisih === 0
-
-                return (
-                  <div className="flex flex-col gap-2 mt-4 pt-4 border-t">
-                    {!isSelisihZero && (
-                      <p className="text-sm text-destructive text-center">
-                        Selisih harus 0 untuk menyimpan. Silakan sesuaikan nilai Adjustment atau Compensation.
-                      </p>
-                    )}
-                    <div className="flex justify-end">
-                      <Button 
-                        onClick={handleSaveDetailToParent} 
-                        disabled={!isSelisihZero}
-                        className={isSelisihZero ? '' : 'opacity-50 cursor-not-allowed'}
-                      >
-                        <Save className="w-4 h-4 mr-2" />
-                        Save to Plate Color
-                      </Button>
-                    </div>
-                  </div>
-                )
-              })()}
-            </div>
-          ) : (
-            <p className="text-center text-muted-foreground py-6">No production data available.</p>
-          )}
+          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t bg-muted/30">
+            <Button variant="outline" onClick={() => setDraftDialogOpen(false)}>
+              Close
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
