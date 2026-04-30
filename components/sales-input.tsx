@@ -421,163 +421,182 @@ export function SalesInput() {
 
       {/* Production Detail Dialog */}
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {selectedEntryDetail && (
-                <PlateColorBadge color={selectedEntryDetail.plateColorName.toLowerCase() as PlateColor} />
-              )}
-              Production Menu Detail
-            </DialogTitle>
-            <DialogDescription>
-              Detail produksi per menu untuk plate color{' '}
-              <span className="font-medium">{selectedEntryDetail?.plateColorName}</span> pada tanggal{' '}
-              <span className="font-medium">{selectedDate}</span>
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-5xl w-full max-h-[92vh] flex flex-col p-0 gap-0">
 
-          {/* Summary stats */}
-          {selectedEntryDetail && editableDetail && (() => {
-            const totalDetailAdjustment = editableDetail.reduce((sum, item) => sum + (item.adjustment || 0), 0)
-            const totalDetailCompensation = editableDetail.reduce((sum, item) => sum + (item.compensation || 0), 0)
-            const calculatedSelisih = selectedEntryDetail.posSold - selectedEntryDetail.productionSold + totalDetailAdjustment + totalDetailCompensation
+          {/* Dialog Header */}
+          <div className="flex items-start justify-between gap-4 px-6 pt-6 pb-4 border-b">
+            <div className="flex flex-col gap-1">
+              <DialogTitle className="text-lg font-semibold flex items-center gap-2">
+                Production Menu Detail
+                {selectedEntryDetail && (
+                  <PlateColorBadge color={selectedEntryDetail.plateColorName.toLowerCase() as PlateColor} />
+                )}
+              </DialogTitle>
+              <DialogDescription className="text-sm text-muted-foreground">
+                Tanggal: <span className="font-medium text-foreground">{selectedDate}</span>
+                {' '}&mdash;{' '}
+                Input adjustment dan compensation per menu, lalu simpan ke plate color.
+              </DialogDescription>
+            </div>
+          </div>
+
+          {/* Scrollable body */}
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
+
+            {/* Summary Stats */}
+            {selectedEntryDetail && editableDetail && (() => {
+              const totalAdj = editableDetail.reduce((s, i) => s + (i.adjustment || 0), 0)
+              const totalComp = editableDetail.reduce((s, i) => s + (i.compensation || 0), 0)
+              const selisih = selectedEntryDetail.posSold - selectedEntryDetail.productionSold + totalAdj + totalComp
+
+              return (
+                <div className="space-y-2">
+                  {/* Row 1: production facts */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="rounded-lg border bg-muted/40 px-4 py-3">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">POS Sold</p>
+                      <p className="text-2xl font-bold">{selectedEntryDetail.posSold}</p>
+                    </div>
+                    <div className="rounded-lg border bg-muted/40 px-4 py-3">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Production Sold</p>
+                      <p className="text-2xl font-bold">{selectedEntryDetail.productionSold}</p>
+                    </div>
+                    <div className="rounded-lg border bg-muted/40 px-4 py-3">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Production Waste</p>
+                      <p className="text-2xl font-bold">{selectedEntryDetail.productionWaste}</p>
+                    </div>
+                  </div>
+                  {/* Row 2: adjustment totals + selisih */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+                      <p className="text-xs font-medium text-blue-600 uppercase tracking-wide mb-1">Total Adjustment</p>
+                      <p className="text-2xl font-bold text-blue-700">{totalAdj > 0 ? '+' : ''}{totalAdj}</p>
+                    </div>
+                    <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3">
+                      <p className="text-xs font-medium text-orange-600 uppercase tracking-wide mb-1">Total Compensation</p>
+                      <p className="text-2xl font-bold text-orange-700">{totalComp > 0 ? '+' : ''}{totalComp}</p>
+                    </div>
+                    <div className={`rounded-lg border px-4 py-3 ${selisih === 0 ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
+                      <p className={`text-xs font-medium uppercase tracking-wide mb-1 ${selisih === 0 ? 'text-green-600' : 'text-red-600'}`}>Selisih</p>
+                      <p className={`text-2xl font-bold ${selisih === 0 ? 'text-green-700' : 'text-red-700'}`}>
+                        {selisih > 0 ? '+' : ''}{selisih}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* Menu Detail Table */}
+            {isLoadingDetail ? (
+              <div className="flex items-center justify-center py-16 gap-3 text-muted-foreground">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span className="text-sm">Loading production detail...</span>
+              </div>
+            ) : editableDetail && editableDetail.length > 0 ? (
+              <div className="rounded-lg border overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="font-semibold w-[40%]">Menu</TableHead>
+                      <TableHead className="text-right font-semibold">Produced</TableHead>
+                      <TableHead className="text-right font-semibold">Sold</TableHead>
+                      <TableHead className="text-right font-semibold">Waste</TableHead>
+                      <TableHead className="text-center font-semibold w-32">Adjustment</TableHead>
+                      <TableHead className="text-center font-semibold w-32">Compensation</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {editableDetail.map((item) => (
+                      <TableRow key={item.menuId} className="hover:bg-muted/30">
+                        <TableCell className="font-medium py-3">{item.menuName}</TableCell>
+                        <TableCell className="text-right tabular-nums">{item.totalProduced}</TableCell>
+                        <TableCell className="text-right tabular-nums">{item.totalSold}</TableCell>
+                        <TableCell className="text-right tabular-nums text-destructive">{item.totalWasted}</TableCell>
+                        <TableCell className="py-2">
+                          <Input
+                            type="number"
+                            className="h-8 w-24 text-center mx-auto tabular-nums"
+                            value={item.adjustment === 0 ? '' : item.adjustment}
+                            placeholder="0"
+                            onChange={(e) =>
+                              handleDetailAdjustmentChange(item.menuId, Number.parseInt(e.target.value) || 0)
+                            }
+                          />
+                        </TableCell>
+                        <TableCell className="py-2">
+                          <Input
+                            type="number"
+                            className="h-8 w-24 text-center mx-auto tabular-nums"
+                            value={item.compensation === 0 ? '' : item.compensation}
+                            placeholder="0"
+                            onChange={(e) =>
+                              handleDetailCompensationChange(item.menuId, Number.parseInt(e.target.value) || 0)
+                            }
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="bg-muted/50 font-semibold border-t-2">
+                      <TableCell className="py-3">Total</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {editableDetail.reduce((s, i) => s + i.totalProduced, 0)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {editableDetail.reduce((s, i) => s + i.totalSold, 0)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-destructive">
+                        {editableDetail.reduce((s, i) => s + i.totalWasted, 0)}
+                      </TableCell>
+                      <TableCell className="text-center tabular-nums font-bold text-blue-700">
+                        {editableDetail.reduce((s, i) => s + (i.adjustment || 0), 0)}
+                      </TableCell>
+                      <TableCell className="text-center tabular-nums font-bold text-orange-700">
+                        {editableDetail.reduce((s, i) => s + (i.compensation || 0), 0)}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">
+                No production data available.
+              </div>
+            )}
+          </div>
+
+          {/* Sticky Footer */}
+          {editableDetail && editableDetail.length > 0 && selectedEntryDetail && (() => {
+            const totalAdj = editableDetail.reduce((s, i) => s + (i.adjustment || 0), 0)
+            const totalComp = editableDetail.reduce((s, i) => s + (i.compensation || 0), 0)
+            const selisih = selectedEntryDetail.posSold - selectedEntryDetail.productionSold + totalAdj + totalComp
+            const canSave = selisih === 0
 
             return (
-              <div className="grid grid-cols-6 gap-3 py-2">
-                <div className="rounded-lg border bg-muted/40 p-3 text-center">
-                  <p className="text-xs text-muted-foreground">POS Sold</p>
-                  <p className="text-xl font-bold">{selectedEntryDetail.posSold}</p>
+              <div className="flex items-center justify-between gap-4 px-6 py-4 border-t bg-muted/30">
+                <div className="text-sm">
+                  {canSave ? (
+                    <span className="flex items-center gap-1.5 text-green-600 font-medium">
+                      <CheckCircle className="w-4 h-4" />
+                      Selisih sudah 0, data siap disimpan.
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1.5 text-destructive font-medium">
+                      <AlertCircle className="w-4 h-4" />
+                      Selisih harus 0 sebelum dapat disimpan.
+                    </span>
+                  )}
                 </div>
-                <div className="rounded-lg border bg-muted/40 p-3 text-center">
-                  <p className="text-xs text-muted-foreground">Production Sold</p>
-                  <p className="text-xl font-bold">{selectedEntryDetail.productionSold}</p>
-                </div>
-                <div className="rounded-lg border bg-muted/40 p-3 text-center">
-                  <p className="text-xs text-muted-foreground">Production Waste</p>
-                  <p className="text-xl font-bold">{selectedEntryDetail.productionWaste}</p>
-                </div>
-                <div className="rounded-lg border bg-blue-50 border-blue-200 p-3 text-center">
-                  <p className="text-xs text-muted-foreground">Total Adjustment</p>
-                  <p className="text-xl font-bold text-blue-600">{totalDetailAdjustment > 0 ? '+' : ''}{totalDetailAdjustment}</p>
-                </div>
-                <div className="rounded-lg border bg-orange-50 border-orange-200 p-3 text-center">
-                  <p className="text-xs text-muted-foreground">Total Compensation</p>
-                  <p className="text-xl font-bold text-orange-600">{totalDetailCompensation > 0 ? '+' : ''}{totalDetailCompensation}</p>
-                </div>
-                <div className={`rounded-lg border p-3 text-center ${calculatedSelisih === 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-                  <p className="text-xs text-muted-foreground">Selisih</p>
-                  <p className={`text-xl font-bold ${calculatedSelisih !== 0 ? 'text-destructive' : 'text-green-600'}`}>
-                    {calculatedSelisih > 0 ? '+' : ''}{calculatedSelisih}
-                  </p>
-                </div>
+                <Button
+                  onClick={handleSaveDetailToParent}
+                  disabled={!canSave}
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  Save to Plate Color
+                </Button>
               </div>
             )
           })()}
-
-          {/* Menu detail table */}
-          {isLoadingDetail ? (
-            <div className="flex items-center justify-center py-10 gap-2 text-muted-foreground">
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span>Loading production detail...</span>
-            </div>
-          ) : editableDetail && editableDetail.length > 0 ? (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Menu</TableHead>
-                    <TableHead className="text-right">Produced</TableHead>
-                    <TableHead className="text-right">Sold</TableHead>
-                    <TableHead className="text-right">Waste</TableHead>
-                    <TableHead className="text-center w-28">Adjustment</TableHead>
-                    <TableHead className="text-center w-28">Compensation</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {editableDetail.map((item) => (
-                    <TableRow key={item.menuId}>
-                      <TableCell className="font-medium">{item.menuName}</TableCell>
-                      <TableCell className="text-right">{item.totalProduced}</TableCell>
-                      <TableCell className="text-right">{item.totalSold}</TableCell>
-                      <TableCell className="text-right text-destructive">{item.totalWasted}</TableCell>
-                      <TableCell className="text-center">
-                        <Input
-                          type="number"
-                          className="h-8 w-20 text-center mx-auto"
-                          value={item.adjustment === 0 ? '' : item.adjustment}
-                          placeholder="0"
-                          onChange={(e) =>
-                            handleDetailAdjustmentChange(item.menuId, Number.parseInt(e.target.value) || 0)
-                          }
-                        />
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Input
-                          type="number"
-                          className="h-8 w-20 text-center mx-auto"
-                          value={item.compensation === 0 ? '' : item.compensation}
-                          placeholder="0"
-                          onChange={(e) =>
-                            handleDetailCompensationChange(item.menuId, Number.parseInt(e.target.value) || 0)
-                          }
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  <TableRow className="bg-muted/50 font-semibold border-t-2">
-                    <TableCell>Total</TableCell>
-                    <TableCell className="text-right">
-                      {editableDetail.reduce((sum, item) => sum + item.totalProduced, 0)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {editableDetail.reduce((sum, item) => sum + item.totalSold, 0)}
-                    </TableCell>
-                    <TableCell className="text-right text-destructive">
-                      {editableDetail.reduce((sum, item) => sum + item.totalWasted, 0)}
-                    </TableCell>
-                    <TableCell className="text-center font-bold">
-                      {editableDetail.reduce((sum, item) => sum + (item.adjustment || 0), 0)}
-                    </TableCell>
-                    <TableCell className="text-center font-bold">
-                      {editableDetail.reduce((sum, item) => sum + (item.compensation || 0), 0)}
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-
-              {/* Save button */}
-              {(() => {
-                const totalDetailAdjustment = editableDetail.reduce((sum, item) => sum + (item.adjustment || 0), 0)
-                const totalDetailCompensation = editableDetail.reduce((sum, item) => sum + (item.compensation || 0), 0)
-                const calculatedSelisih = selectedEntryDetail 
-                  ? selectedEntryDetail.posSold - selectedEntryDetail.productionSold + totalDetailAdjustment + totalDetailCompensation 
-                  : 1
-                const isSelisihZero = calculatedSelisih === 0
-
-                return (
-                  <div className="flex flex-col gap-2 mt-4 pt-4 border-t">
-                    {!isSelisihZero && (
-                      <p className="text-sm text-destructive text-center">
-                        Selisih harus 0 untuk menyimpan. Silakan sesuaikan nilai Adjustment atau Compensation.
-                      </p>
-                    )}
-                    <div className="flex justify-end">
-                      <Button 
-                        onClick={handleSaveDetailToParent} 
-                        disabled={!isSelisihZero}
-                        className={isSelisihZero ? '' : 'opacity-50 cursor-not-allowed'}
-                      >
-                        <Save className="w-4 h-4 mr-2" />
-                        Save to Plate Color
-                      </Button>
-                    </div>
-                  </div>
-                )
-              })()}
-            </div>
-          ) : (
-            <p className="text-center text-muted-foreground py-6">No production data available.</p>
-          )}
         </DialogContent>
       </Dialog>
     </div>
