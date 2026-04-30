@@ -36,6 +36,7 @@ export function MenusAdmin() {
   const [imagePreview, setImagePreview] = useState<string>("")
 
   const [formData, setFormData] = useState({
+    code: "",
     menuname: "",
     description: "", 
     price: 0,
@@ -44,11 +45,25 @@ export function MenusAdmin() {
     is_active: true,
   })
 
+  const [formErrors, setFormErrors] = useState<{ code?: string; menuname?: string }>({})
+
+  const validateCode = (code: string, currentId?: string): string | undefined => {
+    if (!code) return "Code is required"
+    if (code.length > 50) return "Code must be at most 50 characters"
+    const isDuplicate = menus.some(
+      (m) => m.code.toLowerCase() === code.toLowerCase() && m.id !== currentId
+    )
+    if (isDuplicate) return "Code already exists, must be unique"
+    return undefined
+  }
+
   const handleAdd = () => {
     setEditingItem(null)
     setImageFile(null)
     setImagePreview("")
+    setFormErrors({})
     setFormData({
+      code: "",
       menuname: "",
       description: "", 
       price: 0,
@@ -63,7 +78,9 @@ export function MenusAdmin() {
     setEditingItem(item)
     setImageFile(null)
     setImagePreview(item.image || "")
+    setFormErrors({})
     setFormData({
+      code: item.code || "",
       menuname: item.menuname,
       description: item.description, 
       price: item.price,
@@ -87,18 +104,27 @@ export function MenusAdmin() {
   }
 
   const handleSave = async () => {
-    if (!formData.menuname || !formData.plate_color_id) {
-      toast({ title: "Error", description: "Please fill in menu name and select plate color", variant: "destructive" })
+    const codeError = validateCode(formData.code, editingItem?.id)
+    const newErrors: { code?: string; menuname?: string } = {}
+
+    if (codeError) newErrors.code = codeError
+    if (!formData.menuname) newErrors.menuname = "Menu name is required"
+    if (!formData.plate_color_id) {
+      toast({ title: "Error", description: "Please select a plate color", variant: "destructive" })
       return
     }
 
+    if (Object.keys(newErrors).length > 0) {
+      setFormErrors(newErrors)
+      return
+    }
+
+    setFormErrors({})
     setIsSaving(true)
     try {
-      // For now, we'll send the image as base64 or path
-      // In production, you'd upload to a file server first
       const submitData = {
         ...formData,
-        image: imageFile || undefined, // Use new image if selected, otherwise keep existing
+        image: imageFile || undefined,
       }
 
       if (editingItem) {
@@ -157,6 +183,7 @@ export function MenusAdmin() {
                 <thead>
                   <tr className="border-b">
                     <th className="text-left p-3 font-semibold">Image</th>
+                    <th className="text-left p-3 font-semibold">Code</th>
                     <th className="text-left p-3 font-semibold">Menu Name</th>
                     <th className="text-left p-3 font-semibold">Description</th>
                     <th className="text-left p-3 font-semibold">Plate Color</th>
@@ -176,6 +203,7 @@ export function MenusAdmin() {
                           <div className="w-12 h-12 bg-muted rounded flex items-center justify-center text-xs text-muted-foreground">No Image</div>
                         )}
                       </td>
+                      <td className="p-3 font-mono text-sm font-semibold text-muted-foreground">{item.code}</td>
                       <td className="p-3 font-medium">{item.menuname}</td>
                       <td className="p-3 text-sm text-muted-foreground max-w-[200px] truncate">{item.description}</td>
                       <td className="p-3 text-sm">
@@ -218,17 +246,53 @@ export function MenusAdmin() {
                   Configure menu item details and pricing
                 </DialogDescription>
             </DialogHeader> 
-        <div className="grid gap-3 py-4"> 
-          <div className="grid gap-2">
-            <Label htmlFor="menuname">Menu Name</Label>
-            <Input
-              id="menuname"
-              value={formData.menuname}
-              onChange={(e) =>
-                setFormData({ ...formData, menuname: e.target.value })
-              }
-              placeholder="Salmon Sushi"
-            />
+        <div className="grid gap-3 py-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="code">
+                Code <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="code"
+                value={formData.code}
+                onChange={(e) => {
+                  const val = e.target.value.slice(0, 50)
+                  setFormData({ ...formData, code: val })
+                  setFormErrors((prev) => ({
+                    ...prev,
+                    code: validateCode(val, editingItem?.id),
+                  }))
+                }}
+                placeholder="e.g. SALMON-01"
+                maxLength={50}
+                className={formErrors.code ? "border-destructive" : ""}
+              />
+              {formErrors.code && (
+                <p className="text-xs text-destructive">{formErrors.code}</p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                {formData.code.length}/50 characters
+              </p>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="menuname">
+                Menu Name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="menuname"
+                value={formData.menuname}
+                onChange={(e) => {
+                  setFormData({ ...formData, menuname: e.target.value })
+                  if (e.target.value) setFormErrors((prev) => ({ ...prev, menuname: undefined }))
+                }}
+                placeholder="Salmon Sushi"
+                className={formErrors.menuname ? "border-destructive" : ""}
+              />
+              {formErrors.menuname && (
+                <p className="text-xs text-destructive">{formErrors.menuname}</p>
+              )}
+            </div>
           </div>
 
           <div className="grid gap-2">

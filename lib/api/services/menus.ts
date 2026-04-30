@@ -2,6 +2,7 @@ import { BaseService } from '../base-service'
 import type { SushiMenu } from '@/lib/types'
 
 export interface CreateMenuDTO {
+  code: string
   menuname: string
   description: string
   image?: File
@@ -12,6 +13,7 @@ export interface CreateMenuDTO {
 }
 
 export interface UpdateMenuDTO {
+  code?: string
   menuname?: string
   description?: string
   image?: File
@@ -24,6 +26,7 @@ export interface UpdateMenuDTO {
 // API response format (snake_case)
 interface MenuApiResponse {
   id: string
+  code: string
   menuname: string
   description: string
   image?:  string
@@ -43,6 +46,7 @@ interface MenuApiResponse {
 function transformMenu(data: MenuApiResponse): SushiMenu {
   return {
     id: data.id,
+    code: data.code || '',
     menuname: data.menuname,
     description: data.description,
     image: data.image_url,
@@ -78,6 +82,7 @@ class MenusService extends BaseService<SushiMenu, CreateMenuDTO, UpdateMenuDTO> 
 
     const formData = new FormData()
 
+    formData.append('code', data.code)
     formData.append('menuname', data.menuname)
     formData.append('description', data.description)
     formData.append('price', String(data.price))
@@ -101,6 +106,7 @@ class MenusService extends BaseService<SushiMenu, CreateMenuDTO, UpdateMenuDTO> 
 
     const formData = new FormData()
 
+    if (data.code) formData.append('code', data.code)
     if (data.menuname) formData.append('menuname', data.menuname)
     if (data.description) formData.append('description', data.description)
     if (data.price) formData.append('price', String(data.price))
