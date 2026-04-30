@@ -421,7 +421,7 @@ export function SalesInput() {
 
       {/* Production Detail Dialog */}
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="max-w-5xl w-full max-h-[92vh] flex flex-col p-0 gap-0">
+        <DialogContent className="w-[95vw] max-w-[95vw] max-h-[92vh] flex flex-col p-0 gap-0">
 
           {/* Dialog Header */}
           <div className="flex items-start justify-between gap-4 px-6 pt-6 pb-4 border-b">
