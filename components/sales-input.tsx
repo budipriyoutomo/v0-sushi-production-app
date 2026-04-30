@@ -45,6 +45,9 @@ export function SalesInput() {
   const [draftDialogOpen, setDraftDialogOpen] = useState(false)
   const [salesDrafts, setSalesDrafts] = useState<SalesDraft[]>([])
   const [isLoadingDrafts, setIsLoadingDrafts] = useState(false)
+  const [expandedDraftId, setExpandedDraftId] = useState<string | null>(null)
+  const [draftDetailMap, setDraftDetailMap] = useState<Record<string, SalesDraft>>({})
+  const [loadingDetailId, setLoadingDetailId] = useState<string | null>(null)
 
   // Get Sales Drafts from API
   const handleGetSalesDrafts = async () => {
@@ -64,6 +67,33 @@ export function SalesInput() {
       })
     } finally {
       setIsLoadingDrafts(false)
+    }
+  }
+
+  // View draft detail from GET /sales/{id}
+  const handleViewDraft = async (draft: SalesDraft) => {
+    if (expandedDraftId === draft.id) {
+      setExpandedDraftId(null)
+      return
+    }
+    // Use cached detail if already fetched
+    if (draftDetailMap[draft.id]) {
+      setExpandedDraftId(draft.id)
+      return
+    }
+    setLoadingDetailId(draft.id)
+    try {
+      const detail = await salesService.getById(draft.id)
+      setDraftDetailMap((prev) => ({ ...prev, [draft.id]: detail }))
+      setExpandedDraftId(draft.id)
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch draft detail',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoadingDetailId(null)
     }
   }
 
@@ -706,36 +736,97 @@ export function SalesInput() {
                       <TableHead className="text-right font-semibold">Prod. Sold</TableHead>
                       <TableHead className="text-right font-semibold">Selisih</TableHead>
                       <TableHead className="text-center font-semibold">Status</TableHead>
-                      <TableHead className="w-24"></TableHead>
+                      <TableHead className="w-36 text-right font-semibold">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {salesDrafts.map((draft) => (
-                      <TableRow key={draft.id} className="hover:bg-muted/30">
-                        <TableCell className="font-medium">{draft.date}</TableCell>
-                        <TableCell>{draft.outletName}</TableCell>
-                        <TableCell className="text-right tabular-nums">{draft.totalPosSold}</TableCell>
-                        <TableCell className="text-right tabular-nums">{draft.totalProductionSold}</TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          <span className={draft.totalSelisih !== 0 ? 'text-destructive font-semibold' : 'text-green-600 font-semibold'}>
-                            {draft.totalSelisih > 0 ? '+' : ''}{draft.totalSelisih}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                            {draft.status}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleLoadDraft(draft)}
-                          >
-                            Load
-                          </Button>
-                        </TableCell>
-                      </TableRow>
+                      <>
+                        <TableRow key={draft.id} className="hover:bg-muted/30">
+                          <TableCell className="font-medium">{draft.date}</TableCell>
+                          <TableCell>{draft.outletName}</TableCell>
+                          <TableCell className="text-right tabular-nums">{draft.totalPosSold}</TableCell>
+                          <TableCell className="text-right tabular-nums">{draft.totalProductionSold}</TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            <span className={draft.totalSelisih !== 0 ? 'text-destructive font-semibold' : 'text-green-600 font-semibold'}>
+                              {draft.totalSelisih > 0 ? '+' : ''}{draft.totalSelisih}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                              {draft.status}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleViewDraft(draft)}
+                                disabled={loadingDetailId === draft.id}
+                              >
+                                {loadingDetailId === draft.id ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : expandedDraftId === draft.id ? (
+                                  'Hide'
+                                ) : (
+                                  'View'
+                                )}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleLoadDraft(draft)}
+                              >
+                                Load
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                        {expandedDraftId === draft.id && draftDetailMap[draft.id] && (
+                          <TableRow key={`${draft.id}-detail`} className="bg-muted/20">
+                            <TableCell colSpan={7} className="py-0">
+                              <div className="px-4 py-3 space-y-2">
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                  Detail — {draftDetailMap[draft.id].details?.length ?? 0} Plate Color(s)
+                                </p>
+                                <div className="rounded-md border overflow-hidden">
+                                  <Table>
+                                    <TableHeader>
+                                      <TableRow className="bg-muted/60">
+                                        <TableHead className="text-xs font-semibold py-2">Plate Color</TableHead>
+                                        <TableHead className="text-right text-xs font-semibold py-2">POS Sold</TableHead>
+                                        <TableHead className="text-right text-xs font-semibold py-2">Prod. Sold</TableHead>
+                                        <TableHead className="text-right text-xs font-semibold py-2">Waste</TableHead>
+                                        <TableHead className="text-right text-xs font-semibold py-2">Adjustment</TableHead>
+                                        <TableHead className="text-right text-xs font-semibold py-2">Compensation</TableHead>
+                                        <TableHead className="text-right text-xs font-semibold py-2">Selisih</TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {(draftDetailMap[draft.id].details ?? []).map((d) => (
+                                        <TableRow key={d.id} className="hover:bg-muted/20">
+                                          <TableCell className="text-sm py-2">{d.plateColorName}</TableCell>
+                                          <TableCell className="text-right tabular-nums text-sm py-2">{d.posSold}</TableCell>
+                                          <TableCell className="text-right tabular-nums text-sm py-2">{d.productionSold}</TableCell>
+                                          <TableCell className="text-right tabular-nums text-sm py-2 text-destructive">{d.productionWaste}</TableCell>
+                                          <TableCell className="text-right tabular-nums text-sm py-2 text-blue-600">{d.adjustment > 0 ? '+' : ''}{d.adjustment}</TableCell>
+                                          <TableCell className="text-right tabular-nums text-sm py-2 text-orange-600">{d.compensation > 0 ? '+' : ''}{d.compensation}</TableCell>
+                                          <TableCell className="text-right tabular-nums text-sm py-2">
+                                            <span className={d.selisih !== 0 ? 'text-destructive font-semibold' : 'text-green-600 font-semibold'}>
+                                              {d.selisih > 0 ? '+' : ''}{d.selisih}
+                                            </span>
+                                          </TableCell>
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
+                                </div>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </>
                     ))}
                   </TableBody>
                 </Table>
