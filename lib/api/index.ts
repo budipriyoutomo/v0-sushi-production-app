@@ -30,3 +30,8 @@ export {
   type WasteAnalysis,
   type ProductionMenuDetailItem,
 } from './services/reports'
+export {
+  salesService,
+  type SalesDraft,
+  type SalesDraftDetail,
+} from './services/sales'
