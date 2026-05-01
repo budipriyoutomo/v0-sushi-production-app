@@ -91,15 +91,81 @@ export function MenusAdmin() {
     setIsDialogOpen(true)
   }
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const compressImage = (file: File, maxSizeBytes: number): Promise<File> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const img = new Image()
+        img.crossOrigin = "anonymous"
+        img.onload = () => {
+          const canvas = document.createElement("canvas")
+          let { width, height } = img
+          // Scale down if image is very large
+          const MAX_DIM = 1920
+          if (width > MAX_DIM || height > MAX_DIM) {
+            if (width > height) {
+              height = Math.round((height * MAX_DIM) / width)
+              width = MAX_DIM
+            } else {
+              width = Math.round((width * MAX_DIM) / height)
+              height = MAX_DIM
+            }
+          }
+          canvas.width = width
+          canvas.height = height
+          const ctx = canvas.getContext("2d")!
+          ctx.drawImage(img, 0, 0, width, height)
+
+          // Iteratively reduce quality until under maxSizeBytes
+          let quality = 0.85
+          const tryCompress = () => {
+            canvas.toBlob(
+              (blob) => {
+                if (!blob) return resolve(file)
+                if (blob.size <= maxSizeBytes || quality <= 0.1) {
+                  const compressed = new File([blob], file.name, { type: "image/jpeg" })
+                  resolve(compressed)
+                } else {
+                  quality = Math.max(0.1, quality - 0.1)
+                  tryCompress()
+                }
+              },
+              "image/jpeg",
+              quality
+            )
+          }
+          tryCompress()
+        }
+        img.src = e.target?.result as string
+      }
+      reader.readAsDataURL(file)
+    })
+  }
+
+  const [isCompressing, setIsCompressing] = useState(false)
+
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) {
-      setImageFile(file)
+    if (!file) return
+
+    const MAX_SIZE = 2 * 1024 * 1024 // 2MB
+    setIsCompressing(true)
+    try {
+      const processedFile = file.size > MAX_SIZE ? await compressImage(file, MAX_SIZE) : file
+      setImageFile(processedFile)
       const reader = new FileReader()
       reader.onload = (event) => {
         setImagePreview(event.target?.result as string)
       }
-      reader.readAsDataURL(file)
+      reader.readAsDataURL(processedFile)
+      if (file.size > MAX_SIZE) {
+        toast({
+          title: "Image Compressed",
+          description: `Image compressed from ${(file.size / (1024 * 1024)).toFixed(2)}MB to ${(processedFile.size / (1024 * 1024)).toFixed(2)}MB`,
+        })
+      }
+    } finally {
+      setIsCompressing(false)
     }
   }
 
@@ -344,14 +410,22 @@ export function MenusAdmin() {
                     onChange={handleImageChange}
                     className="hidden"
                     id="image-upload"
+                    disabled={isCompressing}
                   />
-
-                  <label htmlFor="image-upload" className="cursor-pointer">
+                  <label htmlFor="image-upload" className={isCompressing ? "cursor-not-allowed" : "cursor-pointer"}>
                     <div className="flex flex-col items-center gap-2">
-                      <Upload className="w-8 h-8 text-muted-foreground" />
-                      <p className="text-sm text-muted-foreground">
-                        Click to upload image
-                      </p>
+                      {isCompressing ? (
+                        <>
+                          <Loader2 className="w-8 h-8 text-muted-foreground animate-spin" />
+                          <p className="text-sm text-muted-foreground">Compressing image...</p>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-8 h-8 text-muted-foreground" />
+                          <p className="text-sm text-muted-foreground">Click to upload image</p>
+                          <p className="text-xs text-muted-foreground">Max 2MB (auto-compressed)</p>
+                        </>
+                      )}
                     </div>
                   </label>
                 </>
