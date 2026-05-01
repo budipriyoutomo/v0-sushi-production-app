@@ -87,16 +87,16 @@ export function ProduceScreen() {
         >
           All Colors
         </Button>
-        {plateColors.map((plate) => (
-            <Button
-              key={plate.id}
-              variant={selectedColorId === plate.id ? "default" : "outline"}
-              onClick={() => setSelectedColorId(plate.id)}
-              className="px-4 py-2 capitalize"
-            >
-              {plate.platename}
-            </Button>
-          ))}
+        {plateColors.filter(p => p.isActive !== false).map((plate) => (
+          <Button
+            key={plate.id}
+            variant={selectedColorId === plate.id ? "default" : "outline"}
+            onClick={() => setSelectedColorId(plate.id)}
+            className="px-4 py-2 capitalize"
+          >
+            {plate.platename}
+          </Button>
+        ))}
       </div>
 
       {/* Sushi Grid */}

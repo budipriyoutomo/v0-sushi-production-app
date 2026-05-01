@@ -273,7 +273,7 @@ export function MenusAdmin() {
                       <td className="p-3 font-medium">{item.menuname}</td>
                       <td className="p-3 text-sm text-muted-foreground max-w-[200px] truncate">{item.description}</td>
                       <td className="p-3 text-sm">
-                        <PlateColorBadge color={item.plateColorName?.toLowerCase() as "white" | "blue" | "pink" | "black" | "red" | "gold" | "choco motive" | "yellow" | "silver"} />
+                        <PlateColorBadge color={item.plateColorName?.toLowerCase() || ''} />
                       </td>
                       <td className="p-3 text-right">{item.shelfLife} minute</td>
                       <td className="p-3 text-right">Rp {item.price.toLocaleString('id-ID')}</td>
