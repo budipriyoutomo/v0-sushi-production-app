@@ -51,7 +51,7 @@ export function MenusAdmin() {
     if (!code) return "Code is required"
     if (code.length > 50) return "Code must be at most 50 characters"
     const isDuplicate = menus.some(
-      (m) => m.code && m.code.toLowerCase() === code.toLowerCase() && m.id !== currentId
+      (m) => typeof m.code === 'string' && m.code.toLowerCase() === code.toLowerCase() && m.id !== currentId
     )
     if (isDuplicate) return "Code already exists, must be unique"
     return undefined
