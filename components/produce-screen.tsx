@@ -30,10 +30,6 @@ export function ProduceScreen() {
 
   const isLoading = menusLoading || plateColorsLoading
 
-  console.log("[v0] produce-screen menus count:", menus.length, "plateColors count:", plateColors.length)
-  console.log("[v0] produce-screen menus:", menus.map(m => ({ id: m.id, name: m.menuname, plateColorId: m.plateColorId, plateColorName: m.plateColorName, isActive: m.isActive })))
-  console.log("[v0] produce-screen plateColors:", plateColors.map(p => ({ id: p.id, name: p.platename, isActive: p.isActive })))
-
   const handleProduce = (sushi: SushiMenu) => {
     setSelectedItem(sushi)
     setCalculatorOpen(true)
