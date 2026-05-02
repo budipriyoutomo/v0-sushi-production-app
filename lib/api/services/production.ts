@@ -21,7 +21,7 @@ export interface ProductionItem {
   finalStatus: 'sold' | 'waste' | null
   soldAt: string | null
   wastedAt: string | null
-
+  notes?: string | null
   outletId: string
 }
 
@@ -227,7 +227,16 @@ class ProductionService {
     await apiClient.delete(`${this.endpoint}/expired/${itemId}`)
   }
 
-  
+  // Get production item list filtered by date
+  async getProductionItemList(params: {
+    outletId: string
+    date: string
+  }): Promise<ProductionItem[]> {
+    const response = await apiClient.get<{ data: ProductionItem[] }>(`${this.endpoint}/items`, {
+      params,
+    })
+    return response.data.data
+  }
 }
 
 export const productionService = new ProductionService()
