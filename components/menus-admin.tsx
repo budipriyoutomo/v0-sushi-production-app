@@ -8,7 +8,7 @@ import type { SushiMenu } from "@/lib/types"
 import { useMenus } from "@/hooks/use-menus"
 import { usePlateColors } from "@/hooks/use-plate-colors"
 import { getApiError } from "@/lib/api"
-import { Plus, Pencil, Trash2, Upload, X, Loader2 } from "lucide-react"
+import { Plus, Pencil, Trash2, Upload, X, Loader2, Search, ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -23,6 +23,39 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
 import { Textarea } from "@/components/ui/textarea"
+
+type SortKey = "code" | "menuname" | "plateColorName" | "price" | "shelfLife" | "isActive"
+
+function SortHeader({
+  label,
+  sortKey,
+  currentKey,
+  dir,
+  onSort,
+  align = "left",
+}: {
+  label: string
+  sortKey: SortKey
+  currentKey: SortKey
+  dir: "asc" | "desc"
+  onSort: (key: SortKey) => void
+  align?: "left" | "right" | "center"
+}) {
+  const active = currentKey === sortKey
+  return (
+    <button
+      onClick={() => onSort(sortKey)}
+      className={`flex items-center gap-1 font-semibold hover:text-foreground text-sm ${align === "right" ? "ml-auto flex-row-reverse" : ""} ${align === "center" ? "mx-auto" : ""} ${active ? "text-foreground" : "text-muted-foreground"}`}
+    >
+      {label}
+      {active ? (
+        dir === "asc" ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
+      ) : (
+        <ChevronsUpDown className="w-3.5 h-3.5 opacity-40" />
+      )}
+    </button>
+  )
+}
 
 export function MenusAdmin() {
   const { toast } = useToast()
@@ -46,6 +79,55 @@ export function MenusAdmin() {
   })
 
   const [formErrors, setFormErrors] = useState<{ code?: string; menuname?: string }>({})
+
+  // Search, sort, pagination
+  const [searchQuery, setSearchQuery] = useState("")
+  const [sortKey, setSortKey] = useState<"code" | "menuname" | "plateColorName" | "price" | "shelfLife" | "isActive">("menuname")
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc")
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 10
+
+  const handleSort = (key: typeof sortKey) => {
+    if (sortKey === key) {
+      setSortDir(sortDir === "asc" ? "desc" : "asc")
+    } else {
+      setSortKey(key)
+      setSortDir("asc")
+    }
+    setPage(1)
+  }
+
+  const filteredMenus = menus
+    .filter((m) => {
+      if (!searchQuery) return true
+      const q = searchQuery.toLowerCase()
+      return (
+        (m.code || "").toLowerCase().includes(q) ||
+        m.menuname.toLowerCase().includes(q) ||
+        (m.plateColorName || "").toLowerCase().includes(q) ||
+        (m.description || "").toLowerCase().includes(q)
+      )
+    })
+    .sort((a, b) => {
+      let aVal: string | number = ""
+      let bVal: string | number = ""
+      if (sortKey === "price" || sortKey === "shelfLife") {
+        aVal = a[sortKey] ?? 0
+        bVal = b[sortKey] ?? 0
+      } else if (sortKey === "isActive") {
+        aVal = a.isActive ? 1 : 0
+        bVal = b.isActive ? 1 : 0
+      } else {
+        aVal = (a[sortKey] || "").toString().toLowerCase()
+        bVal = (b[sortKey] || "").toString().toLowerCase()
+      }
+      if (aVal < bVal) return sortDir === "asc" ? -1 : 1
+      if (aVal > bVal) return sortDir === "asc" ? 1 : -1
+      return 0
+    })
+
+  const totalPages = Math.max(1, Math.ceil(filteredMenus.length / PAGE_SIZE))
+  const pagedMenus = filteredMenus.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const validateCode = (code: string, currentId?: string): string | undefined => {
     if (!code) return "Code is required"
@@ -236,7 +318,22 @@ export function MenusAdmin() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Sushi Menu Items</CardTitle>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <CardTitle>Sushi Menu Items</CardTitle>
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Search code, name, color..."
+                  value={searchQuery}
+                  onChange={(e) => { setSearchQuery(e.target.value); setPage(1) }}
+                  className="w-full pl-9 pr-3 py-2 text-sm border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {filteredMenus.length} of {menus.length} items
+            </p>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -244,59 +341,146 @@ export function MenusAdmin() {
                 <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
               </div>
             ) : (
+            <>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b">
                     <th className="text-left p-3 font-semibold">Image</th>
-                    <th className="text-left p-3 font-semibold">Code</th>
-                    <th className="text-left p-3 font-semibold">Menu Name</th>
+                    <th className="text-left p-3 font-semibold">
+                      <SortHeader label="Code" sortKey="code" currentKey={sortKey} dir={sortDir} onSort={handleSort} />
+                    </th>
+                    <th className="text-left p-3 font-semibold">
+                      <SortHeader label="Menu Name" sortKey="menuname" currentKey={sortKey} dir={sortDir} onSort={handleSort} />
+                    </th>
                     <th className="text-left p-3 font-semibold">Description</th>
-                    <th className="text-left p-3 font-semibold">Plate Color</th>
-                    <th className="text-right p-3 font-semibold">Shelf Life</th>
-                    <th className="text-right p-3 font-semibold">Harga Jual</th>
-                    <th className="text-center p-3 font-semibold">Status</th>
+                    <th className="text-left p-3 font-semibold">
+                      <SortHeader label="Plate Color" sortKey="plateColorName" currentKey={sortKey} dir={sortDir} onSort={handleSort} />
+                    </th>
+                    <th className="text-right p-3 font-semibold">
+                      <SortHeader label="Shelf Life" sortKey="shelfLife" currentKey={sortKey} dir={sortDir} onSort={handleSort} align="right" />
+                    </th>
+                    <th className="text-right p-3 font-semibold">
+                      <SortHeader label="Harga Jual" sortKey="price" currentKey={sortKey} dir={sortDir} onSort={handleSort} align="right" />
+                    </th>
+                    <th className="text-center p-3 font-semibold">
+                      <SortHeader label="Status" sortKey="isActive" currentKey={sortKey} dir={sortDir} onSort={handleSort} align="center" />
+                    </th>
                     <th className="text-right p-3 font-semibold">Actions</th>
                   </tr>
                 </thead>
-                <tbody> 
-                  {menus.map((item) => (
-                    <tr key={item.id} className="border-b hover:bg-muted/50">
-                      <td className="p-3">
-                        {item.image ? (
-                          <img src={item.image} alt={item.menuname} className="w-12 h-12 object-cover rounded" />
-                        ) : (
-                          <div className="w-12 h-12 bg-muted rounded flex items-center justify-center text-xs text-muted-foreground">No Image</div>
-                        )}
-                      </td>
-                      <td className="p-3 font-mono text-sm font-semibold text-muted-foreground">{item.code}</td>
-                      <td className="p-3 font-medium">{item.menuname}</td>
-                      <td className="p-3 text-sm text-muted-foreground max-w-[200px] truncate">{item.description}</td>
-                      <td className="p-3 text-sm">
-                        <PlateColorBadge color={item.plateColorName?.toLowerCase() || ''} />
-                      </td>
-                      <td className="p-3 text-right">{item.shelfLife} minute</td>
-                      <td className="p-3 text-right">Rp {item.price.toLocaleString('id-ID')}</td>
-                      <td className="p-3 text-center">
-                        <span className={`px-2 py-1 rounded-full text-xs ${item.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                          {item.isActive ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-                      <td className="p-3">
-                        <div className="flex gap-2 justify-end">
-                          <Button variant="ghost" size="sm" onClick={() => handleEdit(item)}>
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => setDeleteConfirm(item.id)}>
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
-                        </div>
+                <tbody>
+                  {pagedMenus.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="text-center p-8 text-muted-foreground text-sm">
+                        No menu items found
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    pagedMenus.map((item) => (
+                      <tr key={item.id} className="border-b hover:bg-muted/50">
+                        <td className="p-3">
+                          {item.image ? (
+                            <img src={item.image} alt={item.menuname} className="w-12 h-12 object-cover rounded" />
+                          ) : (
+                            <div className="w-12 h-12 bg-muted rounded flex items-center justify-center text-xs text-muted-foreground">No img</div>
+                          )}
+                        </td>
+                        <td className="p-3 font-mono text-sm font-semibold text-muted-foreground">{item.code}</td>
+                        <td className="p-3 font-medium">{item.menuname}</td>
+                        <td className="p-3 text-sm text-muted-foreground max-w-[180px] truncate">{item.description}</td>
+                        <td className="p-3 text-sm">
+                          <PlateColorBadge color={item.plateColorName?.toLowerCase() || ''} />
+                        </td>
+                        <td className="p-3 text-right">{item.shelfLife} min</td>
+                        <td className="p-3 text-right">Rp {item.price.toLocaleString('id-ID')}</td>
+                        <td className="p-3 text-center">
+                          <span className={`px-2 py-1 rounded-full text-xs ${item.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                            {item.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="p-3">
+                          <div className="flex gap-2 justify-end">
+                            <Button variant="ghost" size="sm" onClick={() => handleEdit(item)}>
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => setDeleteConfirm(item.id)}>
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between pt-4 border-t mt-2">
+                <p className="text-sm text-muted-foreground">
+                  Page {page} of {totalPages} &mdash; showing {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, filteredMenus.length)} of {filteredMenus.length}
+                </p>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(1)}
+                    disabled={page === 1}
+                  >
+                    <ChevronLeft className="w-3 h-3" /><ChevronLeft className="w-3 h-3 -ml-2" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+                    .reduce<(number | "...")[]>((acc, p, idx, arr) => {
+                      if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("...")
+                      acc.push(p)
+                      return acc
+                    }, [])
+                    .map((p, i) =>
+                      p === "..." ? (
+                        <span key={`ellipsis-${i}`} className="px-2 text-muted-foreground text-sm">…</span>
+                      ) : (
+                        <Button
+                          key={p}
+                          variant={page === p ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setPage(p as number)}
+                          className="w-8 h-8 p-0"
+                        >
+                          {p}
+                        </Button>
+                      )
+                    )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(totalPages)}
+                    disabled={page === totalPages}
+                  >
+                    <ChevronRight className="w-3 h-3" /><ChevronRight className="w-3 h-3 -ml-2" />
+                  </Button>
+                </div>
+              </div>
+            )}
+            </>
             )}
           </CardContent>
         </Card>
