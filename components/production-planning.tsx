@@ -68,7 +68,7 @@ export function ProductionPlanning() {
     return timeSlots.map((timeSlot) => {
       const row: ProductionPlanRow = { timeSlot }
       colorKeys.forEach(color => {
-        row[color] = 2
+        row[color] = 0
       })
       return row
     })
