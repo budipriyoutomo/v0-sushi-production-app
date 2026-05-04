@@ -9,8 +9,11 @@ import { PlateColorBadge } from '@/components/plate-color-badge'
 import { useOutlet } from '@/lib/outlet-context'
 import { OutletSelector } from '@/components/outlet-selector'
 import { productionService, type ProductionItem } from '@/lib/api/services/production'
-import { Download, RefreshCw, Search, ChevronUp, ChevronDown } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Download, RefreshCw, Search, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
 
 type SortKey = keyof ProductionItem
 type SortDir = 'asc' | 'desc'
@@ -55,8 +58,11 @@ export function ProductionItemList() {
   const today = format(new Date(), 'yyyy-MM-dd')
   const [date, setDate] = useState(today)
   const [search, setSearch] = useState('')
+  const [plateColorFilter, setPlateColorFilter] = useState<string>('all')
   const [sortKey, setSortKey] = useState<SortKey>('producedAt')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
 
   const { data, isLoading, mutate } = useSWR<ProductionItem[]>(
     selectedOutletId && date ? ['production-item-list', selectedOutletId, date] : null,
@@ -66,14 +72,23 @@ export function ProductionItemList() {
 
   const items = data || []
 
+  // Unique plate colors derived from loaded data
+  const plateColorOptions = Array.from(
+    new Map(items.map(i => [i.plateColorName, i.plateColorName])).entries()
+  )
+    .filter(([name]) => !!name)
+    .sort(([a], [b]) => a.localeCompare(b))
+
   const filtered = items.filter(item => {
     const q = search.toLowerCase()
-    return (
+    const matchesSearch =
       item.menuName?.toLowerCase().includes(q) ||
       item.plateColorName?.toLowerCase().includes(q) ||
       item.beltStatus?.toLowerCase().includes(q) ||
       (item.finalStatus ?? '').toLowerCase().includes(q)
-    )
+    const matchesColor =
+      plateColorFilter === 'all' || item.plateColorName === plateColorFilter
+    return matchesSearch && matchesColor
   })
 
   const sorted = [...filtered].sort((a, b) => {
@@ -84,6 +99,11 @@ export function ProductionItemList() {
     return 0
   })
 
+  const totalItems = sorted.length
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize))
+  const safePage = Math.min(page, totalPages)
+  const paged = sorted.slice((safePage - 1) * pageSize, safePage * pageSize)
+
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
       setSortDir(prev => prev === 'asc' ? 'desc' : 'asc')
@@ -91,6 +111,12 @@ export function ProductionItemList() {
       setSortKey(key)
       setSortDir('asc')
     }
+    setPage(1)
+  }
+
+  const handleFilterChange = (setter: (v: string) => void) => (v: string) => {
+    setter(v)
+    setPage(1)
   }
 
   const SortIcon = ({ col }: { col: SortKey }) => {
@@ -103,7 +129,7 @@ export function ProductionItemList() {
   const handleExport = () => {
     if (!sorted.length) return
     const headers = ['Menu', 'Plate Color', 'Qty', 'Produced At', 'Expired At', 'Belt Status', 'Final Status', 'Sold At', 'Wasted At', 'Notes']
-    const rows = sorted.map(item => [
+    const rows = sorted.map((item: ProductionItem) => [
       item.menuName,
       item.plateColorName,
       item.quantity,
@@ -175,6 +201,25 @@ export function ProductionItemList() {
                 className="w-44"
               />
             </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Plate Color</label>
+              <Select value={plateColorFilter} onValueChange={handleFilterChange(setPlateColorFilter)}>
+                <SelectTrigger className="w-44">
+                  <SelectValue placeholder="All Colors" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Colors</SelectItem>
+                  {plateColorOptions.map(([name]) => (
+                    <SelectItem key={name} value={name}>
+                      <span className="flex items-center gap-2">
+                        <PlateColorBadge color={name.toLowerCase()} />
+                        {name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex flex-col gap-1 flex-1">
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Search</label>
               <div className="relative">
@@ -182,7 +227,7 @@ export function ProductionItemList() {
                 <Input
                   placeholder="Search menu, color, status..."
                   value={search}
-                  onChange={e => setSearch(e.target.value)}
+                  onChange={e => { setSearch(e.target.value); setPage(1) }}
                   className="pl-9"
                 />
               </div>
@@ -213,9 +258,24 @@ export function ProductionItemList() {
       {/* Table */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">
-            {isLoading ? 'Loading...' : `${sorted.length} item${sorted.length !== 1 ? 's' : ''}`}
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">
+              {isLoading ? 'Loading...' : `${totalItems} item${totalItems !== 1 ? 's' : ''}`}
+            </CardTitle>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>Rows per page:</span>
+              <Select value={String(pageSize)} onValueChange={v => { setPageSize(Number(v)); setPage(1) }}>
+                <SelectTrigger className="w-20 h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PAGE_SIZE_OPTIONS.map(n => (
+                    <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -250,7 +310,7 @@ export function ProductionItemList() {
                     </td>
                   </tr>
                 ) : (
-                  sorted.map(item => (
+                  paged.map(item => (
                     <tr key={item.id} className="border-b hover:bg-muted/30 transition-colors">
                       <td className="px-4 py-3 font-medium whitespace-nowrap">{item.menuName}</td>
                       <td className="px-4 py-3 whitespace-nowrap">
@@ -276,6 +336,84 @@ export function ProductionItemList() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination footer */}
+          {!isLoading && totalItems > 0 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t">
+              <p className="text-sm text-muted-foreground">
+                Showing {((safePage - 1) * pageSize) + 1}–{Math.min(safePage * pageSize, totalItems)} of {totalItems} items
+              </p>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-8 h-8 p-0"
+                  onClick={() => setPage(1)}
+                  disabled={safePage === 1}
+                  aria-label="First page"
+                >
+                  <ChevronsLeft className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-8 h-8 p-0"
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={safePage === 1}
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+
+                {/* Page number buttons with ellipsis */}
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(p => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1)
+                  .reduce<(number | '...')[]>((acc, p, idx, arr) => {
+                    if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push('...')
+                    acc.push(p)
+                    return acc
+                  }, [])
+                  .map((p, i) =>
+                    p === '...' ? (
+                      <span key={`ellipsis-${i}`} className="px-2 text-sm text-muted-foreground">…</span>
+                    ) : (
+                      <Button
+                        key={p}
+                        variant={safePage === p ? 'default' : 'outline'}
+                        size="sm"
+                        className="w-8 h-8 p-0"
+                        onClick={() => setPage(p as number)}
+                        aria-label={`Page ${p}`}
+                        aria-current={safePage === p ? 'page' : undefined}
+                      >
+                        {p}
+                      </Button>
+                    )
+                  )}
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-8 h-8 p-0"
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={safePage === totalPages}
+                  aria-label="Next page"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-8 h-8 p-0"
+                  onClick={() => setPage(totalPages)}
+                  disabled={safePage === totalPages}
+                  aria-label="Last page"
+                >
+                  <ChevronsRight className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
