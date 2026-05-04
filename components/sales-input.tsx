@@ -674,26 +674,26 @@ export function SalesInput() {
             const totalAdj = editableDetail.reduce((s, i) => s + (i.adjustment || 0), 0)
             const totalComp = editableDetail.reduce((s, i) => s + (i.compensation || 0), 0)
             const selisih = selectedEntryDetail.posSold - selectedEntryDetail.productionSold + totalAdj + totalComp
-            const canSave = selisih === 0
+            const isBalanced = selisih === 0
 
             return (
               <div className="flex items-center justify-between gap-4 px-6 py-4 border-t bg-muted/30">
                 <div className="text-sm">
-                  {canSave ? (
+                  {isBalanced ? (
                     <span className="flex items-center gap-1.5 text-green-600 font-medium">
                       <CheckCircle className="w-4 h-4" />
                       Selisih sudah 0, data siap disimpan.
                     </span>
                   ) : (
-                    <span className="flex items-center gap-1.5 text-destructive font-medium">
+                    <span className="flex items-center gap-1.5 text-amber-600 font-medium">
                       <AlertCircle className="w-4 h-4" />
-                      Selisih harus 0 sebelum dapat disimpan.
+                      Selisih {selisih > 0 ? '+' : ''}{selisih} — data dapat disimpan dengan selisih.
                     </span>
                   )}
                 </div>
                 <Button
                   onClick={handleSaveDetailToParent}
-                  disabled={!canSave}
+                  variant={isBalanced ? 'default' : 'outline'}
                 >
                   <Save className="w-4 h-4 mr-2" />
                   Save to Plate Color
