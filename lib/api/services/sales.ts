@@ -53,16 +53,25 @@ class SalesService {
 
   // Create new sales (draft or submitted)
   async create(data: {
-    outletId: string
+    outlet_id: string
     date: string
     status: 'draft' | 'submitted'
-    details: Array<{
-      plateColorId: string
-      posSold: number
-      productionSold: number
-      productionWaste: number
-      adjustment: number
-      compensation: number
+    items: Array<{
+      plate_color_id: string
+      pos_sold: number
+      production_sold: number
+      production_waste?: number
+      adjustment?: number
+      compensation?: number
+      details?: Array<{
+        menu_id: string
+        menu_name: string
+        total_produced: number
+        total_sold: number
+        total_wasted: number
+        adjustment?: number
+        compensation?: number
+      }>
     }>
   }): Promise<SalesDraft> {
     const response = await apiClient.post<{ data: SalesDraft }>(this.endpoint, data)
@@ -73,13 +82,22 @@ class SalesService {
   async update(
     id: string,
     data: {
-      details?: Array<{
-        plateColorId: string
-        posSold: number
-        productionSold: number
-        productionWaste: number
-        adjustment: number
-        compensation: number
+      items?: Array<{
+        plate_color_id: string
+        pos_sold: number
+        production_sold: number
+        production_waste?: number
+        adjustment?: number
+        compensation?: number
+        details?: Array<{
+          menu_id: string
+          menu_name: string
+          total_produced: number
+          total_sold: number
+          total_wasted: number
+          adjustment?: number
+          compensation?: number
+        }>
       }>
     }
   ): Promise<SalesDraft> {

@@ -326,14 +326,14 @@ export function SalesInput() {
     setIsSavingDraft(true)
     try {
       await salesService.create({
-        outletId: selectedOutletId,
+        outlet_id: selectedOutletId,
         date: selectedDate,
         status: 'draft',
-        details: salesEntries.map((entry) => ({
-          plateColorId: entry.plateColorId,
-          posSold: entry.posSold,
-          productionSold: entry.productionSold,
-          productionWaste: entry.productionWaste,
+        items: salesEntries.map((entry) => ({
+          plate_color_id: entry.plateColorId,
+          pos_sold: entry.posSold,
+          production_sold: entry.productionSold,
+          production_waste: entry.productionWaste,
           adjustment: entry.adjustment,
           compensation: entry.compensation,
         })),
@@ -378,14 +378,14 @@ export function SalesInput() {
     setIsSubmitting(true)
     try {
       await salesService.create({
-        outletId: selectedOutletId,
+        outlet_id: selectedOutletId,
         date: selectedDate,
         status: 'submitted',
-        details: salesEntries.map((entry) => ({
-          plateColorId: entry.plateColorId,
-          posSold: entry.posSold,
-          productionSold: entry.productionSold,
-          productionWaste: entry.productionWaste,
+        items: salesEntries.map((entry) => ({
+          plate_color_id: entry.plateColorId,
+          pos_sold: entry.posSold,
+          production_sold: entry.productionSold,
+          production_waste: entry.productionWaste,
           adjustment: entry.adjustment,
           compensation: entry.compensation,
         })),
