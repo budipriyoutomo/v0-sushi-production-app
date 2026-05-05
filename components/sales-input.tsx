@@ -302,6 +302,8 @@ export function SalesInput() {
     setDetailDialogOpen(false)
   }
 
+  const [isSavingDraft, setIsSavingDraft] = useState(false)
+
   const handleSaveDraft = async () => {
     if (salesEntries.length === 0) {
       toast({
@@ -312,13 +314,47 @@ export function SalesInput() {
       return
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 500))
+    if (!selectedOutletId) {
+      toast({
+        title: 'Error',
+        description: 'Please select an outlet first',
+        variant: 'destructive',
+      })
+      return
+    }
 
-    toast({
-      title: 'Draft Saved',
-      description: `${salesEntries.length} entries saved as draft`,
-    })
+    setIsSavingDraft(true)
+    try {
+      await salesService.create({
+        outlet_id: selectedOutletId,
+        date: selectedDate,
+        status: 'draft',
+        items: salesEntries.map((entry) => ({
+          plate_color_id: entry.plateColorId,
+          pos_sold: entry.posSold,
+          production_sold: entry.productionSold,
+          production_waste: entry.productionWaste,
+          adjustment: entry.adjustment,
+          compensation: entry.compensation,
+        })),
+      })
+
+      toast({
+        title: 'Draft Saved',
+        description: `${salesEntries.length} entries saved as draft`,
+      })
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to save draft',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSavingDraft(false)
+    }
   }
+
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async () => {
     if (salesEntries.length === 0) {
@@ -330,15 +366,46 @@ export function SalesInput() {
       return
     }
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    if (!selectedOutletId) {
+      toast({
+        title: 'Error',
+        description: 'Please select an outlet first',
+        variant: 'destructive',
+      })
+      return
+    }
 
-    toast({
-      title: 'Success',
-      description: `Submitted ${salesEntries.length} sales entries`,
-    })
+    setIsSubmitting(true)
+    try {
+      await salesService.create({
+        outlet_id: selectedOutletId,
+        date: selectedDate,
+        status: 'submitted',
+        items: salesEntries.map((entry) => ({
+          plate_color_id: entry.plateColorId,
+          pos_sold: entry.posSold,
+          production_sold: entry.productionSold,
+          production_waste: entry.productionWaste,
+          adjustment: entry.adjustment,
+          compensation: entry.compensation,
+        })),
+      })
 
-    setSalesEntries([])
+      toast({
+        title: 'Success',
+        description: `Submitted ${salesEntries.length} sales entries`,
+      })
+
+      setSalesEntries([])
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to submit sales data',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   // Calculate totals
@@ -510,13 +577,21 @@ export function SalesInput() {
           </CardHeader>
           <CardContent>
             <div className="flex gap-3">
-              <Button onClick={handleSaveDraft} variant="outline" className="flex-1">
-                <Save className="w-4 h-4 mr-2" />
-                Save Draft
+              <Button onClick={handleSaveDraft} variant="outline" className="flex-1" disabled={isSavingDraft || isSubmitting}>
+                {isSavingDraft ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4 mr-2" />
+                )}
+                {isSavingDraft ? 'Saving...' : 'Save Draft'}
               </Button>
-              <Button onClick={handleSubmit} className="flex-1">
-                <CheckCircle className="w-4 h-4 mr-2" />
-                Submit Sales Data
+              <Button onClick={handleSubmit} className="flex-1" disabled={isSavingDraft || isSubmitting}>
+                {isSubmitting ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                )}
+                {isSubmitting ? 'Submitting...' : 'Submit Sales Data'}
               </Button>
             </div>
           </CardContent>
