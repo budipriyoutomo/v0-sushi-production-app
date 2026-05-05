@@ -51,10 +51,11 @@ class SalesService {
     return response.data.data
   }
 
-  // Create new sales draft
+  // Create new sales (draft or submitted)
   async create(data: {
     outletId: string
     date: string
+    status: 'draft' | 'submitted'
     details: Array<{
       plateColorId: string
       posSold: number
