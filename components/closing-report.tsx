@@ -33,11 +33,7 @@ export function ClosingReport() {
   const { toast } = useToast()
   const { selectedOutletId } = useOutlet()
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
-  const [salesEntries, setSalesEntries] = useState<MenuSalesEntry[]>([
-    { menuId: '1', menuName: 'California Roll', code: 'MN0021', plateColor: 'white', sellingPrice: 25000, produced: 30, sold: 25, waste: 5, posSold: 21, adjustment: 0, compensation: 0 },
-    { menuId: '3', menuName: 'Salmon Nigiri', code: 'MN0022', plateColor: 'blue', sellingPrice: 30000, produced: 45, sold: 45, waste: 0, posSold: 47, adjustment: 0, compensation: 0 },
-    { menuId: '5', menuName: 'Spicy Tuna Roll', code: 'MN0023', plateColor: 'pink', sellingPrice: 28000, produced: 60, sold: 56, waste: 4, posSold: 43, adjustment: 0, compensation: 0 },
-  ])
+  const [salesEntries, setSalesEntries] = useState<MenuSalesEntry[]>([])
   const [wastePhotos, setWastePhotos] = useState<File[]>([])
   const [kitchenLeader, setKitchenLeader] = useState('')
   const [operationLeader, setOperationLeader] = useState('')
