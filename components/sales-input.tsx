@@ -48,6 +48,7 @@ export function SalesInput() {
   const [expandedDraftId, setExpandedDraftId] = useState<string | null>(null)
   const [draftDetailMap, setDraftDetailMap] = useState<Record<string, SalesDraft>>({})
   const [loadingDetailId, setLoadingDetailId] = useState<string | null>(null)
+  const [detailMap, setDetailMap] = useState<Record<string, ProductionMenuDetailItem[]>>({})
 
   // Get Sales Drafts from API
   const handleGetSalesDrafts = async () => {
@@ -186,7 +187,7 @@ export function SalesInput() {
     setSalesEntries((prev) =>
       prev.map((entry) => {
         if (entry.id !== id) return entry
-        const selisih = entry.posSold - entry.productionSold + value + entry.compensation
+        const selisih = entry.posSold - (entry.productionSold + value + entry.compensation)
         return { ...entry, adjustment: value, selisih }
       })
     )
@@ -196,7 +197,7 @@ export function SalesInput() {
     setSalesEntries((prev) =>
       prev.map((entry) => {
         if (entry.id !== id) return entry
-        const selisih = entry.posSold - entry.productionSold + entry.adjustment + value
+        const selisih = entry.posSold - (entry.productionSold + entry.adjustment + value)
         return { ...entry, compensation: value, selisih }
       })
     )
@@ -252,55 +253,60 @@ export function SalesInput() {
       ) || null
     )
   }
-
-  // Save detail totals to parent entry and localStorage
+ 
   const handleSaveDetailToParent = () => {
-    if (!selectedEntryDetail || !editableDetail || !selectedOutletId) return
+    if (!selectedEntryDetail || !editableDetail) return
+
+    const plateColorId = selectedEntryDetail.plateColorId
+
+    // simpan detail ke map
+    setDetailMap(prev => ({
+      ...prev,
+      [plateColorId]: editableDetail
+    }))
 
     const totalAdjustment = editableDetail.reduce((sum, item) => sum + (item.adjustment || 0), 0)
     const totalCompensation = editableDetail.reduce((sum, item) => sum + (item.compensation || 0), 0)
 
-    // Update the parent entry with totals from detail
-    handleAdjustmentChange(selectedEntryDetail.id, totalAdjustment)
-    handleCompensationChange(selectedEntryDetail.id, totalCompensation)
-
-    // Update selected entry detail for display
-    setSelectedEntryDetail(prev => prev ? {
-      ...prev,
-      adjustment: totalAdjustment,
-      compensation: totalCompensation,
-      selisih: prev.posSold - prev.productionSold + totalAdjustment + totalCompensation,
-    } : null)
-
-    // Save to localStorage
-    const storageKey = `sales-input-detail-${selectedOutletId}-${selectedDate}-${selectedEntryDetail.plateColorId}`
-    const dataToStore = {
-      plateColorId: selectedEntryDetail.plateColorId,
-      plateColorName: selectedEntryDetail.plateColorName,
-      outletId: selectedOutletId,
-      date: selectedDate,
-      totalAdjustment,
-      totalCompensation,
-      menuDetails: editableDetail.map(item => ({
-        menuId: item.menuId,
-        menuName: item.menuName,
-        totalProduced: item.totalProduced,
-        totalSold: item.totalSold,
-        totalWasted: item.totalWasted,
-        adjustment: item.adjustment || 0,
-        compensation: item.compensation || 0,
-      })),
-      savedAt: new Date().toISOString(),
-    }
-    localStorage.setItem(storageKey, JSON.stringify(dataToStore))
-
-    toast({
-      title: 'Saved',
-      description: `Adjustment: ${totalAdjustment}, Compensation: ${totalCompensation} applied to ${selectedEntryDetail.plateColorName} and saved to local storage`,
-    })
+    handleAdjustmentChange(plateColorId, totalAdjustment)
+    handleCompensationChange(plateColorId, totalCompensation)
 
     setDetailDialogOpen(false)
   }
+
+  function buildItemsPayload(
+    salesEntries: SalesEntry[],
+    detailMap: Record<string, ProductionMenuDetailItem[]>
+    ) {
+      return salesEntries.map(entry => {
+        const rawDetails = detailMap?.[entry.plateColorId] || []
+
+        // 🔥 pastikan semua detail valid
+        const details = rawDetails
+          .filter(d => d.menuId && d.menuName)
+          .map(d => ({
+            menu_id: d.menuId,
+            menu_name: d.menuName,
+            total_produced: d.totalProduced,
+            total_sold: d.totalSold,
+            total_wasted: d.totalWasted,
+            adjustment: d.adjustment ?? 0,
+            compensation: d.compensation ?? 0,
+          }))
+
+        return {
+          plate_color_id: entry.plateColorId,
+          pos_sold: entry.posSold,
+          production_sold: entry.productionSold,
+          production_waste: entry.productionWaste ?? 0,
+          adjustment: entry.adjustment ?? 0,
+          compensation: entry.compensation ?? 0,
+
+          // ✅ SELALU KIRIM (sesuai contoh payload kamu)
+          details: details
+        }
+      })
+    }
 
   const [isSavingDraft, setIsSavingDraft] = useState(false)
 
@@ -329,14 +335,7 @@ export function SalesInput() {
         outlet_id: selectedOutletId,
         date: selectedDate,
         status: 'draft',
-        items: salesEntries.map((entry) => ({
-          plate_color_id: entry.plateColorId,
-          pos_sold: entry.posSold,
-          production_sold: entry.productionSold,
-          production_waste: entry.productionWaste,
-          adjustment: entry.adjustment,
-          compensation: entry.compensation,
-        })),
+        items: buildItemsPayload(salesEntries, detailMap)
       })
 
       toast({
@@ -381,14 +380,7 @@ export function SalesInput() {
         outlet_id: selectedOutletId,
         date: selectedDate,
         status: 'submitted',
-        items: salesEntries.map((entry) => ({
-          plate_color_id: entry.plateColorId,
-          pos_sold: entry.posSold,
-          production_sold: entry.productionSold,
-          production_waste: entry.productionWaste,
-          adjustment: entry.adjustment,
-          compensation: entry.compensation,
-        })),
+        items: buildItemsPayload(salesEntries, detailMap)
       })
 
       toast({
@@ -626,7 +618,7 @@ export function SalesInput() {
             {selectedEntryDetail && editableDetail && (() => {
               const totalAdj = editableDetail.reduce((s, i) => s + (i.adjustment || 0), 0)
               const totalComp = editableDetail.reduce((s, i) => s + (i.compensation || 0), 0)
-              const selisih = selectedEntryDetail.posSold - selectedEntryDetail.productionSold + totalAdj + totalComp
+              const selisih = selectedEntryDetail.posSold - (selectedEntryDetail.productionSold + totalAdj + totalComp)
 
               return (
                 <div className="space-y-2">
