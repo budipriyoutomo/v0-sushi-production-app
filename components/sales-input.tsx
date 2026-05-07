@@ -12,7 +12,8 @@ import { useOutlet } from '@/lib/outlet-context'
 import { reportsService, salesService, type POSData, type ProductionMenuDetailItem, type SalesDraft } from '@/lib/api'
 import type { PlateColor } from '@/components/plate-color-badge'
 import { PlateColorBadge } from '@/components/plate-color-badge'
-import { Pencil, AlertCircle, CheckCircle, Download, Loader2, Save, FileText } from 'lucide-react'
+import { Textarea } from '@/components/ui/textarea'
+import { Pencil, AlertCircle, CheckCircle, Download, Loader2, Save, FileText, MessageSquare, MessageSquarePlus } from 'lucide-react'
 
 interface SalesEntry {
   id: string
@@ -48,7 +49,6 @@ export function SalesInput() {
   const [expandedDraftId, setExpandedDraftId] = useState<string | null>(null)
   const [draftDetailMap, setDraftDetailMap] = useState<Record<string, SalesDraft>>({})
   const [loadingDetailId, setLoadingDetailId] = useState<string | null>(null)
-  const [detailMap, setDetailMap] = useState<Record<string, ProductionMenuDetailItem[]>>({})
 
   // Get Sales Drafts from API
   const handleGetSalesDrafts = async () => {
@@ -187,7 +187,7 @@ export function SalesInput() {
     setSalesEntries((prev) =>
       prev.map((entry) => {
         if (entry.id !== id) return entry
-        const selisih = entry.posSold - (entry.productionSold + value + entry.compensation)
+        const selisih = entry.posSold - entry.productionSold + value + entry.compensation
         return { ...entry, adjustment: value, selisih }
       })
     )
@@ -197,7 +197,7 @@ export function SalesInput() {
     setSalesEntries((prev) =>
       prev.map((entry) => {
         if (entry.id !== id) return entry
-        const selisih = entry.posSold - (entry.productionSold + entry.adjustment + value)
+        const selisih = entry.posSold - entry.productionSold + entry.adjustment + value
         return { ...entry, compensation: value, selisih }
       })
     )
@@ -253,60 +253,74 @@ export function SalesInput() {
       ) || null
     )
   }
- 
+
+  // Compensation note state (per menuId)
+  const [compensationNotes, setCompensationNotes] = useState<Record<string, string>>({})
+  const [noteDialogOpen, setNoteDialogOpen] = useState(false)
+  const [noteTarget, setNoteTarget] = useState<{ menuId: string; menuName: string } | null>(null)
+  const [noteValue, setNoteValue] = useState('')
+
+  const handleOpenNoteDialog = (menuId: string, menuName: string) => {
+    setNoteTarget({ menuId, menuName })
+    setNoteValue(compensationNotes[menuId] ?? '')
+    setNoteDialogOpen(true)
+  }
+
+  const handleSaveNote = () => {
+    if (!noteTarget) return
+    setCompensationNotes(prev => ({ ...prev, [noteTarget.menuId]: noteValue }))
+    setNoteDialogOpen(false)
+    setNoteTarget(null)
+  }
+
+  // Save detail totals to parent entry and localStorage
   const handleSaveDetailToParent = () => {
-    if (!selectedEntryDetail || !editableDetail) return
-
-    const plateColorId = selectedEntryDetail.plateColorId
-
-    // simpan detail ke map
-    setDetailMap(prev => ({
-      ...prev,
-      [plateColorId]: editableDetail
-    }))
+    if (!selectedEntryDetail || !editableDetail || !selectedOutletId) return
 
     const totalAdjustment = editableDetail.reduce((sum, item) => sum + (item.adjustment || 0), 0)
     const totalCompensation = editableDetail.reduce((sum, item) => sum + (item.compensation || 0), 0)
 
-    handleAdjustmentChange(plateColorId, totalAdjustment)
-    handleCompensationChange(plateColorId, totalCompensation)
+    // Update the parent entry with totals from detail
+    handleAdjustmentChange(selectedEntryDetail.id, totalAdjustment)
+    handleCompensationChange(selectedEntryDetail.id, totalCompensation)
+
+    // Update selected entry detail for display
+    setSelectedEntryDetail(prev => prev ? {
+      ...prev,
+      adjustment: totalAdjustment,
+      compensation: totalCompensation,
+      selisih: prev.posSold - prev.productionSold + totalAdjustment + totalCompensation,
+    } : null)
+
+    // Save to localStorage
+    const storageKey = `sales-input-detail-${selectedOutletId}-${selectedDate}-${selectedEntryDetail.plateColorId}`
+    const dataToStore = {
+      plateColorId: selectedEntryDetail.plateColorId,
+      plateColorName: selectedEntryDetail.plateColorName,
+      outletId: selectedOutletId,
+      date: selectedDate,
+      totalAdjustment,
+      totalCompensation,
+      menuDetails: editableDetail.map(item => ({
+        menuId: item.menuId,
+        menuName: item.menuName,
+        totalProduced: item.totalProduced,
+        totalSold: item.totalSold,
+        totalWasted: item.totalWasted,
+        adjustment: item.adjustment || 0,
+        compensation: item.compensation || 0,
+      })),
+      savedAt: new Date().toISOString(),
+    }
+    localStorage.setItem(storageKey, JSON.stringify(dataToStore))
+
+    toast({
+      title: 'Saved',
+      description: `Adjustment: ${totalAdjustment}, Compensation: ${totalCompensation} applied to ${selectedEntryDetail.plateColorName} and saved to local storage`,
+    })
 
     setDetailDialogOpen(false)
   }
-
-  function buildItemsPayload(
-    salesEntries: SalesEntry[],
-    detailMap: Record<string, ProductionMenuDetailItem[]>
-    ) {
-      return salesEntries.map(entry => {
-        const rawDetails = detailMap?.[entry.plateColorId] || []
-
-        // 🔥 pastikan semua detail valid
-        const details = rawDetails
-          .filter(d => d.menuId && d.menuName)
-          .map(d => ({
-            menu_id: d.menuId,
-            menu_name: d.menuName,
-            total_produced: d.totalProduced,
-            total_sold: d.totalSold,
-            total_wasted: d.totalWasted,
-            adjustment: d.adjustment ?? 0,
-            compensation: d.compensation ?? 0,
-          }))
-
-        return {
-          plate_color_id: entry.plateColorId,
-          pos_sold: entry.posSold,
-          production_sold: entry.productionSold,
-          production_waste: entry.productionWaste ?? 0,
-          adjustment: entry.adjustment ?? 0,
-          compensation: entry.compensation ?? 0,
-
-          // ✅ SELALU KIRIM (sesuai contoh payload kamu)
-          details: details
-        }
-      })
-    }
 
   const [isSavingDraft, setIsSavingDraft] = useState(false)
 
@@ -335,7 +349,14 @@ export function SalesInput() {
         outlet_id: selectedOutletId,
         date: selectedDate,
         status: 'draft',
-        items: buildItemsPayload(salesEntries, detailMap)
+        items: salesEntries.map((entry) => ({
+          plate_color_id: entry.plateColorId,
+          pos_sold: entry.posSold,
+          production_sold: entry.productionSold,
+          production_waste: entry.productionWaste,
+          adjustment: entry.adjustment,
+          compensation: entry.compensation,
+        })),
       })
 
       toast({
@@ -380,7 +401,14 @@ export function SalesInput() {
         outlet_id: selectedOutletId,
         date: selectedDate,
         status: 'submitted',
-        items: buildItemsPayload(salesEntries, detailMap)
+        items: salesEntries.map((entry) => ({
+          plate_color_id: entry.plateColorId,
+          pos_sold: entry.posSold,
+          production_sold: entry.productionSold,
+          production_waste: entry.productionWaste,
+          adjustment: entry.adjustment,
+          compensation: entry.compensation,
+        })),
       })
 
       toast({
@@ -618,7 +646,7 @@ export function SalesInput() {
             {selectedEntryDetail && editableDetail && (() => {
               const totalAdj = editableDetail.reduce((s, i) => s + (i.adjustment || 0), 0)
               const totalComp = editableDetail.reduce((s, i) => s + (i.compensation || 0), 0)
-              const selisih = selectedEntryDetail.posSold - (selectedEntryDetail.productionSold + totalAdj + totalComp)
+              const selisih = selectedEntryDetail.posSold - selectedEntryDetail.productionSold + totalAdj + totalComp
 
               return (
                 <div className="space-y-2">
@@ -675,6 +703,7 @@ export function SalesInput() {
                       <TableHead className="text-right font-semibold">Waste</TableHead>
                       <TableHead className="text-center font-semibold w-32">Adjustment</TableHead>
                       <TableHead className="text-center font-semibold w-32">Compensation</TableHead>
+                      <TableHead className="text-center font-semibold w-12">Ket.</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -706,6 +735,20 @@ export function SalesInput() {
                             }
                           />
                         </TableCell>
+                        <TableCell className="text-center py-2">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 w-7 p-0"
+                            title={compensationNotes[item.menuId] ? compensationNotes[item.menuId] : 'Tambah keterangan kompensasi'}
+                            onClick={() => handleOpenNoteDialog(item.menuId, item.menuName)}
+                          >
+                            {compensationNotes[item.menuId]
+                              ? <MessageSquare className="w-3.5 h-3.5 text-orange-500" />
+                              : <MessageSquarePlus className="w-3.5 h-3.5 text-muted-foreground" />
+                            }
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                     <TableRow className="bg-muted/50 font-semibold border-t-2">
@@ -725,6 +768,7 @@ export function SalesInput() {
                       <TableCell className="text-center tabular-nums font-bold text-orange-700">
                         {editableDetail.reduce((s, i) => s + (i.compensation || 0), 0)}
                       </TableCell>
+                      <TableCell></TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
@@ -768,6 +812,35 @@ export function SalesInput() {
               </div>
             )
           })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Compensation Note Dialog */}
+      <Dialog open={noteDialogOpen} onOpenChange={setNoteDialogOpen}>
+        <DialogContent className="max-w-sm w-full">
+          <DialogHeader>
+            <DialogTitle className="text-base font-semibold">Keterangan Kompensasi</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              {noteTarget?.menuName} &mdash; isi alasan kompensasi untuk menu ini.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 pt-1">
+            <Textarea
+              placeholder="Contoh: Piring jatuh, komplain pelanggan, dll."
+              value={noteValue}
+              onChange={(e) => setNoteValue(e.target.value)}
+              rows={4}
+              className="resize-none"
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setNoteDialogOpen(false)}>
+                Batal
+              </Button>
+              <Button size="sm" onClick={handleSaveNote}>
+                Simpan
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
