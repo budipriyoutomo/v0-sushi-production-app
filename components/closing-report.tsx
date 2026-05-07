@@ -11,7 +11,8 @@ import { OutletSelector } from '@/components/outlet-selector'
 import { useToast } from '@/hooks/use-toast'
 import { useOutlet } from '@/lib/outlet-context'
 import { PlateColorBadge } from '@/components/plate-color-badge'
-import { CheckCircle, AlertCircle, Download, Upload, FileText, Loader2 } from 'lucide-react'
+import { Textarea } from '@/components/ui/textarea'
+import { CheckCircle, AlertCircle, Download, Upload, FileText, Loader2, MessageSquare, MessageSquarePlus } from 'lucide-react'
 import { salesService, type SalesDraft } from '@/lib/api'
 
 interface MenuSalesEntry {
@@ -33,16 +34,32 @@ export function ClosingReport() {
   const { toast } = useToast()
   const { selectedOutletId } = useOutlet()
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
-  const [salesEntries, setSalesEntries] = useState<MenuSalesEntry[]>([
-    { menuId: '1', menuName: 'California Roll', code: 'MN0021', plateColor: 'white', sellingPrice: 25000, produced: 30, sold: 25, waste: 5, posSold: 21, adjustment: 0, compensation: 0 },
-    { menuId: '3', menuName: 'Salmon Nigiri', code: 'MN0022', plateColor: 'blue', sellingPrice: 30000, produced: 45, sold: 45, waste: 0, posSold: 47, adjustment: 0, compensation: 0 },
-    { menuId: '5', menuName: 'Spicy Tuna Roll', code: 'MN0023', plateColor: 'pink', sellingPrice: 28000, produced: 60, sold: 56, waste: 4, posSold: 43, adjustment: 0, compensation: 0 },
-  ])
+  const [salesEntries, setSalesEntries] = useState<MenuSalesEntry[]>([])
   const [wastePhotos, setWastePhotos] = useState<File[]>([])
   const [kitchenLeader, setKitchenLeader] = useState('')
   const [operationLeader, setOperationLeader] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [status, setStatus] = useState<'draft' | 'submitted'>('draft')
+
+  // Compensation note dialog state
+  const [noteDialogOpen, setNoteDialogOpen] = useState(false)
+  const [noteTarget, setNoteTarget] = useState<{ draftId: string; detailId: string; plateColorName: string } | null>(null)
+  const [noteValue, setNoteValue] = useState('')
+  // Store notes per detail id: { [detailId]: string }
+  const [compensationNotes, setCompensationNotes] = useState<Record<string, string>>({})
+
+  const handleOpenNoteDialog = (draftId: string, detailId: string, plateColorName: string) => {
+    setNoteTarget({ draftId, detailId, plateColorName })
+    setNoteValue(compensationNotes[detailId] ?? '')
+    setNoteDialogOpen(true)
+  }
+
+  const handleSaveNote = () => {
+    if (!noteTarget) return
+    setCompensationNotes((prev) => ({ ...prev, [noteTarget.detailId]: noteValue }))
+    setNoteDialogOpen(false)
+    setNoteTarget(null)
+  }
 
   // Sales Draft Dialog state
   const [draftDialogOpen, setDraftDialogOpen] = useState(false)
@@ -443,6 +460,35 @@ export function ClosingReport() {
         </Button>
       </div>
 
+      {/* Compensation Note Dialog */}
+      <Dialog open={noteDialogOpen} onOpenChange={setNoteDialogOpen}>
+        <DialogContent className="max-w-sm w-full">
+          <div className="pb-2">
+            <DialogTitle className="text-base font-semibold">Keterangan Kompensasi</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground mt-1">
+              {noteTarget?.plateColorName} — isi keterangan alasan kompensasi
+            </DialogDescription>
+          </div>
+          <div className="space-y-3">
+            <Textarea
+              placeholder="Contoh: Piring jatuh, komplain pelanggan, dll."
+              value={noteValue}
+              onChange={(e) => setNoteValue(e.target.value)}
+              rows={4}
+              className="resize-none"
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setNoteDialogOpen(false)}>
+                Batal
+              </Button>
+              <Button size="sm" onClick={handleSaveNote}>
+                Simpan
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Sales Draft List Dialog */}
       <Dialog open={draftDialogOpen} onOpenChange={setDraftDialogOpen}>
         <DialogContent className="max-w-3xl w-full max-h-[85vh] flex flex-col p-0 gap-0">
@@ -539,6 +585,7 @@ export function ClosingReport() {
                                         <TableHead className="text-right text-xs font-semibold py-2">Waste</TableHead>
                                         <TableHead className="text-right text-xs font-semibold py-2">Adjustment</TableHead>
                                         <TableHead className="text-right text-xs font-semibold py-2">Compensation</TableHead>
+                                        <TableHead className="text-center text-xs font-semibold py-2">Keterangan</TableHead>
                                         <TableHead className="text-right text-xs font-semibold py-2">Selisih</TableHead>
                                       </TableRow>
                                     </TableHeader>
@@ -551,6 +598,20 @@ export function ClosingReport() {
                                           <TableCell className="text-right tabular-nums text-sm py-2 text-destructive">{d.productionWaste}</TableCell>
                                           <TableCell className="text-right tabular-nums text-sm py-2 text-blue-600">{d.adjustment > 0 ? '+' : ''}{d.adjustment}</TableCell>
                                           <TableCell className="text-right tabular-nums text-sm py-2 text-orange-600">{d.compensation > 0 ? '+' : ''}{d.compensation}</TableCell>
+                                          <TableCell className="text-center py-2">
+                                            <Button
+                                              size="sm"
+                                              variant="ghost"
+                                              className="h-7 w-7 p-0"
+                                              title={compensationNotes[d.id] ? compensationNotes[d.id] : 'Tambah keterangan kompensasi'}
+                                              onClick={() => handleOpenNoteDialog(draft.id, d.id, d.plateColorName)}
+                                            >
+                                              {compensationNotes[d.id]
+                                                ? <MessageSquare className="w-3.5 h-3.5 text-orange-500" />
+                                                : <MessageSquarePlus className="w-3.5 h-3.5 text-muted-foreground" />
+                                              }
+                                            </Button>
+                                          </TableCell>
                                           <TableCell className="text-right tabular-nums text-sm py-2">
                                             <span className={d.selisih !== 0 ? 'text-destructive font-semibold' : 'text-green-600 font-semibold'}>
                                               {d.selisih > 0 ? '+' : ''}{d.selisih}
