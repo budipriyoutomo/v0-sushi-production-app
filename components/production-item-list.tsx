@@ -12,8 +12,10 @@ import { productionService, type ProductionItem } from '@/lib/api/services/produ
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Download, RefreshCw, Search, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
+import { formatInTimeZone } from 'date-fns-tz'
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
+const JAKARTA_TZ = 'Asia/Jakarta'
 
 type SortKey = keyof ProductionItem
 type SortDir = 'asc' | 'desc'
@@ -21,7 +23,7 @@ type SortDir = 'asc' | 'desc'
 function formatDateTime(value: string | null | undefined): string {
   if (!value) return '-'
   try {
-    return format(parseISO(value), 'dd/MM/yyyy HH:mm')
+    return formatInTimeZone(parseISO(value), JAKARTA_TZ, 'dd/MM/yyyy HH:mm')
   } catch {
     return value
   }
