@@ -33,5 +33,5 @@ export {
 export {
   salesService,
   type SalesDraft,
-  type SalesDraftDetail,
+  type SalesDraftItem,
 } from './services/sales'
