@@ -57,6 +57,7 @@ export function SalesInput() {
     try {
       const drafts = await salesService.getAll({
         outletId: selectedOutletId || undefined,
+        date: selectedDate ,
         status: 'draft',
       })
       setSalesDrafts(drafts)

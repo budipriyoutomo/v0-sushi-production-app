@@ -38,8 +38,7 @@ class SalesService {
   async getAll(params?: {
     outletId?: string
     status?: 'draft' | 'submitted'
-    startDate?: string
-    endDate?: string
+    date?: string 
   }): Promise<SalesDraft[]> {
     const response = await apiClient.get<{ data: SalesDraft[] }>(this.endpoint, { params })
     return response.data.data
