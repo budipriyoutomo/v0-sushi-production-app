@@ -908,22 +908,30 @@ export function SalesInput() {
                                       </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                      {items.map((item, idx) => (
+                                      {items.map((item, idx) => {
+                                        const price = item.price ?? 0
+                                        const pos = item.pos ?? 0
+                                        const sold = item.sold ?? 0
+                                        const waste = item.waste ?? 0
+                                        const adjustment = item.adjustment ?? 0
+                                        const compensation = item.compensation ?? 0
+                                        const selisih = item.selisih ?? 0
+                                        return (
                                         <TableRow key={idx} className="hover:bg-muted/20">
-                                          <TableCell className="text-sm py-2">{item.platecolor}</TableCell>
-                                          <TableCell className="text-right tabular-nums text-sm py-2">{item.price.toLocaleString('id-ID')}</TableCell>
-                                          <TableCell className="text-right tabular-nums text-sm py-2">{item.pos}</TableCell>
-                                          <TableCell className="text-right tabular-nums text-sm py-2">{item.sold}</TableCell>
-                                          <TableCell className="text-right tabular-nums text-sm py-2 text-destructive">{item.waste}</TableCell>
-                                          <TableCell className="text-right tabular-nums text-sm py-2 text-blue-600">{item.adjustment !== 0 ? (item.adjustment > 0 ? '+' : '') + item.adjustment : item.adjustment}</TableCell>
-                                          <TableCell className="text-right tabular-nums text-sm py-2 text-orange-600">{item.compensation !== 0 ? (item.compensation > 0 ? '+' : '') + item.compensation : item.compensation}</TableCell>
+                                          <TableCell className="text-sm py-2">{item.platecolor ?? '-'}</TableCell>
+                                          <TableCell className="text-right tabular-nums text-sm py-2">{price.toLocaleString('id-ID')}</TableCell>
+                                          <TableCell className="text-right tabular-nums text-sm py-2">{pos}</TableCell>
+                                          <TableCell className="text-right tabular-nums text-sm py-2">{sold}</TableCell>
+                                          <TableCell className="text-right tabular-nums text-sm py-2 text-destructive">{waste}</TableCell>
+                                          <TableCell className="text-right tabular-nums text-sm py-2 text-blue-600">{adjustment !== 0 ? (adjustment > 0 ? '+' : '') + adjustment : adjustment}</TableCell>
+                                          <TableCell className="text-right tabular-nums text-sm py-2 text-orange-600">{compensation !== 0 ? (compensation > 0 ? '+' : '') + compensation : compensation}</TableCell>
                                           <TableCell className="text-right tabular-nums text-sm py-2">
-                                            <span className={item.selisih !== 0 ? 'text-destructive font-semibold' : 'text-green-600 font-semibold'}>
-                                              {item.selisih > 0 ? '+' : ''}{item.selisih}
+                                            <span className={selisih !== 0 ? 'text-destructive font-semibold' : 'text-green-600 font-semibold'}>
+                                              {selisih > 0 ? '+' : ''}{selisih}
                                             </span>
                                           </TableCell>
                                         </TableRow>
-                                      ))}
+                                      )})}
                                     </TableBody>
                                   </Table>
                                 </div>
