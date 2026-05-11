@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -850,12 +850,13 @@ export function SalesInput() {
                   </TableHeader>
                   <TableBody>
                     {salesDrafts.map((draft) => {
-                      const totalPos = draft.items.reduce((sum, item) => sum + item.pos, 0)
-                      const totalSold = draft.items.reduce((sum, item) => sum + item.sold, 0)
-                      const totalSelisih = draft.items.reduce((sum, item) => sum + item.selisih, 0)
+                      const items = draft.items ?? []
+                      const totalPos = items.reduce((sum, item) => sum + (item.pos ?? 0), 0)
+                      const totalSold = items.reduce((sum, item) => sum + (item.sold ?? 0), 0)
+                      const totalSelisih = items.reduce((sum, item) => sum + (item.selisih ?? 0), 0)
                       return (
-                      <>
-                        <TableRow key={draft.id} className="hover:bg-muted/30">
+                      <React.Fragment key={draft.id}>
+                        <TableRow className="hover:bg-muted/30">
                           <TableCell className="font-medium">{draft.date}</TableCell>
                           <TableCell>{draft.outlet_name}</TableCell>
                           <TableCell className="text-right tabular-nums">{totalPos}</TableCell>
@@ -885,12 +886,12 @@ export function SalesInput() {
                             </div>
                           </TableCell>
                         </TableRow>
-                        {expandedDraftId === draft.id && draft.items && (
-                          <TableRow key={`${draft.id}-detail`} className="bg-muted/20">
+                        {expandedDraftId === draft.id && items.length > 0 && (
+                          <TableRow className="bg-muted/20">
                             <TableCell colSpan={7} className="py-0">
                               <div className="px-4 py-3 space-y-2">
                                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                                  Detail — {draft.items.length} Plate Color(s)
+                                  Detail — {items.length} Plate Color(s)
                                 </p>
                                 <div className="rounded-md border overflow-hidden">
                                   <Table>
@@ -907,7 +908,7 @@ export function SalesInput() {
                                       </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                      {draft.items.map((item, idx) => (
+                                      {items.map((item, idx) => (
                                         <TableRow key={idx} className="hover:bg-muted/20">
                                           <TableCell className="text-sm py-2">{item.platecolor}</TableCell>
                                           <TableCell className="text-right tabular-nums text-sm py-2">{item.price.toLocaleString('id-ID')}</TableCell>
@@ -930,7 +931,7 @@ export function SalesInput() {
                             </TableCell>
                           </TableRow>
                         )}
-                      </>
+                      </React.Fragment>
                     )})}
                   </TableBody>
                 </Table>
