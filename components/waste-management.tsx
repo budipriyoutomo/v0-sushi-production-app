@@ -1,57 +1,27 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 import { PlateColorBadge, type PlateColor } from "@/components/plate-color-badge"
+import { OutletSelector } from "@/components/outlet-selector"
+import { useOutlet } from "@/lib/outlet-context"
+import { useToast } from "@/hooks/use-toast"
+import { Loader2, Search, Calendar } from "lucide-react"
 import type { WasteEntry } from "@/lib/types"
 
-const mockWasteEntries: WasteEntry[] = [
-  {
-    id: "1",
-    time: new Date(Date.now() - 2 * 60 * 60 * 1000),
-    sushiName: "California Roll",
-    plateColor: "green",
-    quantity: 2,
-    reason: "Expired on conveyor",
-  },
-  {
-    id: "2",
-    time: new Date(Date.now() - 3 * 60 * 60 * 1000),
-    sushiName: "Salmon Nigiri",
-    plateColor: "blue",
-    quantity: 3,
-    reason: "Expired on conveyor",
-  },
-  {
-    id: "3",
-    time: new Date(Date.now() - 5 * 60 * 60 * 1000),
-    sushiName: "Spicy Tuna Roll",
-    plateColor: "red",
-    quantity: 1,
-    reason: "Quality issue",
-  },
-  {
-    id: "4",
-    time: new Date(Date.now() - 6 * 60 * 60 * 1000),
-    sushiName: "Rainbow Roll",
-    plateColor: "black",
-    quantity: 1,
-    reason: "Overproduction",
-  },
-  {
-    id: "5",
-    time: new Date(Date.now() - 7 * 60 * 60 * 1000),
-    sushiName: "Cucumber Roll",
-    plateColor: "green",
-    quantity: 2,
-    reason: "Expired on conveyor",
-  },
-]
-
 export function WasteManagement() {
+  const { toast } = useToast()
+  const { selectedOutletId } = useOutlet()
   const [filterColor, setFilterColor] = useState<PlateColor | "all">("all")
-  const [entries] = useState<WasteEntry[]>(mockWasteEntries)
+  const [entries, setEntries] = useState<WasteEntry[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const today = new Date()
+    return today.toISOString().split('T')[0]
+  })
 
   const filteredEntries = entries.filter((entry) => filterColor === "all" || entry.plateColor === filterColor)
 
@@ -71,6 +41,40 @@ export function WasteManagement() {
     return stats
   }
 
+  // Fetch waste data from API
+  const handleFetchWasteData = async () => {
+    if (!selectedOutletId) {
+      toast({
+        title: 'Error',
+        description: 'Please select an outlet first',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      // TODO: Replace with actual API call when available
+      // const data = await wasteService.getAll({ outletId: selectedOutletId, date: selectedDate })
+      // setEntries(data)
+      
+      // For now, show empty state or mock data
+      toast({
+        title: 'Info',
+        description: `Fetching waste data for ${selectedDate}...`,
+      })
+      setEntries([])
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch waste data',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const stats = getWasteStats()
   const totalWaste = Object.values(stats).reduce((sum, stat) => sum + stat.count, 0)
   const totalProduced = 500 // Mock value
@@ -79,9 +83,45 @@ export function WasteManagement() {
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
-        <div className="mb-8">
+        <div className="mb-6">
           <h1 className="text-3xl md:text-4xl font-bold">Waste Management</h1>
           <p className="text-muted-foreground mt-1">Track and analyze production waste</p>
+        </div>
+
+        {/* Outlet and Date Selection */}
+        <div className="flex flex-col md:flex-row gap-4 mb-6">
+          <OutletSelector />
+          <Card className="px-4 py-3 border border-border shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 min-w-[110px]">
+                <Calendar className="w-5 h-5 text-primary" />
+                <span className="text-sm font-medium text-muted-foreground">Date</span>
+              </div>
+              <Input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="h-9 bg-background min-w-[160px]"
+              />
+            </div>
+          </Card>
+          <Button 
+            onClick={handleFetchWasteData} 
+            disabled={isLoading || !selectedOutletId}
+            className="h-auto md:h-[54px]"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Loading...
+              </>
+            ) : (
+              <>
+                <Search className="w-4 h-4 mr-2" />
+                Fetch Data
+              </>
+            )}
+          </Button>
         </div>
 
         {/* Summary Cards */}
@@ -150,17 +190,27 @@ export function WasteManagement() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredEntries.map((entry) => (
-                    <tr key={entry.id} className="border-b hover:bg-muted/50">
-                      <td className="p-3">{entry.time.toLocaleTimeString()}</td>
-                      <td className="p-3 font-medium">{entry.sushiName}</td>
-                      <td className="p-3">
-                        <PlateColorBadge color={entry.plateColor} />
+                  {filteredEntries.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="p-8 text-center text-muted-foreground">
+                        {!selectedOutletId 
+                          ? 'Please select an outlet and click "Fetch Data" to view waste entries'
+                          : 'No waste entries found. Click "Fetch Data" to load data.'}
                       </td>
-                      <td className="p-3 text-center">{entry.quantity}</td>
-                      <td className="p-3 text-muted-foreground">{entry.reason}</td>
                     </tr>
-                  ))}
+                  ) : (
+                    filteredEntries.map((entry) => (
+                      <tr key={entry.id} className="border-b hover:bg-muted/50">
+                        <td className="p-3">{entry.time.toLocaleTimeString()}</td>
+                        <td className="p-3 font-medium">{entry.sushiName}</td>
+                        <td className="p-3">
+                          <PlateColorBadge color={entry.plateColor} />
+                        </td>
+                        <td className="p-3 text-center">{entry.quantity}</td>
+                        <td className="p-3 text-muted-foreground">{entry.reason}</td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
