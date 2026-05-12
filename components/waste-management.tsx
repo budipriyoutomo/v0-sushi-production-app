@@ -12,12 +12,12 @@ import { PlateColorBadge } from "@/components/plate-color-badge"
 import { useOutlet } from "@/lib/outlet-context"
 import { usePlateColors } from "@/hooks/use-plate-colors"
 import { useToast } from "@/hooks/use-toast"
-import { wasteService, type WasteApiEntry, type WasteSummary } from "@/lib/api"
+import { wasteService, type WasteSummary } from "@/lib/api"
 import { Loader2, Search, Calendar, Eye } from "lucide-react"
 
 interface WasteEntryLocal {
   id: string
-  time: Date
+  time: string
   sushiName: string
   plateColor: string
   plateColorId: string
@@ -29,6 +29,7 @@ interface GroupedWasteEntry {
   key: string
   sushiName: string
   plateColor: string
+  plateColorId: string
   quantity: number
   reason: string
   entries: WasteEntryLocal[]
@@ -56,26 +57,37 @@ export function WasteManagement() {
     return entry.plateColorId === filterColorId
   })
 
-  // Group entries by sushiName, plateColor, quantity, reason
+  // Group entries by menu, plate color, and reason. Quantity is summarized per group.
   const groupedEntries = useMemo(() => {
     const groups: Record<string, GroupedWasteEntry> = {}
     
     filteredEntries.forEach((entry) => {
-      const key = `${entry.sushiName}-${entry.plateColor}-${entry.quantity}-${entry.reason}`
+      const key = `${entry.sushiName}-${entry.plateColorId}-${entry.reason}`
       if (!groups[key]) {
         groups[key] = {
           key,
           sushiName: entry.sushiName,
           plateColor: entry.plateColor,
-          quantity: entry.quantity,
+          plateColorId: entry.plateColorId,
+          quantity: 0,
           reason: entry.reason,
           entries: [],
         }
       }
+      groups[key].quantity += entry.quantity
       groups[key].entries.push(entry)
     })
     
     return Object.values(groups)
+      .map((group) => ({
+        ...group,
+        entries: group.entries.sort((a, b) => a.time.localeCompare(b.time)),
+      }))
+      .sort((a, b) =>
+        a.sushiName.localeCompare(b.sushiName) ||
+        a.plateColor.localeCompare(b.plateColor) ||
+        a.reason.localeCompare(b.reason)
+      )
   }, [filteredEntries])
 
   const handleViewDetail = (group: GroupedWasteEntry) => {
@@ -134,12 +146,12 @@ export function WasteManagement() {
       // Transform API entries to local format
       const transformedEntries: WasteEntryLocal[] = wasteEntries.map((entry) => ({
         id: entry.id,
-        time: new Date(entry.time),
-        sushiName: entry.menuName,
-        plateColor: entry.plateColorName.toLowerCase(),
+        time: entry.time,
+        sushiName: entry.menuName || '-',
+        plateColor: entry.plateColorName || entry.plateColorId,
         plateColorId: entry.plateColorId,
         quantity: entry.quantity,
-        reason: entry.reason,
+        reason: entry.reason || '-',
       }))
 
       setEntries(transformedEntries)
@@ -167,7 +179,7 @@ export function WasteManagement() {
   // Use summary data if available, otherwise calculate from stats
   const totalWaste = summary?.totalWaste ?? Object.values(stats).reduce((sum, stat) => sum + stat.count, 0)
   const totalProduction = summary?.totalProduction ?? 0
-  const wastePercentage = summary?.wastePercentage?.toFixed(1) ?? (totalProduction > 0 ? ((totalWaste / totalProduction) * 100).toFixed(1) : '0.0')
+  const wastePercentage = summary?.wastePercentage?.toFixed(2) ?? (totalProduction > 0 ? ((totalWaste / totalProduction) * 100).toFixed(2) : '0.00')
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
@@ -361,6 +373,7 @@ export function WasteManagement() {
                     <TableRow className="bg-muted/50">
                       <TableHead>Time</TableHead>
                       <TableHead>Menu Name</TableHead>
+                      <TableHead className="text-center">Qty</TableHead>
                       <TableHead>Reason</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -368,9 +381,10 @@ export function WasteManagement() {
                     {selectedGroup?.entries.map((entry, idx) => (
                       <TableRow key={idx}>
                         <TableCell className="tabular-nums">
-                          {entry.time.toLocaleTimeString()}
+                          {entry.time}
                         </TableCell>
                         <TableCell className="font-medium">{entry.sushiName}</TableCell>
+                        <TableCell className="text-center tabular-nums">{entry.quantity}</TableCell>
                         <TableCell className="text-muted-foreground">{entry.reason}</TableCell>
                       </TableRow>
                     ))}
