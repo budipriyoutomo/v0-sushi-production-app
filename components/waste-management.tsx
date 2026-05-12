@@ -1,21 +1,23 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { PlateColorBadge, type PlateColor } from "@/components/plate-color-badge"
 import { OutletSelector } from "@/components/outlet-selector"
 import { useOutlet } from "@/lib/outlet-context"
+import { usePlateColors } from "@/hooks/use-plate-colors"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, Search, Calendar } from "lucide-react"
-import type { WasteEntry } from "@/lib/types"
+import { Loader2, Search, Calendar, Store } from "lucide-react"
+import type { WasteEntry, PlateColorConfig } from "@/lib/types"
 
 export function WasteManagement() {
   const { toast } = useToast()
   const { selectedOutletId } = useOutlet()
-  const [filterColor, setFilterColor] = useState<PlateColor | "all">("all")
+  const { plateColors, isLoading: isLoadingPlateColors } = usePlateColors()
+  
+  const [filterColorId, setFilterColorId] = useState<string>("all")
   const [entries, setEntries] = useState<WasteEntry[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [selectedDate, setSelectedDate] = useState(() => {
@@ -23,19 +25,27 @@ export function WasteManagement() {
     return today.toISOString().split('T')[0]
   })
 
-  const filteredEntries = entries.filter((entry) => filterColor === "all" || entry.plateColor === filterColor)
+  // Filter entries by selected plate color
+  const filteredEntries = entries.filter((entry) => {
+    if (filterColorId === "all") return true
+    const plateColor = plateColors.find(pc => pc.id === filterColorId)
+    return plateColor && entry.plateColor === plateColor.platename.toLowerCase()
+  })
 
+  // Calculate waste stats per plate color from entries
   const getWasteStats = () => {
-    const stats = {
-      green: { count: 0, total: 0 },
-      blue: { count: 0, total: 0 },
-      red: { count: 0, total: 0 },
-      black: { count: 0, total: 0 },
-    }
+    const stats: Record<string, { count: number; total: number }> = {}
+    
+    plateColors.forEach(pc => {
+      stats[pc.id] = { count: 0, total: 0 }
+    })
 
     entries.forEach((entry) => {
-      stats[entry.plateColor].count += entry.quantity
-      stats[entry.plateColor].total += 1
+      const plateColor = plateColors.find(pc => pc.platename.toLowerCase() === entry.plateColor)
+      if (plateColor && stats[plateColor.id]) {
+        stats[plateColor.id].count += entry.quantity
+        stats[plateColor.id].total += 1
+      }
     })
 
     return stats
@@ -58,7 +68,6 @@ export function WasteManagement() {
       // const data = await wasteService.getAll({ outletId: selectedOutletId, date: selectedDate })
       // setEntries(data)
       
-      // For now, show empty state or mock data
       toast({
         title: 'Info',
         description: `Fetching waste data for ${selectedDate}...`,
@@ -77,8 +86,23 @@ export function WasteManagement() {
 
   const stats = getWasteStats()
   const totalWaste = Object.values(stats).reduce((sum, stat) => sum + stat.count, 0)
-  const totalProduced = 500 // Mock value
-  const wastePercentage = ((totalWaste / totalProduced) * 100).toFixed(1)
+
+  // Get background color class for plate color card
+  const getPlateColorBg = (platename: string) => {
+    const colorMap: Record<string, string> = {
+      'white': 'bg-gray-50',
+      'blue': 'bg-blue-50',
+      'pink': 'bg-pink-50',
+      'black': 'bg-gray-800 text-white',
+      'red': 'bg-red-50',
+      'gold': 'bg-amber-50',
+      'choco motive': 'bg-amber-100',
+      'yellow': 'bg-yellow-50',
+      'silver': 'bg-slate-100',
+      'green': 'bg-emerald-50',
+    }
+    return colorMap[platename.toLowerCase()] || 'bg-muted'
+  }
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
@@ -88,91 +112,96 @@ export function WasteManagement() {
           <p className="text-muted-foreground mt-1">Track and analyze production waste</p>
         </div>
 
-        {/* Outlet and Date Selection */}
-        <div className="flex flex-col md:flex-row gap-4 mb-6">
-          <OutletSelector />
-          <Card className="px-4 py-3 border border-border shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 min-w-[110px]">
-                <Calendar className="w-5 h-5 text-primary" />
-                <span className="text-sm font-medium text-muted-foreground">Date</span>
+        {/* Filter Bar - Outlet, Date, Fetch Button */}
+        <Card className="mb-6">
+          <CardContent className="p-4">
+            <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
+              {/* Outlet Selection */}
+              <div className="flex items-center gap-3 flex-1 min-w-[200px]">
+                <Store className="w-5 h-5 text-muted-foreground shrink-0" />
+                <div className="flex-1">
+                  <OutletSelector />
+                </div>
               </div>
-              <Input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="h-9 bg-background min-w-[160px]"
-              />
+
+              {/* Date Selection */}
+              <div className="flex items-center gap-3">
+                <Calendar className="w-5 h-5 text-muted-foreground shrink-0" />
+                <Input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="h-10 bg-background w-[180px]"
+                />
+              </div>
+
+              {/* Fetch Button */}
+              <Button 
+                onClick={handleFetchWasteData} 
+                disabled={isLoading || !selectedOutletId}
+                className="h-10 px-6"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  <>
+                    <Search className="w-4 h-4 mr-2" />
+                    Fetch Data
+                  </>
+                )}
+              </Button>
             </div>
-          </Card>
-          <Button 
-            onClick={handleFetchWasteData} 
-            disabled={isLoading || !selectedOutletId}
-            className="h-auto md:h-[54px]"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Loading...
-              </>
-            ) : (
-              <>
-                <Search className="w-4 h-4 mr-2" />
-                Fetch Data
-              </>
-            )}
-          </Button>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+          {/* Total Waste Card */}
           <Card>
             <CardContent className="p-4">
               <p className="text-sm text-muted-foreground">Total Waste</p>
               <p className="text-3xl font-bold">{totalWaste}</p>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-4">
-              <p className="text-sm text-muted-foreground">Waste %</p>
-              <p className="text-3xl font-bold text-red-600">{wastePercentage}%</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-emerald-50">
-            <CardContent className="p-4">
-              <PlateColorBadge color="green" className="mb-2" />
-              <p className="text-2xl font-bold">{stats.green.count}</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-blue-50">
-            <CardContent className="p-4">
-              <PlateColorBadge color="blue" className="mb-2" />
-              <p className="text-2xl font-bold">{stats.blue.count}</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-red-50">
-            <CardContent className="p-4">
-              <PlateColorBadge color="red" className="mb-2" />
-              <p className="text-2xl font-bold">{stats.red.count}</p>
-            </CardContent>
-          </Card>
+
+          {/* Plate Color Stats - Dynamic from master data */}
+          {isLoadingPlateColors ? (
+            <Card>
+              <CardContent className="p-4 flex items-center justify-center">
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              </CardContent>
+            </Card>
+          ) : (
+            plateColors.filter(pc => pc.isActive).slice(0, 5).map((plateColor) => (
+              <Card key={plateColor.id} className={getPlateColorBg(plateColor.platename)}>
+                <CardContent className="p-4">
+                  <p className="text-sm font-medium capitalize mb-1">{plateColor.platename}</p>
+                  <p className="text-2xl font-bold">{stats[plateColor.id]?.count || 0}</p>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </div>
 
         {/* Waste Log */}
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <CardTitle>Waste Log</CardTitle>
-              <Select value={filterColor} onValueChange={(value) => setFilterColor(value as PlateColor | "all")}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
+              <Select value={filterColorId} onValueChange={setFilterColorId}>
+                <SelectTrigger className="w-full sm:w-48">
+                  <SelectValue placeholder="Filter by color" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Colors</SelectItem>
-                  <SelectItem value="green">Green</SelectItem>
-                  <SelectItem value="blue">Blue</SelectItem>
-                  <SelectItem value="red">Red</SelectItem>
-                  <SelectItem value="black">Black</SelectItem>
+                  {plateColors.filter(pc => pc.isActive).map((plateColor) => (
+                    <SelectItem key={plateColor.id} value={plateColor.id}>
+                      {plateColor.platename}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -204,7 +233,9 @@ export function WasteManagement() {
                         <td className="p-3">{entry.time.toLocaleTimeString()}</td>
                         <td className="p-3 font-medium">{entry.sushiName}</td>
                         <td className="p-3">
-                          <PlateColorBadge color={entry.plateColor} />
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize bg-muted">
+                            {entry.plateColor}
+                          </span>
                         </td>
                         <td className="p-3 text-center">{entry.quantity}</td>
                         <td className="p-3 text-muted-foreground">{entry.reason}</td>
