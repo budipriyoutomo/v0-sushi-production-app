@@ -815,7 +815,7 @@ export function SalesInput() {
 
       {/* Sales Draft List Dialog */}
       <Dialog open={draftDialogOpen} onOpenChange={setDraftDialogOpen}>
-        <DialogContent className="max-w-3xl w-full max-h-[85vh] flex flex-col p-0 gap-0">
+        <DialogContent className="!w-[75vw] !max-w-[75vw] max-h-[85vh] flex flex-col p-0 gap-0">
           <div className="px-6 pt-6 pb-4 border-b">
             <DialogTitle className="text-lg font-semibold">Sales Drafts</DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground mt-1">
