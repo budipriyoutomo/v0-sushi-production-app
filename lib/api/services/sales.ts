@@ -2,30 +2,24 @@ import apiClient from '../client'
 
 export interface SalesDraft {
   id: string
-  outletId: string
-  outletName: string
   date: string
-  status: 'draft' | 'submitted'
-  totalPosSold: number
-  totalProductionSold: number
-  totalWaste: number
-  totalAdjustment: number
-  totalCompensation: number
-  totalSelisih: number
-  createdAt: string
-  updatedAt: string
-  createdBy?: string
-  details?: SalesDraftDetail[]
+  outlet_name: string
+  items: SalesDraftItem[]
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+  created_by: string
+  updated_by: string
+  deleted_by: string | null
 }
 
-export interface SalesDraftDetail {
-  id: string
-  salesId: string
-  plateColorId: string
-  plateColorName: string
-  posSold: number
-  productionSold: number
-  productionWaste: number
+export interface SalesDraftItem {
+  platecolor: string
+  price: number
+  pos: number
+  sold: number
+  production: number
+  waste: number
   adjustment: number
   compensation: number
   selisih: number

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -47,8 +47,6 @@ export function SalesInput() {
   const [salesDrafts, setSalesDrafts] = useState<SalesDraft[]>([])
   const [isLoadingDrafts, setIsLoadingDrafts] = useState(false)
   const [expandedDraftId, setExpandedDraftId] = useState<string | null>(null)
-  const [draftDetailMap, setDraftDetailMap] = useState<Record<string, SalesDraft>>({})
-  const [loadingDetailId, setLoadingDetailId] = useState<string | null>(null)
 
   // Get Sales Drafts from API
   const handleGetSalesDrafts = async () => {
@@ -72,69 +70,40 @@ export function SalesInput() {
     }
   }
 
-  // View draft detail from GET /sales/{id}
-  const handleViewDraft = async (draft: SalesDraft) => {
+  // View draft detail - data already in draft.items
+  const handleViewDraft = (draft: SalesDraft) => {
     if (expandedDraftId === draft.id) {
       setExpandedDraftId(null)
       return
     }
-    // Use cached detail if already fetched
-    if (draftDetailMap[draft.id]) {
-      setExpandedDraftId(draft.id)
-      return
-    }
-    setLoadingDetailId(draft.id)
-    try {
-      const detail = await salesService.getById(draft.id)
-      setDraftDetailMap((prev) => ({ ...prev, [draft.id]: detail }))
-      setExpandedDraftId(draft.id)
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to fetch draft detail',
-        variant: 'destructive',
-      })
-    } finally {
-      setLoadingDetailId(null)
-    }
+    setExpandedDraftId(draft.id)
   }
 
   // Load draft into current form
-  const handleLoadDraft = async (draft: SalesDraft) => {
-    try {
-      // Fetch full draft detail
-      const fullDraft = await salesService.getById(draft.id)
-      
-      if (fullDraft.details && fullDraft.details.length > 0) {
-        const entries: SalesEntry[] = fullDraft.details.map((d) => ({
-          id: d.plateColorId,
-          plateColorId: d.plateColorId,
-          plateColorName: d.plateColorName,
-          posSold: d.posSold,
-          productionSold: d.productionSold,
-          productionWaste: d.productionWaste,
-          adjustment: d.adjustment,
-          compensation: d.compensation,
-          selisih: d.selisih,
-        }))
-        setSalesEntries(entries)
-        setSelectedDate(fullDraft.date)
-        setDraftDialogOpen(false)
-        toast({
-          title: 'Draft Loaded',
-          description: `Loaded draft from ${fullDraft.date} with ${entries.length} entries`,
-        })
-      } else {
-        toast({
-          title: 'Error',
-          description: 'Draft has no detail entries',
-          variant: 'destructive',
-        })
-      }
-    } catch (error) {
+  const handleLoadDraft = (draft: SalesDraft) => {
+    if (draft.items && draft.items.length > 0) {
+      const entries: SalesEntry[] = draft.items.map((item, index) => ({
+        id: `${draft.id}-${index}`,
+        plateColorId: item.platecolor,
+        plateColorName: item.platecolor,
+        posSold: item.pos,
+        productionSold: item.sold,
+        productionWaste: item.waste,
+        adjustment: item.adjustment,
+        compensation: item.compensation,
+        selisih: item.selisih,
+      }))
+      setSalesEntries(entries)
+      setSelectedDate(draft.date)
+      setDraftDialogOpen(false)
+      toast({
+        title: 'Draft Loaded',
+        description: `Loaded draft from ${draft.date} with ${entries.length} entries`,
+      })
+    } else {
       toast({
         title: 'Error',
-        description: 'Failed to load draft details',
+        description: 'Draft has no items',
         variant: 'destructive',
       })
     }
@@ -847,7 +816,7 @@ export function SalesInput() {
 
       {/* Sales Draft List Dialog */}
       <Dialog open={draftDialogOpen} onOpenChange={setDraftDialogOpen}>
-        <DialogContent className="max-w-3xl w-full max-h-[85vh] flex flex-col p-0 gap-0">
+        <DialogContent className="!w-[75vw] !max-w-[75vw] max-h-[85vh] flex flex-col p-0 gap-0">
           <div className="px-6 pt-6 pb-4 border-b">
             <DialogTitle className="text-lg font-semibold">Sales Drafts</DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground mt-1">
@@ -873,46 +842,40 @@ export function SalesInput() {
                     <TableRow className="bg-muted/50">
                       <TableHead className="font-semibold">Date</TableHead>
                       <TableHead className="font-semibold">Outlet</TableHead>
-                      <TableHead className="text-right font-semibold">POS Sold</TableHead>
-                      <TableHead className="text-right font-semibold">Prod. Sold</TableHead>
-                      <TableHead className="text-right font-semibold">Selisih</TableHead>
-                      <TableHead className="text-center font-semibold">Status</TableHead>
+                      <TableHead className="text-right font-semibold">Total POS</TableHead>
+                      <TableHead className="text-right font-semibold">Total Sold</TableHead>
+                      <TableHead className="text-right font-semibold">Total Selisih</TableHead>
+                      <TableHead className="font-semibold">Created At</TableHead>
                       <TableHead className="w-36 text-right font-semibold">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {salesDrafts.map((draft) => (
-                      <>
-                        <TableRow key={draft.id} className="hover:bg-muted/30">
+                    {salesDrafts.map((draft) => {
+                      const items = draft.items ?? []
+                      const totalPos = items.reduce((sum, item) => sum + (item.pos ?? 0), 0)
+                      const totalSold = items.reduce((sum, item) => sum + (item.sold ?? 0), 0)
+                      const totalSelisih = items.reduce((sum, item) => sum + (item.selisih ?? 0), 0)
+                      return (
+                      <React.Fragment key={draft.id}>
+                        <TableRow className="hover:bg-muted/30">
                           <TableCell className="font-medium">{draft.date}</TableCell>
-                          <TableCell>{draft.outletName}</TableCell>
-                          <TableCell className="text-right tabular-nums">{draft.totalPosSold}</TableCell>
-                          <TableCell className="text-right tabular-nums">{draft.totalProductionSold}</TableCell>
+                          <TableCell>{draft.outlet_name}</TableCell>
+                          <TableCell className="text-right tabular-nums">{totalPos}</TableCell>
+                          <TableCell className="text-right tabular-nums">{totalSold}</TableCell>
                           <TableCell className="text-right tabular-nums">
-                            <span className={draft.totalSelisih !== 0 ? 'text-destructive font-semibold' : 'text-green-600 font-semibold'}>
-                              {draft.totalSelisih > 0 ? '+' : ''}{draft.totalSelisih}
+                            <span className={totalSelisih !== 0 ? 'text-destructive font-semibold' : 'text-green-600 font-semibold'}>
+                              {totalSelisih > 0 ? '+' : ''}{totalSelisih}
                             </span>
                           </TableCell>
-                          <TableCell className="text-center">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                              {draft.status}
-                            </span>
-                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{draft.created_at}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1.5">
                               <Button
                                 size="sm"
                                 variant="ghost"
                                 onClick={() => handleViewDraft(draft)}
-                                disabled={loadingDetailId === draft.id}
                               >
-                                {loadingDetailId === draft.id ? (
-                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                ) : expandedDraftId === draft.id ? (
-                                  'Hide'
-                                ) : (
-                                  'View'
-                                )}
+                                {expandedDraftId === draft.id ? 'Hide' : 'View'}
                               </Button>
                               <Button
                                 size="sm"
@@ -924,19 +887,20 @@ export function SalesInput() {
                             </div>
                           </TableCell>
                         </TableRow>
-                        {expandedDraftId === draft.id && draftDetailMap[draft.id] && (
-                          <TableRow key={`${draft.id}-detail`} className="bg-muted/20">
+                        {expandedDraftId === draft.id && items.length > 0 && (
+                          <TableRow className="bg-muted/20">
                             <TableCell colSpan={7} className="py-0">
                               <div className="px-4 py-3 space-y-2">
                                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                                  Detail — {draftDetailMap[draft.id].details?.length ?? 0} Plate Color(s)
+                                  Detail — {items.length} Plate Color(s)
                                 </p>
                                 <div className="rounded-md border overflow-hidden">
                                   <Table>
                                     <TableHeader>
                                       <TableRow className="bg-muted/60">
                                         <TableHead className="text-xs font-semibold py-2">Plate Color</TableHead>
-                                        <TableHead className="text-right text-xs font-semibold py-2">POS Sold</TableHead>
+                                        <TableHead className="text-right text-xs font-semibold py-2">Price</TableHead>
+                                        <TableHead className="text-right text-xs font-semibold py-2">POS</TableHead>
                                         <TableHead className="text-right text-xs font-semibold py-2">Prod. Sold</TableHead>
                                         <TableHead className="text-right text-xs font-semibold py-2">Waste</TableHead>
                                         <TableHead className="text-right text-xs font-semibold py-2">Adjustment</TableHead>
@@ -945,21 +909,30 @@ export function SalesInput() {
                                       </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                      {(draftDetailMap[draft.id].details ?? []).map((d) => (
-                                        <TableRow key={d.id} className="hover:bg-muted/20">
-                                          <TableCell className="text-sm py-2">{d.plateColorName}</TableCell>
-                                          <TableCell className="text-right tabular-nums text-sm py-2">{d.posSold}</TableCell>
-                                          <TableCell className="text-right tabular-nums text-sm py-2">{d.productionSold}</TableCell>
-                                          <TableCell className="text-right tabular-nums text-sm py-2 text-destructive">{d.productionWaste}</TableCell>
-                                          <TableCell className="text-right tabular-nums text-sm py-2 text-blue-600">{d.adjustment > 0 ? '+' : ''}{d.adjustment}</TableCell>
-                                          <TableCell className="text-right tabular-nums text-sm py-2 text-orange-600">{d.compensation > 0 ? '+' : ''}{d.compensation}</TableCell>
+                                      {items.map((item, idx) => {
+                                        const price = item.price ?? 0
+                                        const pos = item.pos ?? 0
+                                        const sold = item.sold ?? 0
+                                        const waste = item.waste ?? 0
+                                        const adjustment = item.adjustment ?? 0
+                                        const compensation = item.compensation ?? 0
+                                        const selisih = item.selisih ?? 0
+                                        return (
+                                        <TableRow key={idx} className="hover:bg-muted/20">
+                                          <TableCell className="text-sm py-2">{item.platecolor ?? '-'}</TableCell>
+                                          <TableCell className="text-right tabular-nums text-sm py-2">{price.toLocaleString('id-ID')}</TableCell>
+                                          <TableCell className="text-right tabular-nums text-sm py-2">{pos}</TableCell>
+                                          <TableCell className="text-right tabular-nums text-sm py-2">{sold}</TableCell>
+                                          <TableCell className="text-right tabular-nums text-sm py-2 text-destructive">{waste}</TableCell>
+                                          <TableCell className="text-right tabular-nums text-sm py-2 text-blue-600">{adjustment !== 0 ? (adjustment > 0 ? '+' : '') + adjustment : adjustment}</TableCell>
+                                          <TableCell className="text-right tabular-nums text-sm py-2 text-orange-600">{compensation !== 0 ? (compensation > 0 ? '+' : '') + compensation : compensation}</TableCell>
                                           <TableCell className="text-right tabular-nums text-sm py-2">
-                                            <span className={d.selisih !== 0 ? 'text-destructive font-semibold' : 'text-green-600 font-semibold'}>
-                                              {d.selisih > 0 ? '+' : ''}{d.selisih}
+                                            <span className={selisih !== 0 ? 'text-destructive font-semibold' : 'text-green-600 font-semibold'}>
+                                              {selisih > 0 ? '+' : ''}{selisih}
                                             </span>
                                           </TableCell>
                                         </TableRow>
-                                      ))}
+                                      )})}
                                     </TableBody>
                                   </Table>
                                 </div>
@@ -967,8 +940,8 @@ export function SalesInput() {
                             </TableCell>
                           </TableRow>
                         )}
-                      </>
-                    ))}
+                      </React.Fragment>
+                    )})}
                   </TableBody>
                 </Table>
               </div>
