@@ -35,3 +35,10 @@ export {
   type SalesDraft,
   type SalesDraftItem,
 } from './services/sales'
+export {
+  wasteService,
+  type WasteEntry as WasteApiEntry,
+  type WasteSummary,
+  type WasteListParams,
+  type WasteSummaryParams,
+} from './services/waste'
