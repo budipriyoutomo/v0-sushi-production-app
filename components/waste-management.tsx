@@ -12,8 +12,18 @@ import { PlateColorBadge } from "@/components/plate-color-badge"
 import { useOutlet } from "@/lib/outlet-context"
 import { usePlateColors } from "@/hooks/use-plate-colors"
 import { useToast } from "@/hooks/use-toast"
+import { wasteService, type WasteApiEntry, type WasteSummary } from "@/lib/api"
 import { Loader2, Search, Calendar, Eye } from "lucide-react"
-import type { WasteEntry } from "@/lib/types"
+
+interface WasteEntryLocal {
+  id: string
+  time: Date
+  sushiName: string
+  plateColor: string
+  plateColorId: string
+  quantity: number
+  reason: string
+}
 
 interface GroupedWasteEntry {
   key: string
@@ -21,7 +31,7 @@ interface GroupedWasteEntry {
   plateColor: string
   quantity: number
   reason: string
-  entries: WasteEntry[]
+  entries: WasteEntryLocal[]
 }
 
 export function WasteManagement() {
@@ -30,7 +40,8 @@ export function WasteManagement() {
   const { plateColors, isLoading: isLoadingPlateColors } = usePlateColors()
   
   const [filterColorId, setFilterColorId] = useState<string>("all")
-  const [entries, setEntries] = useState<WasteEntry[]>([])
+  const [entries, setEntries] = useState<WasteEntryLocal[]>([])
+  const [summary, setSummary] = useState<WasteSummary | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [selectedDate, setSelectedDate] = useState(() => {
     const today = new Date()
@@ -42,8 +53,7 @@ export function WasteManagement() {
   // Filter entries by selected plate color
   const filteredEntries = entries.filter((entry) => {
     if (filterColorId === "all") return true
-    const plateColor = plateColors.find(pc => pc.id === filterColorId)
-    return plateColor && entry.plateColor === plateColor.platename.toLowerCase()
+    return entry.plateColorId === filterColorId
   })
 
   // Group entries by sushiName, plateColor, quantity, reason
@@ -73,21 +83,31 @@ export function WasteManagement() {
     setDetailDialogOpen(true)
   }
 
-  // Calculate waste stats per plate color from entries
+  // Calculate waste stats per plate color from summary or entries
   const getWasteStats = () => {
-    const stats: Record<string, { count: number; total: number }> = {}
+    const stats: Record<string, { count: number; production: number }> = {}
     
+    // Initialize all plate colors with 0
     plateColors.forEach(pc => {
-      stats[pc.id] = { count: 0, total: 0 }
+      stats[pc.id] = { count: 0, production: 0 }
     })
 
-    entries.forEach((entry) => {
-      const plateColor = plateColors.find(pc => pc.platename.toLowerCase() === entry.plateColor)
-      if (plateColor && stats[plateColor.id]) {
-        stats[plateColor.id].count += entry.quantity
-        stats[plateColor.id].total += 1
-      }
-    })
+    // Use summary data if available
+    if (summary?.byPlateColor) {
+      summary.byPlateColor.forEach((item) => {
+        if (stats[item.plateColorId]) {
+          stats[item.plateColorId].count = item.wasteCount
+          stats[item.plateColorId].production = item.productionCount
+        }
+      })
+    } else {
+      // Fallback: calculate from entries
+      entries.forEach((entry) => {
+        if (stats[entry.plateColorId]) {
+          stats[entry.plateColorId].count += entry.quantity
+        }
+      })
+    }
 
     return stats
   }
@@ -105,31 +125,49 @@ export function WasteManagement() {
 
     setIsLoading(true)
     try {
-      // TODO: Replace with actual API call when available
-      // const data = await wasteService.getAll({ outletId: selectedOutletId, date: selectedDate })
-      // setEntries(data)
-      
+      // Fetch both waste entries and summary in parallel
+      const [wasteEntries, wasteSummary] = await Promise.all([
+        wasteService.getAll({ outletId: selectedOutletId, date: selectedDate }),
+        wasteService.getSummary({ outletId: selectedOutletId, date: selectedDate }),
+      ])
+
+      // Transform API entries to local format
+      const transformedEntries: WasteEntryLocal[] = wasteEntries.map((entry) => ({
+        id: entry.id,
+        time: new Date(entry.time),
+        sushiName: entry.menuName,
+        plateColor: entry.plateColorName.toLowerCase(),
+        plateColorId: entry.plateColorId,
+        quantity: entry.quantity,
+        reason: entry.reason,
+      }))
+
+      setEntries(transformedEntries)
+      setSummary(wasteSummary)
+
       toast({
-        title: 'Info',
-        description: `Fetching waste data for ${selectedDate}...`,
+        title: 'Success',
+        description: `Loaded ${transformedEntries.length} waste entries`,
       })
-      setEntries([])
     } catch (error) {
+      console.error('Failed to fetch waste data:', error)
       toast({
         title: 'Error',
         description: 'Failed to fetch waste data',
         variant: 'destructive',
       })
+      setEntries([])
+      setSummary(null)
     } finally {
       setIsLoading(false)
     }
   }
 
   const stats = getWasteStats()
-  const totalWaste = Object.values(stats).reduce((sum, stat) => sum + stat.count, 0)
-  // totalProduction is a placeholder — replace with real API data when available
-  const totalProduction = 0
-  const wastePercentage = totalProduction > 0 ? ((totalWaste / totalProduction) * 100).toFixed(1) : '0.0'
+  // Use summary data if available, otherwise calculate from stats
+  const totalWaste = summary?.totalWaste ?? Object.values(stats).reduce((sum, stat) => sum + stat.count, 0)
+  const totalProduction = summary?.totalProduction ?? 0
+  const wastePercentage = summary?.wastePercentage?.toFixed(1) ?? (totalProduction > 0 ? ((totalWaste / totalProduction) * 100).toFixed(1) : '0.0')
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
