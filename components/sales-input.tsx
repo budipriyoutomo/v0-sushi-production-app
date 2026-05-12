@@ -319,19 +319,44 @@ export function SalesInput() {
         outlet_id: selectedOutletId,
         date: selectedDate,
         status: 'draft',
-        items: salesEntries.map((entry) => ({
-          plate_color_id: entry.plateColorId,
-          pos_sold: entry.posSold,
-          production_sold: entry.productionSold,
-          production_waste: entry.productionWaste,
-          adjustment: entry.adjustment,
-          compensation: entry.compensation,
-        })),
+        items: salesEntries.map((entry) => {
+          const storageKey = `sales-input-detail-${selectedOutletId}-${selectedDate}-${entry.plateColorId}`
+          const stored = localStorage.getItem(storageKey)
+          const parsedDetail = stored ? JSON.parse(stored) : null
+
+          return {
+            plate_color_id: entry.plateColorId,
+            pos_sold: entry.posSold,
+            production_sold: entry.productionSold,
+            production_waste: entry.productionWaste,
+            adjustment: entry.adjustment,
+            compensation: entry.compensation,
+            ...(parsedDetail?.menuDetails?.length > 0 && {
+              details: parsedDetail.menuDetails.map((d: {
+                menuId: string
+                menuName: string
+                totalProduced: number
+                totalSold: number
+                totalWasted: number
+                adjustment: number
+                compensation: number
+              }) => ({
+                menu_id: d.menuId,
+                menu_name: d.menuName,
+                total_produced: d.totalProduced,
+                total_sold: d.totalSold,
+                total_wasted: d.totalWasted,
+                adjustment: d.adjustment,
+                compensation: d.compensation,
+              })),
+            }),
+          }
+        }),
       })
 
       toast({
         title: 'Draft Saved',
-        description: `${salesEntries.length} entries saved as draft`,
+        description: `${salesEntries.length} plate color(s) saved as draft`,
       })
     } catch (error) {
       toast({
@@ -371,21 +396,51 @@ export function SalesInput() {
         outlet_id: selectedOutletId,
         date: selectedDate,
         status: 'submitted',
-        items: salesEntries.map((entry) => ({
-          plate_color_id: entry.plateColorId,
-          pos_sold: entry.posSold,
-          production_sold: entry.productionSold,
-          production_waste: entry.productionWaste,
-          adjustment: entry.adjustment,
-          compensation: entry.compensation,
-        })),
+        items: salesEntries.map((entry) => {
+          const storageKey = `sales-input-detail-${selectedOutletId}-${selectedDate}-${entry.plateColorId}`
+          const stored = localStorage.getItem(storageKey)
+          const parsedDetail = stored ? JSON.parse(stored) : null
+
+          return {
+            plate_color_id: entry.plateColorId,
+            pos_sold: entry.posSold,
+            production_sold: entry.productionSold,
+            production_waste: entry.productionWaste,
+            adjustment: entry.adjustment,
+            compensation: entry.compensation,
+            ...(parsedDetail?.menuDetails?.length > 0 && {
+              details: parsedDetail.menuDetails.map((d: {
+                menuId: string
+                menuName: string
+                totalProduced: number
+                totalSold: number
+                totalWasted: number
+                adjustment: number
+                compensation: number
+              }) => ({
+                menu_id: d.menuId,
+                menu_name: d.menuName,
+                total_produced: d.totalProduced,
+                total_sold: d.totalSold,
+                total_wasted: d.totalWasted,
+                adjustment: d.adjustment,
+                compensation: d.compensation,
+              })),
+            }),
+          }
+        }),
       })
 
       toast({
         title: 'Success',
-        description: `Submitted ${salesEntries.length} sales entries`,
+        description: `Sales data for ${salesEntries.length} plate color(s) submitted successfully`,
       })
 
+      // Clear entries and localStorage after successful submit
+      salesEntries.forEach((entry) => {
+        const storageKey = `sales-input-detail-${selectedOutletId}-${selectedDate}-${entry.plateColorId}`
+        localStorage.removeItem(storageKey)
+      })
       setSalesEntries([])
     } catch (error) {
       toast({
