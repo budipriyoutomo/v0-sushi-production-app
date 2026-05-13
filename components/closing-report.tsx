@@ -13,7 +13,7 @@ import { useOutlet } from '@/lib/outlet-context'
 import { PlateColorBadge } from '@/components/plate-color-badge'
 import { Textarea } from '@/components/ui/textarea'
 import { CheckCircle, AlertCircle, Download, Upload, FileText, Loader2, MessageSquare, MessageSquarePlus } from 'lucide-react'
-import { salesService, type SalesDraft } from '@/lib/api'
+import { salesService, type SalesDraft, closingReportService, type ClosingReportEntry, getApiError } from '@/lib/api'
 
 interface MenuSalesEntry {
   menuId: string
@@ -35,11 +35,17 @@ export function ClosingReport() {
   const { selectedOutletId } = useOutlet()
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [salesEntries, setSalesEntries] = useState<MenuSalesEntry[]>([])
+  const [closingEntries, setClosingEntries] = useState<ClosingReportEntry[]>([])
   const [wastePhotos, setWastePhotos] = useState<File[]>([])
+  const [uploadedPhotoUrls, setUploadedPhotoUrls] = useState<string[]>([])
   const [kitchenLeader, setKitchenLeader] = useState('')
   const [operationLeader, setOperationLeader] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [status, setStatus] = useState<'draft' | 'submitted'>('draft')
+  const [isLoadingData, setIsLoadingData] = useState(false)
+  const [isSavingDraft, setIsSavingDraft] = useState(false)
+  const [isUploadingPhotos, setIsUploadingPhotos] = useState(false)
+  const [currentReportId, setCurrentReportId] = useState<string | null>(null)
+  const [status, setStatus] = useState<'draft' | 'submitted' | 'verified'>('draft')
 
   // Compensation note dialog state
   const [noteDialogOpen, setNoteDialogOpen] = useState(false)
@@ -68,21 +74,97 @@ export function ClosingReport() {
   const [expandedDraftId, setExpandedDraftId] = useState<string | null>(null)
   const [draftDetailMap, setDraftDetailMap] = useState<Record<string, SalesDraft>>({})
   const [loadingDetailId, setLoadingDetailId] = useState<string | null>(null)
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setWastePhotos(Array.from(e.target.files))
-      toast({
-        title: 'Success',
-        description: `${e.target.files.length} photo(s) uploaded`,
-      })
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const files = Array.from(e.target.files)
+      setWastePhotos(files)
+      
+      // Upload photos to server
+      setIsUploadingPhotos(true)
+      try {
+        const urls = await closingReportService.uploadWastePhotos(files)
+        setUploadedPhotoUrls(urls)
+        toast({
+          title: 'Success',
+          description: `${files.length} photo(s) uploaded successfully`,
+        })
+      } catch (error) {
+        toast({
+          title: 'Error',
+          description: getApiError(error),
+          variant: 'destructive',
+        })
+      } finally {
+        setIsUploadingPhotos(false)
+      }
     }
   }
 
-  const handleGetData = () => {
-    toast({
-      title: 'Data Loaded',
-      description: `Loading data for ${date}...`,
-    })
+  // Fetch closing report data from API
+  const handleGetData = async () => {
+    if (!selectedOutletId) {
+      toast({
+        title: 'Error',
+        description: 'Please select an outlet first',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setIsLoadingData(true)
+    try {
+      const data = await closingReportService.getData({
+        outletId: selectedOutletId,
+        date: date,
+      })
+
+      // Store the closing report entries
+      setClosingEntries(data.entries)
+      setCurrentReportId(data.id || null)
+      setStatus(data.status || 'draft')
+      setKitchenLeader(data.kitchenLeader || '')
+      setOperationLeader(data.operationLeader || '')
+      setUploadedPhotoUrls(data.wastePhotoUrls || [])
+
+      // Transform to MenuSalesEntry format for display
+      const entries: MenuSalesEntry[] = data.entries.map((entry) => ({
+        menuId: entry.plateColorId,
+        menuName: entry.plateColorName,
+        code: entry.plateColorCode,
+        plateColor: entry.plateColorName.toLowerCase(),
+        sellingPrice: entry.sellingPrice,
+        produced: entry.produced,
+        sold: entry.sold,
+        waste: entry.waste,
+        posSold: entry.posSold,
+        adjustment: entry.adjustment,
+        compensation: entry.compensation,
+        compensationReason: entry.compensationReason,
+      }))
+      setSalesEntries(entries)
+
+      // Update compensation notes
+      const notes: Record<string, string> = {}
+      data.entries.forEach((entry) => {
+        if (entry.compensationReason) {
+          notes[entry.id] = entry.compensationReason
+        }
+      })
+      setCompensationNotes(notes)
+
+      toast({
+        title: 'Data Loaded',
+        description: `Loaded ${entries.length} entries for ${date}`,
+      })
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: getApiError(error),
+        variant: 'destructive',
+      })
+    } finally {
+      setIsLoadingData(false)
+    }
   }
 
   // Get Sales Drafts from API
@@ -184,7 +266,74 @@ export function ClosingReport() {
     compensationValue: salesEntries.reduce((sum, e) => sum + (e.compensation * e.sellingPrice), 0),
   }
 
+  // Save as draft
+  const handleSaveDraft = async () => {
+    if (!selectedOutletId) {
+      toast({
+        title: 'Error',
+        description: 'Please select an outlet first',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (closingEntries.length === 0) {
+      toast({
+        title: 'Error',
+        description: 'Please load data first using "Get Data" button',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setIsSavingDraft(true)
+    try {
+      const payload = {
+        outletId: selectedOutletId,
+        date: date,
+        kitchenLeader: kitchenLeader || undefined,
+        operationLeader: operationLeader || undefined,
+        entries: closingEntries.map((entry) => ({
+          plateColorId: entry.plateColorId,
+          posSold: entry.posSold,
+          adjustment: entry.adjustment,
+          compensation: entry.compensation,
+          compensationReason: compensationNotes[entry.id] || undefined,
+        })),
+      }
+
+      if (currentReportId) {
+        await closingReportService.updateDraft(currentReportId, payload)
+      } else {
+        const result = await closingReportService.saveDraft(payload)
+        setCurrentReportId(result.id)
+      }
+
+      toast({
+        title: 'Success',
+        description: 'Draft saved successfully',
+      })
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: getApiError(error),
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSavingDraft(false)
+    }
+  }
+
   const handleSubmit = async () => {
+    if (!selectedOutletId) {
+      toast({
+        title: 'Error',
+        description: 'Please select an outlet first',
+        variant: 'destructive',
+      })
+      return
+    }
+
     if (!kitchenLeader || !operationLeader) {
       toast({
         title: 'Error',
@@ -204,14 +353,29 @@ export function ClosingReport() {
     }
 
     setIsSubmitting(true)
-    setTimeout(() => {
-      setIsSubmitting(false)
+    try {
+      await closingReportService.submit({
+        outletId: selectedOutletId,
+        date: date,
+        kitchenLeader: kitchenLeader,
+        operationLeader: operationLeader,
+        wastePhotoUrls: uploadedPhotoUrls.length > 0 ? uploadedPhotoUrls : undefined,
+      })
+
       setStatus('submitted')
       toast({
         title: 'Success',
         description: 'Closing report submitted successfully',
       })
-    }, 1000)
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: getApiError(error),
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -272,11 +436,15 @@ export function ClosingReport() {
               <Button 
                 onClick={handleGetData}
                 variant="outline"
-                disabled={status === 'submitted'}
+                disabled={status === 'submitted' || isLoadingData}
                 className="gap-2"
               >
-                <Download className="w-4 h-4" />
-                Get Data
+                {isLoadingData ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                {isLoadingData ? 'Loading...' : 'Get Data'}
               </Button>
               <Button
                 onClick={handleGetSalesDrafts}
@@ -368,8 +536,16 @@ export function ClosingReport() {
                     <span>Choose Photos</span>
                   </Button>
                 </label>
-                {wastePhotos.length > 0 && (
-                  <p className="text-sm text-green-600">{wastePhotos.length} photo(s) selected</p>
+                {isUploadingPhotos && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Uploading photos...
+                  </div>
+                )}
+                {wastePhotos.length > 0 && !isUploadingPhotos && (
+                  <p className="text-sm text-green-600">
+                    {wastePhotos.length} photo(s) {uploadedPhotoUrls.length > 0 ? 'uploaded' : 'selected'}
+                  </p>
                 )}
               </div>
             </div>
@@ -447,8 +623,20 @@ export function ClosingReport() {
 
       {/* Action Buttons */}
       <div className="flex gap-2 justify-end">
-        <Button variant="outline" disabled={status === 'submitted'}>
-          Save as Draft
+        <Button 
+          variant="outline" 
+          disabled={status === 'submitted' || isSavingDraft || salesEntries.length === 0}
+          onClick={handleSaveDraft}
+          className="gap-2"
+        >
+          {isSavingDraft ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            'Save as Draft'
+          )}
         </Button>
         <Button
           onClick={handleSubmit}
