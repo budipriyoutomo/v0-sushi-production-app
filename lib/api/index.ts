@@ -42,3 +42,12 @@ export {
   type WasteListParams,
   type WasteSummaryParams,
 } from './services/waste'
+export {
+  closingReportService,
+  type ClosingReportEntry,
+  type ClosingReportSummary,
+  type ClosingReportParams,
+  type ClosingReportListParams,
+  type ClosingReportPayload,
+  type SubmitClosingReportPayload,
+} from './services/closing-report'
