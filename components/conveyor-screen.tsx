@@ -16,6 +16,7 @@ import { usePlateColorsSortedByPrice } from "@/hooks/use-plate-colors"
 import { useMenus } from "@/hooks/use-menus"
 import { useActiveWasteReasons } from "@/hooks/use-waste-reasons"
 import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/hooks/use-auth"
 import { productionService, getApiError } from "@/lib/api"
 import { CheckCircle, XCircle, Loader2 } from "lucide-react"
 import { formatRupiah, lowercase } from "@/lib/utils"
@@ -61,7 +62,12 @@ interface ItemWithWasteReason {
 
 export function ConveyorScreen() {
   const { toast } = useToast()
+  const { user } = useAuth()
   const { selectedOutletId } = useOutlet()
+  
+  // Check if user can use Sold and Waste buttons
+  // Kitchen role should have these buttons disabled
+  const canUseSoldWasteButtons = user?.role?.toLowerCase() !== 'kitchen'
   const { items: conveyorItems, isLoading, refresh } = useConveyorItems(selectedOutletId)
   const { plateColors } = usePlateColorsSortedByPrice()
   const { menus } = useMenus()
@@ -282,8 +288,10 @@ const activeItems = items.filter(
                       {/* SOLD BUTTON */}
                       <Button
                         size="sm"
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-8 text-xs"
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-8 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                         onClick={() => handleMarkSold(item.id, item.menuName)}
+                        disabled={!canUseSoldWasteButtons}
+                        title={!canUseSoldWasteButtons ? "Not available for kitchen role" : undefined}
                       >
                         <CheckCircle className="w-3 h-3 mr-1" />
                         Sold
@@ -293,8 +301,10 @@ const activeItems = items.filter(
                       <Button
                         size="sm"
                         variant="destructive"
-                        className="w-full h-8 text-xs"
+                        className="w-full h-8 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                         onClick={() => handleWasteClick(item)}
+                        disabled={!canUseSoldWasteButtons}
+                        title={!canUseSoldWasteButtons ? "Not available for kitchen role" : undefined}
                       >
                         <XCircle className="w-3 h-3 mr-1" />
                         Waste

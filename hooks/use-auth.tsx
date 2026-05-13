@@ -84,9 +84,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const logout = async (): Promise<void> => {
-    await authService.logout()
-    setUser(null)
-    setStatus('unauthenticated')
+    try {
+      await authService.logout()
+    } catch (error) {
+      // Ignore logout API errors (e.g., 404 if endpoint doesn't exist)
+      // Still proceed to clear local auth state
+      console.warn('Logout API error (ignored):', error)
+    } finally {
+      setUser(null)
+      setStatus('unauthenticated')
+    }
   }
 
   return (
