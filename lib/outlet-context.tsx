@@ -29,9 +29,14 @@ export function OutletProvider({ children }: { children: ReactNode }) {
     if (!user || !user.outlet || user.role === 'admin') {
       return allOutlets
     }
-    // Filter outlets by matching code with user's outlet array
-    return allOutlets.filter((outlet) => 
-      user.outlet?.includes(outlet.code)
+
+    const allowedOutletCodes = new Set(
+      user.outlet.map((code) => code.trim().toLowerCase())
+    )
+
+    // Filter outlets by matching normalized outlet codes.
+    return allOutlets.filter((outlet) =>
+      allowedOutletCodes.has(outlet.code.trim().toLowerCase())
     )
   }, [allOutlets, user])
 

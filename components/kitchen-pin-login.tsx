@@ -5,11 +5,13 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { authService, getApiError } from "@/lib/api" 
+import { getApiError } from "@/lib/api"
+import { useAuth } from "@/hooks/use-auth"
 import { Loader2 } from "lucide-react"
 
 export function KitchenPinLogin() {
-  const router = useRouter() 
+  const router = useRouter()
+  const { pinLogin } = useAuth()
   const [pin, setPin] = useState("")
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -39,8 +41,8 @@ export function KitchenPinLogin() {
     setError("")
 
     try {
-      await authService.pinLogin({ pin })
-      router.push("/kitchen/dashboard")
+      await pinLogin({ pin })
+      router.replace("/kitchen/dashboard")
     } catch (err) {
       const apiError = getApiError(err)
       setError(apiError.message || "Invalid PIN. Please try again.")

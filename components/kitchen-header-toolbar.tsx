@@ -1,120 +1,130 @@
 'use client'
 
-import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { Button } from '@/components/ui/button'
+import { useMemo } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
 import { LogOut } from 'lucide-react'
+
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/use-auth'
-import { useMemo } from 'react'
+import { log } from 'console'
 
-// Role-based route permissions
-// admin: bypass all (access everything)
-// kitchen: /kitchen/dashboard, /kitchen/produce, /kitchen/conveyor
-// service: /kitchen/dashboard, /kitchen/conveyor, /kitchen/expired
-const ROLE_ROUTES: Record<string, string[]> = {
-  admin: ['/kitchen/dashboard', '/kitchen/produce', '/kitchen/conveyor', '/kitchen/expired'],
-  kitchen: ['/kitchen/dashboard', '/kitchen/produce', '/kitchen/conveyor'],
-  service: ['/kitchen/dashboard', '/kitchen/conveyor', '/kitchen/expired'],
+type Role = 'admin' | 'kitchen' | 'service'
+
+type MenuItem = {
+  label: string
+  path: string
+  danger?: boolean
+  roles: Role[]
 }
+
+const MENU_ITEMS: MenuItem[] = [
+  {
+    label: 'Dashboard',
+    path: '/kitchen/dashboard',
+    roles: ['admin', 'kitchen', 'service'],
+  },
+  {
+    label: 'Production',
+    path: '/kitchen/produce',
+    roles: ['admin', 'kitchen'],
+  },
+  {
+    label: 'Conveyor',
+    path: '/kitchen/conveyor',
+    roles: ['admin', 'kitchen', 'service'],
+  },
+  {
+    label: 'Expired',
+    path: '/kitchen/expired',
+    roles: ['admin', 'service'],
+    danger: true,
+  },
+]
 
 export function KitchenHeaderToolbar() {
   const router = useRouter()
   const pathname = usePathname()
-  const { user, logout } = useAuth()
 
-  const handleLogout = async () => {
-    await logout()
-    router.push('/login/kitchen')
+  const { user, logout, isLoading, isAuthenticated } = useAuth() 
+  const role = (user?.role || '').toLowerCase() as Role
+
+  const allowedMenus = useMemo(() => {
+  if (!user) return []
+
+  if (role === 'admin') {
+  return MENU_ITEMS
   }
 
-  const isActive = (path: string) => pathname === path
+  return MENU_ITEMS.filter((menu) =>
+  menu.roles.includes(role)
+  )
+  }, [role, user])
 
-  // Get allowed routes based on user role
-  const allowedRoutes = useMemo(() => {
-    if (!user) return []
-    const role = user.role?.toLowerCase() || ''
-    // Admin bypasses all restrictions
-    if (role === 'admin') return ROLE_ROUTES.admin
-    return ROLE_ROUTES[role] || []
-  }, [user])
 
-  const canAccess = (path: string) => allowedRoutes.includes(path)
+  const handleLogout = async () => {
+    try {
+      await logout()
+    } finally {
+      router.replace('/login/kitchen')
+    }
+  }
+
+  const isActive = (path: string) => {
+    return pathname === path
+  }
+ 
 
   return (
-<div className="bg-card border-b border-border sticky top-0 z-50 px-3 py-2">
-  <div className="max-w-7xl mx-auto">
-    <div className="flex items-center justify-between gap-3">
-          {/* Navigation Buttons Group */}
-          <div className="flex gap-1 bg-secondary/50 rounded-lg p-1">
-            {canAccess('/kitchen/dashboard') && (
-              <Link
-                href="/kitchen/dashboard"
-                className={cn(
-                  'px-4 py-2 rounded-md text-sm font-medium transition-colors',
-                  isActive('/kitchen/dashboard')
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-secondary-foreground hover:bg-primary/20'
-                )}
-              >
-                Dashboard
-              </Link>
-            )}
-            {canAccess('/kitchen/produce') && (
-              <Link
-                href="/kitchen/produce"
-                className={cn(
-                  'px-4 py-2 rounded-md text-sm font-medium transition-colors',
-                  isActive('/kitchen/produce')
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-secondary-foreground hover:bg-primary/20'
-                )}
-              >
-                Production
-              </Link>
-            )}
-            {canAccess('/kitchen/conveyor') && (
-              <Link
-                href="/kitchen/conveyor"
-                className={cn(
-                  'px-4 py-2 rounded-md text-sm font-medium transition-colors',
-                  isActive('/kitchen/conveyor')
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-secondary-foreground hover:bg-primary/20'
-                )}
-              >
-                Conveyor
-              </Link>
-            )}
-            {canAccess('/kitchen/expired') && (
-              <Link
-                href="/kitchen/expired"
-                className={cn(
-                  'px-4 py-2 rounded-md text-sm font-medium transition-colors',
-                  isActive('/kitchen/expired')
-                    ? 'bg-destructive text-destructive-foreground'
-                    : 'text-secondary-foreground hover:bg-primary/20'
-                )}
-              >
-                Expired
-              </Link>
-            )}
+    <div className="sticky top-0 z-50 border-b border-border bg-card px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-card/90">
+      <div className="mx-auto max-w-7xl">
+        <div className="flex items-center justify-between gap-3">
+          {/* Navigation */}
+          <div className="flex flex-wrap gap-1 rounded-lg bg-secondary/50 p-1">
+            {allowedMenus.map((menu) => {
+              const active = isActive(menu.path)
+
+              return (
+                <Link
+                  key={menu.path}
+                  href={menu.path}
+                  className={cn(
+                    'rounded-md px-4 py-2 text-sm font-medium transition-all duration-200',
+                    active
+                      ? menu.danger
+                        ? 'bg-destructive text-destructive-foreground'
+                        : 'bg-primary text-primary-foreground'
+                      : 'text-secondary-foreground hover:bg-primary/15 hover:text-foreground'
+                  )}
+                >
+                  {menu.label}
+                </Link>
+              )
+            })}
           </div>
 
-          {/* User Info & Logout Button */}
+          {/* User & Logout */}
           <div className="flex items-center gap-3">
             {user && (
-              <span className="text-sm text-muted-foreground hidden sm:inline">
-                {user.name} ({user.role})
-              </span>
+              <div className="hidden text-right sm:block">
+                <p className="text-sm font-medium leading-none">
+                  {user.name}
+                </p>
+
+                <p className="mt-1 text-xs capitalize text-muted-foreground">
+                  {user.role}
+                </p>
+              </div>
             )}
+
             <Button
-              onClick={handleLogout}
-              variant="destructive"
               size="sm"
+              variant="destructive"
+              onClick={handleLogout}
               className="gap-2"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="h-4 w-4" />
               Logout
             </Button>
           </div>

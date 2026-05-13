@@ -23,7 +23,7 @@ const plateColorBg: Record<PlateColor, string> = {
 }
 
 export function KitchenDashboard() {
-  const { selectedOutletId } = useOutlet()
+  const { selectedOutletId, isLoading: outletsLoading } = useOutlet()
   const { stats, isLoading } = useProductionStats(selectedOutletId)
   const { plateColors } = usePlateColorsSortedByPrice()
 
@@ -68,9 +68,17 @@ const getStatus = (
       </div>
 
       {/* Content */}
-      {isLoading ? (
+      {outletsLoading || isLoading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : !selectedOutletId ? (
+        <div className="rounded-md border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
+          Tidak ada outlet aktif yang bisa dipakai untuk dashboard ini.
+        </div>
+      ) : stats.length === 0 ? (
+        <div className="rounded-md border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
+          Data statistik kitchen belum tersedia untuk outlet ini.
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">

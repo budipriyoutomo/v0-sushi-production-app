@@ -71,13 +71,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (credentials: LoginCredentials): Promise<User> => {
     const { user: loggedInUser } = await authService.login(credentials)
+
+    await refreshUser()
+    
     setUser(loggedInUser)
     setStatus('authenticated')
     return loggedInUser
   }
 
   const pinLogin = async (credentials: PinLoginCredentials): Promise<User> => {
-    const { user: loggedInUser } = await authService.pinLogin(credentials)
+    const { user: loggedInUser } = await authService.pinLogin(credentials) 
+    await refreshUser()
     setUser(loggedInUser)
     setStatus('authenticated')
     return loggedInUser
