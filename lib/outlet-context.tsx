@@ -1,9 +1,10 @@
 'use client'
 
-import { createContext, useContext, useState, ReactNode, useEffect } from 'react'
+import { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react'
 import type { Outlet } from './types'
 import { useActiveOutlets } from '@/hooks/use-outlets' 
-import { usePathname } from 'next/navigation' 
+import { usePathname } from 'next/navigation'
+import { useAuth } from '@/hooks/use-auth'
 
 interface OutletContextType {
   selectedOutletId: string
@@ -16,17 +17,34 @@ const OutletContext = createContext<OutletContextType | undefined>(undefined)
 
 export function OutletProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname()
+  const { user } = useAuth()
   const shouldFetch = pathname !== '/login'
 
-  const { outlets, isLoading } = useActiveOutlets(shouldFetch ? undefined : null)
+  const { outlets: allOutlets, isLoading } = useActiveOutlets(shouldFetch ? undefined : null)
   const [selectedOutletId, setSelectedOutletId] = useState<string>('')
+
+  // Filter outlets based on user's allowed outlet codes
+  // Admin role bypasses filter and gets all outlets
+  const outlets = useMemo(() => {
+    if (!user || !user.outlet || user.role === 'admin') {
+      return allOutlets
+    }
+    // Filter outlets by matching code with user's outlet array
+    return allOutlets.filter((outlet) => 
+      user.outlet?.includes(outlet.code)
+    )
+  }, [allOutlets, user])
 
   // Automatically select the first outlet if none is selected
   useEffect(() => {
     if (!selectedOutletId && outlets.length > 0) {
       setSelectedOutletId(outlets[0].id)
     }
-  }, [outlets])
+    // Reset selection if current selection is not in filtered outlets
+    if (selectedOutletId && outlets.length > 0 && !outlets.find(o => o.id === selectedOutletId)) {
+      setSelectedOutletId(outlets[0].id)
+    }
+  }, [outlets, selectedOutletId])
 
   return (
     <OutletContext.Provider value={{ selectedOutletId, setSelectedOutletId, outlets, isLoading }}>

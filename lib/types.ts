@@ -1,13 +1,16 @@
 export type PlateColor = "white" | "blue" | "pink" | "black" | "red" | "gold" | "choco motive" | "yellow" | "silver"
 
-export type UserRole = 'admin' | 'manager' | 'kitchen' | 'operation' | 'production'
+export type UserRole = 'admin' | 'manager' | 'kitchen' | 'service' | 'operation' | 'production'
 
 export interface User {
   id: string
   name: string
-  email: string
+  email?: string
   role: UserRole | string
   username?: string
+  departemen?: string
+  outlet?: string[] // Array of outlet codes the user has access to
+  module_app?: string[] // Array of modules the user has access to
   isActive?: boolean
   createdAt?: string | Date
 }
