@@ -8,61 +8,18 @@ import { TrendingUp, TrendingDown, Download, RefreshCw, Calendar } from 'lucide-
 import { PlateColorBadge, type PlateColor } from '@/components/plate-color-badge'
 
 // Belt Performance Data
-const beltPerformanceData = [
-  { time: '10:00', sold: 145, expired: 8 },
-  { time: '10:30', sold: 162, expired: 12 },
-  { time: '11:00', sold: 198, expired: 15 },
-  { time: '11:30', sold: 245, expired: 18 },
-  { time: '12:00', sold: 312, expired: 22 },
-  { time: '12:30', sold: 289, expired: 19 },
-  { time: '13:00', sold: 234, expired: 14 },
-  { time: '13:30', sold: 167, expired: 9 },
-  { time: '14:00', sold: 145, expired: 7 },
-]
+const beltPerformanceData: { time: string; sold: number; expired: number }[] = []
 
 // Color Plate Performance
-const colorPlateData = [
-  { color: 'white' as PlateColor, price: 25000, released: 1200, sold: 1156, expired: 44, revenue: 28900000 },
-  { color: 'blue' as PlateColor, price: 30000, released: 980, sold: 931, expired: 49, revenue: 27930000 },
-  { color: 'pink' as PlateColor, price: 28000, released: 856, sold: 805, expired: 51, revenue: 22540000 },
-  { color: 'black' as PlateColor, price: 35000, released: 645, sold: 612, expired: 33, revenue: 21420000 },
-  { color: 'red' as PlateColor, price: 32000, released: 523, sold: 489, expired: 34, revenue: 15648000 },
-  { color: 'gold' as PlateColor, price: 40000, released: 412, sold: 382, expired: 30, revenue: 15280000 },
-  { color: 'yellow' as PlateColor, price: 26000, released: 734, sold: 695, expired: 39, revenue: 18070000 },
-]
+const colorPlateData: { color: PlateColor; price: number; released: number; sold: number; expired: number; revenue: number }[] = []
 
 // Top Product Performance
-const topProductsData = [
-  { rank: 1, name: 'California Roll', released: 856, sold: 812, expired: 44, avgTime: 8.5, sellThrough: 94.9 },
-  { rank: 2, name: 'Spicy Tuna Roll', released: 723, sold: 681, expired: 42, avgTime: 9.2, sellThrough: 94.2 },
-  { rank: 3, name: 'Dragon Roll', released: 645, sold: 601, expired: 44, avgTime: 10.1, sellThrough: 93.2 },
-  { rank: 4, name: 'Rainbow Roll', released: 534, sold: 489, expired: 45, avgTime: 11.5, sellThrough: 91.6 },
-  { rank: 5, name: 'Cucumber Roll', released: 478, sold: 438, expired: 40, avgTime: 7.8, sellThrough: 91.6 },
-]
+const topProductsData: { rank: number; name: string; released: number; sold: number; expired: number; avgTime: number; sellThrough: number }[] = []
 
 // Waste Cost Summary
-const wasteCostData = [
-  { product: 'California', cost: 352000 },
-  { product: 'Spicy Tuna', cost: 294000 },
-  { product: 'Dragon', cost: 275200 },
-  { product: 'Rainbow', cost: 243000 },
-  { product: 'Cucumber', cost: 182400 },
-  { product: 'Others', cost: 301600 },
-]
+const wasteCostData: { product: string; cost: number }[] = []
 
-// Time Slot Analysis
-const timeSlotData = [
-  { time: '10:00-10:30', sellRate: 94.5, expiredRate: 5.5, traffic: 'low' },
-  { time: '10:30-11:00', sellRate: 93.1, expiredRate: 6.9, traffic: 'low' },
-  { time: '11:00-11:30', sellRate: 92.3, expiredRate: 7.7, traffic: 'medium' },
-  { time: '11:30-12:00', sellRate: 95.2, expiredRate: 4.8, traffic: 'high' },
-  { time: '12:00-12:30', sellRate: 93.8, expiredRate: 6.2, traffic: 'high' },
-  { time: '12:30-13:00', sellRate: 92.6, expiredRate: 7.4, traffic: 'high' },
-  { time: '13:00-13:30', sellRate: 94.1, expiredRate: 5.9, traffic: 'medium' },
-  { time: '13:30-14:00', sellRate: 96.6, expiredRate: 3.4, traffic: 'low' },
-]
-
-function KPICard({ label, value, trend, icon: Icon }: { label: string; value: string; trend: number; icon: React.ComponentType<any> }) {
+function KPICard({ label, value, trend, icon: Icon }: { label: string; value: string; trend: number; icon: React.ComponentType<{ className?: string }> }) {
   const isPositive = trend > 0
   return (
     <Card>
@@ -90,13 +47,6 @@ function KPICard({ label, value, trend, icon: Icon }: { label: string; value: st
       </CardContent>
     </Card>
   )
-}
-
-function getHeatmapColor(sellRate: number): string {
-  if (sellRate >= 95) return 'bg-green-100 border-green-300'
-  if (sellRate >= 93) return 'bg-green-50 border-green-200'
-  if (sellRate >= 90) return 'bg-yellow-50 border-yellow-200'
-  return 'bg-red-50 border-red-200'
 }
 
 export function ProductionMonitoringDashboard() {
@@ -363,39 +313,6 @@ export function ProductionMonitoringDashboard() {
         </CardContent>
       </Card>
 
-      {/* Section 5: Time Slot Analysis */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Time Slot Analysis</CardTitle>
-          <p className="text-sm text-muted-foreground">Heatmap: Green = High Sell Rate, Red = High Expired Rate</p>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-            {timeSlotData.map((slot) => (
-              <div
-                key={slot.time}
-                className={`p-4 rounded-lg border-2 ${getHeatmapColor(slot.sellRate)} transition-colors`}
-              >
-                <p className="font-semibold text-sm">{slot.time}</p>
-                <div className="mt-2 space-y-1">
-                  <div className="flex justify-between text-sm">
-                    <span>Sell Rate:</span>
-                    <span className="font-bold text-green-600">{slot.sellRate}%</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Expired Rate:</span>
-                    <span className="font-bold text-red-600">{slot.expiredRate}%</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Traffic:</span>
-                    <span className="font-bold text-muted-foreground capitalize">{slot.traffic}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }
