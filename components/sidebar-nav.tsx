@@ -29,7 +29,6 @@ export function SidebarNav({ role }: SidebarNavProps) {
     { label: 'Plate Colors', href: '/admin/plate-colors' },
     { label: 'Waste Reasons', href: '/admin/reason-waste' },
     { label: 'Menus', href: '/admin/menus' },
-    { label: 'Reports', href: '/admin/reports' },
   ]
 
   const productionItems: NavItem[] = [
