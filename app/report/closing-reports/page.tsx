@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,90 +9,102 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { OutletSelector } from '@/components/outlet-selector'
 import { useToast } from '@/hooks/use-toast'
 import { PlateColorBadge } from '@/components/plate-color-badge'
-import { RefreshCw, Download, FileText } from 'lucide-react'
-
-interface ClosingReportData {
-  id: string
-  date: string
-  outletId: string
-  items: {
-    code: string
-    menuName: string
-    sellingPrice: number
-    plateColor: string
-    produced: number
-    sold: number
-    waste: number
-    posSold: number
-    adjustment: number
-    compensation: number
-  }[]
-  kitchenLeader: string
-  operationLeader: string
-}
-
-// Mock submitted data
-const mockSubmittedReports: ClosingReportData[] = [
-  {
-    id: '1',
-    date: new Date().toISOString().split('T')[0],
-    outletId: 'outlet1',
-    items: [
-      { code: 'MN0021', menuName: 'California Roll', sellingPrice: 25000, plateColor: 'white', produced: 30, sold: 25, waste: 5, posSold: 21, adjustment: 0, compensation: 0 },
-      { code: 'MN0022', menuName: 'Salmon Nigiri', sellingPrice: 30000, plateColor: 'blue', produced: 45, sold: 45, waste: 0, posSold: 47, adjustment: 2, compensation: 2 },
-      { code: 'MN0023', menuName: 'Spicy Tuna Roll', sellingPrice: 28000, plateColor: 'pink', produced: 60, sold: 56, waste: 4, posSold: 43, adjustment: 0, compensation: 0 },
-    ],
-    kitchenLeader: 'John Doe - Kitchen Lead',
-    operationLeader: 'Jane Smith - Operations',
-  },
-  {
-    id: '2',
-    date: new Date(Date.now() - 86400000).toISOString().split('T')[0],
-    outletId: 'outlet1',
-    items: [
-      { code: 'MN0021', menuName: 'California Roll', sellingPrice: 25000, plateColor: 'white', produced: 28, sold: 24, waste: 4, posSold: 20, adjustment: -1, compensation: 0 },
-      { code: 'MN0022', menuName: 'Salmon Nigiri', sellingPrice: 30000, plateColor: 'blue', produced: 42, sold: 40, waste: 2, posSold: 43, adjustment: 1, compensation: 3 },
-    ],
-    kitchenLeader: 'John Doe - Kitchen Lead',
-    operationLeader: 'Jane Smith - Operations',
-  },
-]
+import { RefreshCw, Download, FileText, Loader2 } from 'lucide-react'
+import { useOutlet } from '@/lib/outlet-context'
+import { closingReportService, type ClosingReportSummary, getApiError } from '@/lib/api'
 
 export default function ClosingReportsPage() {
   const { toast } = useToast()
+  const { selectedOutletId } = useOutlet()
   const [dateRange, setDateRange] = useState<'today' | 'yesterday' | 'custom'>('today')
   const [customStartDate, setCustomStartDate] = useState('')
   const [customEndDate, setCustomEndDate] = useState('')
-  const [selectedOutletId, setSelectedOutletId] = useState('outlet1')
+  const [reports, setReports] = useState<ClosingReportSummary[]>([])
+  const [isLoading, setIsLoading] = useState(false)
 
   const today = new Date().toISOString().split('T')[0]
   const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
 
-  const getFilteredReports = useMemo(() => {
-    let filtered = mockSubmittedReports.filter(r => r.outletId === selectedOutletId)
-
-    if (dateRange === 'today') {
-      filtered = filtered.filter(r => r.date === today)
-    } else if (dateRange === 'yesterday') {
-      filtered = filtered.filter(r => r.date === yesterday)
-    } else if (dateRange === 'custom' && customStartDate && customEndDate) {
-      filtered = filtered.filter(r => r.date >= customStartDate && r.date <= customEndDate)
+  const fetchReports = useCallback(async () => {
+    if (!selectedOutletId) {
+      toast({
+        title: 'Error',
+        description: 'Please select an outlet first',
+        variant: 'destructive',
+      })
+      return
     }
 
-    return filtered
-  }, [dateRange, customStartDate, customEndDate, selectedOutletId])
+    setIsLoading(true)
+    try {
+      let startDate: string
+      let endDate: string
+
+      if (dateRange === 'today') {
+        startDate = today
+        endDate = today
+      } else if (dateRange === 'yesterday') {
+        startDate = yesterday
+        endDate = yesterday
+      } else {
+        startDate = customStartDate
+        endDate = customEndDate
+      }
+
+      if (!startDate || !endDate) {
+        toast({
+          title: 'Error',
+          description: 'Please select a valid date range',
+          variant: 'destructive',
+        })
+        setIsLoading(false)
+        return
+      }
+
+      const data = await closingReportService.getAll({
+        outletId: selectedOutletId,
+        startDate,
+        endDate,
+        status: 'submitted',
+      })
+
+      setReports(data)
+      toast({
+        title: 'Success',
+        description: `Loaded ${data.length} closing report(s)`,
+      })
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: getApiError(error),
+        variant: 'destructive',
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }, [selectedOutletId, dateRange, today, yesterday, customStartDate, customEndDate, toast])
 
   const allItems = useMemo(() => {
-    return getFilteredReports.flatMap((report, reportIdx) =>
-      report.items.map(item => ({ ...item, reportId: report.id, reportDate: report.date, reportIdx }))
+    return reports.flatMap((report) =>
+      report.entries.map(entry => ({
+        code: entry.plateColorCode,
+        menuName: entry.plateColorName,
+        sellingPrice: entry.sellingPrice,
+        plateColor: entry.plateColorName.toLowerCase(),
+        produced: entry.produced,
+        sold: entry.sold,
+        waste: entry.waste,
+        posSold: entry.posSold,
+        adjustment: entry.adjustment,
+        compensation: entry.compensation,
+        reportId: report.id,
+        reportDate: report.date,
+      }))
     )
-  }, [getFilteredReports])
+  }, [reports])
 
   const handleRefresh = () => {
-    toast({
-      title: 'Refreshing',
-      description: 'Loading latest closing reports...',
-    })
+    fetchReports()
   }
 
   const handleExportExcel = () => {
@@ -157,9 +169,14 @@ export default function ClosingReportsPage() {
                 onClick={handleRefresh}
                 variant="outline"
                 className="w-full gap-2"
+                disabled={isLoading}
               >
-                <RefreshCw className="w-4 h-4" />
-                Refresh
+                {isLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4" />
+                )}
+                {isLoading ? 'Loading...' : 'Get Data'}
               </Button>
             </div>
           </div>
@@ -210,6 +227,7 @@ export default function ClosingReportsPage() {
               onClick={handleExportExcel}
               variant="outline"
               className="gap-2"
+              disabled={allItems.length === 0}
             >
               <Download className="w-4 h-4" />
               Excel
@@ -218,6 +236,7 @@ export default function ClosingReportsPage() {
               onClick={handleExportPDF}
               variant="outline"
               className="gap-2"
+              disabled={allItems.length === 0}
             >
               <FileText className="w-4 h-4" />
               PDF
@@ -232,7 +251,7 @@ export default function ClosingReportsPage() {
           <div className="flex items-center justify-between">
             <CardTitle>Report Data</CardTitle>
             <span className="text-sm text-muted-foreground">
-              {allItems.length} items from {getFilteredReports.length} report(s)
+              {allItems.length} items from {reports.length} report(s)
             </span>
           </div>
         </CardHeader>
@@ -267,10 +286,19 @@ export default function ClosingReportsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {allItems.length === 0 ? (
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={12} className="text-center py-6">
+                      <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Loading data...
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : allItems.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={12} className="text-center py-6 text-muted-foreground">
-                      No data available for selected filters
+                      No data available. Click &quot;Get Data&quot; to load closing reports.
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -280,7 +308,7 @@ export default function ClosingReportsPage() {
                       <TableCell className="font-medium">{item.menuName}</TableCell>
                       <TableCell className="text-right">Rp {item.sellingPrice.toLocaleString('id-ID')}</TableCell>
                       <TableCell>
-                        <PlateColorBadge color={item.plateColor as any} />
+                        <PlateColorBadge color={item.plateColor as 'white' | 'blue' | 'pink' | 'black' | 'red' | 'gold' | 'yellow'} />
                       </TableCell>
                       <TableCell className="text-right text-sm">{item.produced}</TableCell>
                       <TableCell className="text-right text-sm text-green-600">{item.sold}</TableCell>
@@ -304,7 +332,7 @@ export default function ClosingReportsPage() {
       </Card>
 
       {/* Summary Cards */}
-      {getFilteredReports.length > 0 && (
+      {reports.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card className="bg-blue-50 border-blue-200">
             <CardContent className="pt-4">
