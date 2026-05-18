@@ -55,11 +55,11 @@ export function QuantityCalculator({ open, item, onConfirm, onCancel, isSubmitti
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-2xl relative overflow-hidden">
-        {/* Loading Overlay */}
+        {/* Loading overlay — blocks all interaction while submitting */}
         {isSubmitting && (
-          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm rounded-lg">
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center rounded-lg bg-background/80 backdrop-blur-sm">
             <Loader2 className="w-10 h-10 animate-spin text-emerald-600" />
-            <p className="mt-3 text-sm font-medium text-muted-foreground">Processing...</p>
+            <p className="mt-3 text-sm font-medium text-muted-foreground">Saving production data...</p>
           </div>
         )}
 
@@ -206,9 +206,16 @@ export function QuantityCalculator({ open, item, onConfirm, onCancel, isSubmitti
               <Button
                 onClick={handleConfirm}
                 disabled={isSubmitting}
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700 h-11"
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 h-11 disabled:opacity-60"
               >
-                Produce {quantity}x
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Producing...
+                  </>
+                ) : (
+                  <>Produce {quantity}x</>
+                )}
               </Button>
             </div>
           </div>
