@@ -170,9 +170,9 @@ export function ProduceScreen() {
       )}
 
       {/* Quantity Calculator */}
-      {selectedItem && (
+      {selectedItem && calculatorOpen && (
         <QuantityCalculator
-          open={calculatorOpen}
+          open={true}
           item={selectedItem}
           onConfirm={handleConfirmQuantity}
           onCancel={handleCancelCalculator}
