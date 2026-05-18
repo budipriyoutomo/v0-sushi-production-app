@@ -40,7 +40,7 @@ export function ProduceScreen() {
 
     const item = selectedItem
     setProducing(item.id)
-    // Keep dialog open to show the overlay
+    // Keep dialog open to show loading state
 
     try {
       await produceItem(item.id, quantity)
