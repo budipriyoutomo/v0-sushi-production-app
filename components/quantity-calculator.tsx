@@ -17,9 +17,10 @@ interface QuantityCalculatorProps {
   item: SushiMenu
   onConfirm: (quantity: number) => void
   onCancel: () => void
+  isLoading?: boolean
 }
 
-export function QuantityCalculator({ open, item, onConfirm, onCancel }: QuantityCalculatorProps) {
+export function QuantityCalculator({ open, item, onConfirm, onCancel, isLoading }: QuantityCalculatorProps) {
   const [quantity, setQuantity] = useState(1)
 
   const handleDecrement = () => {
@@ -51,9 +52,13 @@ export function QuantityCalculator({ open, item, onConfirm, onCancel }: Quantity
     }
   }
 
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent 
+      className="sm:max-w-2xl"
+      onInteractOutside={(e) => e.preventDefault()}
+      onEscapeKeyDown={(e) => e.preventDefault()}  >
         <DialogHeader>
           <DialogTitle>Produce {item.menuname}</DialogTitle>
         </DialogHeader>
@@ -195,9 +200,10 @@ export function QuantityCalculator({ open, item, onConfirm, onCancel }: Quantity
               </Button>
               <Button
                 onClick={handleConfirm}
+                disabled={isLoading}
                 className="flex-1 bg-emerald-600 hover:bg-emerald-700 h-11"
-              >
-                Produce {quantity}x
+              > 
+                  {isLoading ? "Producing..." : `Produce ${quantity}x`}
               </Button>
             </div>
           </div>

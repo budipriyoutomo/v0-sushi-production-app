@@ -29,6 +29,7 @@ export function ProduceScreen() {
   const [selectedItem, setSelectedItem] = useState<SushiMenu | null>(null)
 
   const isLoading = menusLoading || plateColorsLoading
+  const isAnyProducing = producing !== null  
 
   const handleProduce = (sushi: SushiMenu) => {
     setSelectedItem(sushi)
@@ -37,7 +38,8 @@ export function ProduceScreen() {
 
   const handleConfirmQuantity = async (quantity: number) => {
     if (!selectedItem) return
-
+    if (producing !== null) return 
+    
     setProducing(selectedItem.id)
     setCalculatorOpen(false)
 
@@ -149,7 +151,7 @@ export function ProduceScreen() {
               size="sm"
               className="mt-2 w-full h-8 text-xs bg-white text-black hover:bg-gray-200"
               onClick={() => handleProduce(sushi)}
-              disabled={isProducing}
+              disabled={isProducing || isAnyProducing}
             >
               {isProducing ? "Producing..." : "Make"}
             </Button>
@@ -174,6 +176,7 @@ export function ProduceScreen() {
           item={selectedItem}
           onConfirm={handleConfirmQuantity}
           onCancel={handleCancelCalculator}
+          isLoading={producing !== null}
         />
       )}
     </div>
