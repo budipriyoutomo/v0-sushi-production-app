@@ -3,7 +3,6 @@ import {
   reportsService,
   type ClosingReport,
   type DailySummary,
-  type SalesAnalysis,
   type WasteAnalysis,
 } from '@/lib/api'
 
@@ -48,27 +47,6 @@ export function useDailySummary(outletId: string | null, date: string | null) {
 
   return {
     summary: data,
-    isLoading,
-    error,
-    refresh: mutate,
-  }
-}
-
-export function useSalesAnalysis(params: {
-  outletId?: string
-  startDate: string
-  endDate: string
-} | null) {
-  const key = params ? `${REPORTS_KEY}/sales-analysis?${JSON.stringify(params)}` : null
-
-  const { data, error, isLoading, mutate } = useSWR<SalesAnalysis | null>(key, async () => {
-    if (!params) return null
-    const analysis = await reportsService.getSalesAnalysis(params)
-    return analysis
-  })
-
-  return {
-    analysis: data,
     isLoading,
     error,
     refresh: mutate,

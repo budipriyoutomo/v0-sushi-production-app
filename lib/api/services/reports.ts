@@ -57,16 +57,6 @@ export interface DailySummary {
   topSellingItems: Array<{ menuName: string; quantity: number }>
 }
 
-export interface SalesAnalysis {
-  period: string
-  totalRevenue: number
-  totalQuantity: number
-  averageOrderValue: number
-  salesByDay: Array<{ date: string; revenue: number; quantity: number }>
-  salesByPlateColor: Record<PlateColor, { quantity: number; revenue: number; percentage: number }>
-  topItems: Array<{ menuName: string; quantity: number; revenue: number }>
-}
-
 export interface WasteAnalysis {
   period: string
   totalWaste: number
@@ -113,16 +103,6 @@ class ReportsService {
     const response = await apiClient.get<{ data: DailySummary }>(`${this.endpoint}/daily-summary`, {
       params: { outletId, date },
     })
-    return response.data.data
-  }
-
-  // Get sales analysis
-  async getSalesAnalysis(params: {
-    outletId?: string
-    startDate: string
-    endDate: string
-  }): Promise<SalesAnalysis> {
-    const response = await apiClient.get<{ data: SalesAnalysis }>(`${this.endpoint}/sales-analysis`, { params })
     return response.data.data
   }
 
