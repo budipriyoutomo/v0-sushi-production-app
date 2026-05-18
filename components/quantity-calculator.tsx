@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PlateColor, PlateColorBadge } from '@/components/plate-color-badge'
-import { Minus, Plus } from 'lucide-react'
+import { Minus, Plus, Loader2 } from 'lucide-react'
 import type { SushiMenu } from '@/lib/types'
 import { lowercase, formatRupiah } from "@/lib/utils"
 import { ImageOff } from "lucide-react"
@@ -17,9 +17,10 @@ interface QuantityCalculatorProps {
   item: SushiMenu
   onConfirm: (quantity: number) => void
   onCancel: () => void
+  isSubmitting?: boolean
 }
 
-export function QuantityCalculator({ open, item, onConfirm, onCancel }: QuantityCalculatorProps) {
+export function QuantityCalculator({ open, item, onConfirm, onCancel, isSubmitting = false }: QuantityCalculatorProps) {
   const [quantity, setQuantity] = useState(1)
 
   const handleDecrement = () => {
@@ -45,7 +46,7 @@ export function QuantityCalculator({ open, item, onConfirm, onCancel }: Quantity
   }
 
   const handleOpenChange = (newOpen: boolean) => {
-    if (!newOpen) {
+    if (!newOpen && !isSubmitting) {
       setQuantity(1)
       onCancel()
     }
@@ -53,7 +54,15 @@ export function QuantityCalculator({ open, item, onConfirm, onCancel }: Quantity
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-2xl relative overflow-hidden">
+        {/* Loading Overlay */}
+        {isSubmitting && (
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm rounded-lg">
+            <Loader2 className="w-10 h-10 animate-spin text-emerald-600" />
+            <p className="mt-3 text-sm font-medium text-muted-foreground">Processing...</p>
+          </div>
+        )}
+
         <DialogHeader>
           <DialogTitle>Produce {item.menuname}</DialogTitle>
         </DialogHeader>
@@ -189,12 +198,14 @@ export function QuantityCalculator({ open, item, onConfirm, onCancel }: Quantity
               <Button
                 variant="outline"
                 onClick={onCancel}
+                disabled={isSubmitting}
                 className="flex-1 bg-transparent h-11"
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleConfirm}
+                disabled={isSubmitting}
                 className="flex-1 bg-emerald-600 hover:bg-emerald-700 h-11"
               >
                 Produce {quantity}x
