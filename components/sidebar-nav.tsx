@@ -44,7 +44,6 @@ export function SidebarNav({ role }: SidebarNavProps) {
   const reportItems: NavItem[] = [
     { label: 'Production Item List', href: '/report/production-item-list' },
     { label: 'Daily Summary', href: '/report/daily-summary' },
-    { label: 'Sales Analysis', href: '/report/sales-analysis' },
     { label: 'Closing Reports', href: '/report/closing-reports' },
     { label: 'Waste Analysis', href: '/report/waste-analysis' },
   ]

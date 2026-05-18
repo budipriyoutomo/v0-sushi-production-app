@@ -38,18 +38,15 @@ export function ProduceScreen() {
   const handleConfirmQuantity = async (quantity: number) => {
     if (!selectedItem) return
 
-    const item = selectedItem
-    setProducing(item.id)
-    // Keep dialog open to show loading state
+    setProducing(selectedItem.id)
+    setCalculatorOpen(false)
 
     try {
-      await produceItem(item.id, quantity)
+      await produceItem(selectedItem.id, quantity)
       toast({
         title: "Plates Produced",
-        description: `Successfully produced ${quantity}x ${item.menuname} plates!`,
+        description: `Successfully produced ${quantity}x ${selectedItem.menuname} plates!`,
       })
-      setCalculatorOpen(false)
-      setSelectedItem(null)
     } catch (error) {
       const apiError = getApiError(error)
       toast({
@@ -59,6 +56,7 @@ export function ProduceScreen() {
       })
     } finally {
       setProducing(null)
+      setSelectedItem(null)
     }
   }
 
@@ -176,7 +174,6 @@ export function ProduceScreen() {
           item={selectedItem}
           onConfirm={handleConfirmQuantity}
           onCancel={handleCancelCalculator}
-          isSubmitting={producing === selectedItem.id}
         />
       )}
     </div>
