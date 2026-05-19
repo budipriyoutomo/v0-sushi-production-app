@@ -128,10 +128,10 @@ export function ClosingReport() {
 
       // Transform to MenuSalesEntry format for display
       const entries: MenuSalesEntry[] = data.entries.map((entry) => ({
-        menuId: entry.plateColorId,
-        menuName: entry.plateColorName,
-        code: entry.plateColorCode,
-        plateColor: entry.plateColorName.toLowerCase(),
+        menuId: entry.menuId,
+        menuName: entry.menuName || '',
+        code: entry.menuCode || '',
+        plateColor: (entry.plateColor?.name || entry.plateColorName || '').toLowerCase(),
         sellingPrice: entry.sellingPrice,
         produced: entry.produced,
         sold: entry.sold,
@@ -288,18 +288,44 @@ export function ClosingReport() {
 
     setIsSavingDraft(true)
     try {
+      const payloadEntries = Array.from(
+        closingEntries.reduce((map, entry) => {
+          const plateColorId = entry.plateColor?.id || entry.plateColorId
+          if (!plateColorId) {
+            return map
+          }
+
+          const current = map.get(plateColorId) || {
+            plateColorId,
+            posSold: 0,
+            adjustment: 0,
+            compensation: 0,
+            compensationReason: undefined as string | undefined,
+          }
+
+          current.posSold += entry.posSold
+          current.adjustment += entry.adjustment
+          current.compensation += entry.compensation
+          current.compensationReason = compensationNotes[entry.id] || current.compensationReason
+          map.set(plateColorId, current)
+
+          return map
+        }, new Map<string, {
+          plateColorId: string
+          posSold: number
+          adjustment: number
+          compensation: number
+          compensationReason?: string
+        }>())
+        .values()
+      )
+
       const payload = {
         outletId: selectedOutletId,
         date: date,
         kitchenLeader: kitchenLeader || undefined,
         operationLeader: operationLeader || undefined,
-        entries: closingEntries.map((entry) => ({
-          plateColorId: entry.plateColorId,
-          posSold: entry.posSold,
-          adjustment: entry.adjustment,
-          compensation: entry.compensation,
-          compensationReason: compensationNotes[entry.id] || undefined,
-        })),
+        entries: payloadEntries,
       }
 
       if (currentReportId) {

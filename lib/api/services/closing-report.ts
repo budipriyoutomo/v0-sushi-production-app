@@ -1,11 +1,22 @@
 import apiClient from '../client'
 
-// Closing Report Entry per Plate Color
+export interface ClosingReportPlateColor {
+  id: string
+  name: string
+  code: string
+}
+
+// Closing Report Entry per Menu
 export interface ClosingReportEntry {
   id: string
-  plateColorId: string
-  plateColorName: string
-  plateColorCode: string
+  menuId: string
+  menuCode: string | null
+  menuName: string | null
+  categoryName: string | null
+  plateColor: ClosingReportPlateColor | null
+  plateColorId?: string | null
+  plateColorName?: string | null
+  plateColorCode?: string | null
   sellingPrice: number
   produced: number
   sold: number
@@ -13,8 +24,9 @@ export interface ClosingReportEntry {
   posSold: number
   adjustment: number
   compensation: number
-  compensationReason?: string
+  compensationReason?: string | null
   selisih: number
+  revenue: number
 }
 
 // Closing Report Summary
@@ -37,6 +49,12 @@ export interface ClosingReportSummary {
   wastePhotoUrls?: string[]
   notes?: string
   entries: ClosingReportEntry[]
+  summary?: {
+    totalRevenue: number
+    averageSellingPrice: number
+    topSellingMenu: string | null
+    topSellingQty: number
+  }
   createdAt: string
   updatedAt: string
   submittedAt?: string
