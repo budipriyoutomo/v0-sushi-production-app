@@ -13,7 +13,7 @@ import { useOutlet } from '@/lib/outlet-context'
 import { PlateColorBadge } from '@/components/plate-color-badge'
 import { Textarea } from '@/components/ui/textarea'
 import { CheckCircle, AlertCircle, Download, Upload, FileText, Loader2, MessageSquare, MessageSquarePlus } from 'lucide-react'
-import { salesService, type SalesDraft, closingReportService, type ClosingReportEntry, getApiError } from '@/lib/api'
+import { closingReportService, type ClosingReportEntry, type ClosingReportSummary, getApiError } from '@/lib/api'
 
 interface MenuSalesEntry {
   menuId: string
@@ -46,7 +46,6 @@ export function ClosingReport() {
   const [isUploadingPhotos, setIsUploadingPhotos] = useState(false)
   const [currentReportId, setCurrentReportId] = useState<string | null>(null)
   const [status, setStatus] = useState<'draft' | 'submitted' | 'verified'>('draft')
-  const [hasLoadedData, setHasLoadedData] = useState(false)
 
   // Compensation note dialog state
   const [noteDialogOpen, setNoteDialogOpen] = useState(false)
@@ -68,12 +67,12 @@ export function ClosingReport() {
     setNoteTarget(null)
   }
 
-  // Sales Draft Dialog state
+  // Closing Draft Dialog state
   const [draftDialogOpen, setDraftDialogOpen] = useState(false)
-  const [salesDrafts, setSalesDrafts] = useState<SalesDraft[]>([])
+  const [closingDrafts, setClosingDrafts] = useState<ClosingReportSummary[]>([])
   const [isLoadingDrafts, setIsLoadingDrafts] = useState(false)
   const [expandedDraftId, setExpandedDraftId] = useState<string | null>(null)
-  const [draftDetailMap, setDraftDetailMap] = useState<Record<string, SalesDraft>>({})
+  const [draftDetailMap, setDraftDetailMap] = useState<Record<string, ClosingReportSummary>>({})
   const [loadingDetailId, setLoadingDetailId] = useState<string | null>(null)
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -122,7 +121,8 @@ export function ClosingReport() {
       // Store the closing report entries
       setClosingEntries(data.entries)
       setCurrentReportId(data.id || null)
-      setStatus(data.status || 'draft')
+      // Always keep status as 'draft' when loading data, so user can edit/submit
+      // The API status is informational but doesn't lock the form
       setKitchenLeader(data.kitchenLeader || '')
       setOperationLeader(data.operationLeader || '')
       setUploadedPhotoUrls(data.wastePhotoUrls || [])
@@ -140,7 +140,7 @@ export function ClosingReport() {
         posSold: entry.posSold,
         adjustment: entry.adjustment,
         compensation: entry.compensation,
-        compensationReason: entry.compensationReason,
+        compensationReason: entry.compensationReason || undefined,
       }))
       setSalesEntries(entries)
 
@@ -157,9 +157,6 @@ export function ClosingReport() {
         title: 'Data Loaded',
         description: `Loaded ${entries.length} entries for ${date}`,
       })
-      
-      // Mark data as loaded to disable controls
-      setHasLoadedData(true)
     } catch (error) {
       toast({
         title: 'Error',
@@ -171,20 +168,20 @@ export function ClosingReport() {
     }
   }
 
-  // Get Sales Drafts from API
-  const handleGetSalesDrafts = async () => {
+  // Get Closing Drafts from API
+  const handleGetClosingDrafts = async () => {
     setDraftDialogOpen(true)
     setIsLoadingDrafts(true)
     try {
-      const drafts = await salesService.getAll({
+      const drafts = await closingReportService.getAll({
         outletId: selectedOutletId || undefined,
         status: 'draft',
       })
-      setSalesDrafts(drafts)
+      setClosingDrafts(drafts)
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to fetch sales drafts',
+        description: 'Failed to fetch closing drafts',
         variant: 'destructive',
       })
     } finally {
@@ -192,8 +189,8 @@ export function ClosingReport() {
     }
   }
 
-  // View draft detail from GET /sales/{id}
-  const handleViewDraft = async (draft: SalesDraft) => {
+  // View draft detail from GET /closing-reports/{id}
+  const handleViewDraft = async (draft: ClosingReportSummary) => {
     if (expandedDraftId === draft.id) {
       setExpandedDraftId(null)
       return
@@ -204,7 +201,7 @@ export function ClosingReport() {
     }
     setLoadingDetailId(draft.id)
     try {
-      const detail = await salesService.getById(draft.id)
+      const detail = await closingReportService.getById(draft.id)
       setDraftDetailMap((prev) => ({ ...prev, [draft.id]: detail }))
       setExpandedDraftId(draft.id)
     } catch (error) {
@@ -219,27 +216,30 @@ export function ClosingReport() {
   }
 
   // Load draft into current form
-  const handleLoadDraft = async (draft: SalesDraft) => {
+  const handleLoadDraft = async (draft: ClosingReportSummary) => {
     try {
-      const fullDraft = await salesService.getById(draft.id)
+      const fullDraft = await closingReportService.getById(draft.id)
       
-      if (fullDraft.details && fullDraft.details.length > 0) {
-        // Transform draft details to MenuSalesEntry format
-        const entries: MenuSalesEntry[] = fullDraft.details.map((d) => ({
-          menuId: d.plateColorId,
-          menuName: d.plateColorName,
-          code: '',
-          plateColor: d.plateColorName.toLowerCase(),
-          sellingPrice: 0,
-          produced: d.productionSold + d.productionWaste,
-          sold: d.productionSold,
-          waste: d.productionWaste,
+      if (fullDraft.entries && fullDraft.entries.length > 0) {
+        // Transform draft entries to MenuSalesEntry format
+        const entries: MenuSalesEntry[] = fullDraft.entries.map((d) => ({
+          menuId: d.menuId,
+          menuName: d.menuName || '',
+          code: d.menuCode || '',
+          plateColor: (d.plateColor?.name || d.plateColorName || '').toLowerCase(),
+          sellingPrice: d.sellingPrice,
+          produced: d.produced,
+          sold: d.sold,
+          waste: d.waste,
           posSold: d.posSold,
           adjustment: d.adjustment,
           compensation: d.compensation,
+          compensationReason: d.compensationReason,
         }))
         setSalesEntries(entries)
         setDate(fullDraft.date)
+        setKitchenLeader(fullDraft.kitchenLeader || '')
+        setOperationLeader(fullDraft.operationLeader || '')
         setDraftDialogOpen(false)
         toast({
           title: 'Draft Loaded',
@@ -460,13 +460,13 @@ export function ClosingReport() {
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                disabled={status === 'submitted' || hasLoadedData}
+                disabled={status === 'submitted'}
                 className="w-32"
               />
               <Button 
                 onClick={handleGetData}
                 variant="outline"
-                disabled={status === 'submitted' || isLoadingData || hasLoadedData}
+                disabled={status === 'submitted' || isLoadingData}
                 className="gap-2"
               >
                 {isLoadingData ? (
@@ -477,13 +477,13 @@ export function ClosingReport() {
                 {isLoadingData ? 'Loading...' : 'Get Data'}
               </Button>
               <Button
-                onClick={handleGetSalesDrafts}
+                onClick={handleGetClosingDrafts}
                 variant="outline"
-                disabled={status === 'submitted' || hasLoadedData}
+                disabled={status === 'submitted' || isLoadingData}
                 className="gap-2"
               >
                 <FileText className="w-4 h-4" />
-                Get Sales Draft
+                Get Closing Draft
               </Button>
             </div>
           </div>
@@ -707,11 +707,11 @@ export function ClosingReport() {
         </DialogContent>
       </Dialog>
 
-      {/* Sales Draft List Dialog */}
+      {/* Closing Draft List Dialog */}
       <Dialog open={draftDialogOpen} onOpenChange={setDraftDialogOpen}>
         <DialogContent className="max-w-3xl w-full max-h-[85vh] flex flex-col p-0 gap-0">
           <div className="px-6 pt-6 pb-4 border-b">
-            <DialogTitle className="text-lg font-semibold">Sales Drafts</DialogTitle>
+            <DialogTitle className="text-lg font-semibold">Closing Drafts</DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground mt-1">
               Select a draft to load into the closing report. Only drafts with status &quot;draft&quot; are shown.
             </DialogDescription>
@@ -721,12 +721,12 @@ export function ClosingReport() {
             {isLoadingDrafts ? (
               <div className="flex items-center justify-center py-16 gap-3 text-muted-foreground">
                 <Loader2 className="w-5 h-5 animate-spin" />
-                <span className="text-sm">Loading sales drafts...</span>
+                <span className="text-sm">Loading closing drafts...</span>
               </div>
-            ) : salesDrafts.length === 0 ? (
+            ) : closingDrafts.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
                 <FileText className="w-12 h-12 mb-3 opacity-30" />
-                <p className="text-sm">No draft sales found.</p>
+                <p className="text-sm">No closing drafts found.</p>
               </div>
             ) : (
               <div className="rounded-lg border overflow-hidden">
@@ -743,16 +743,16 @@ export function ClosingReport() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {salesDrafts.map((draft) => (
+                    {closingDrafts.map((draft) => (
                       <>
                         <TableRow key={draft.id} className="hover:bg-muted/30">
                           <TableCell className="font-medium">{draft.date}</TableCell>
                           <TableCell>{draft.outletName}</TableCell>
                           <TableCell className="text-right tabular-nums">{draft.totalPosSold}</TableCell>
-                          <TableCell className="text-right tabular-nums">{draft.totalProductionSold}</TableCell>
+                          <TableCell className="text-right tabular-nums">{draft.totalSold}</TableCell>
                           <TableCell className="text-right tabular-nums">
-                            <span className={draft.totalSelisih !== 0 ? 'text-destructive font-semibold' : 'text-green-600 font-semibold'}>
-                              {draft.totalSelisih > 0 ? '+' : ''}{draft.totalSelisih}
+                            <span className={draft.totalAdjustment !== 0 ? 'text-destructive font-semibold' : 'text-green-600 font-semibold'}>
+                              {draft.totalAdjustment > 0 ? '+' : ''}{draft.totalAdjustment}
                             </span>
                           </TableCell>
                           <TableCell className="text-center">
@@ -791,15 +791,15 @@ export function ClosingReport() {
                             <TableCell colSpan={7} className="py-0">
                               <div className="px-4 py-3 space-y-2">
                                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                                  Detail — {draftDetailMap[draft.id].details?.length ?? 0} Plate Color(s)
+                                  Detail — {draftDetailMap[draft.id].entries?.length ?? 0} Menu Item(s)
                                 </p>
                                 <div className="rounded-md border overflow-hidden">
                                   <Table>
                                     <TableHeader>
                                       <TableRow className="bg-muted/60">
-                                        <TableHead className="text-xs font-semibold py-2">Plate Color</TableHead>
+                                        <TableHead className="text-xs font-semibold py-2">Menu / Plate Color</TableHead>
                                         <TableHead className="text-right text-xs font-semibold py-2">POS Sold</TableHead>
-                                        <TableHead className="text-right text-xs font-semibold py-2">Prod. Sold</TableHead>
+                                        <TableHead className="text-right text-xs font-semibold py-2">Produced</TableHead>
                                         <TableHead className="text-right text-xs font-semibold py-2">Waste</TableHead>
                                         <TableHead className="text-right text-xs font-semibold py-2">Adjustment</TableHead>
                                         <TableHead className="text-right text-xs font-semibold py-2">Compensation</TableHead>
@@ -808,12 +808,12 @@ export function ClosingReport() {
                                       </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                      {(draftDetailMap[draft.id].details ?? []).map((d) => (
+                                      {(draftDetailMap[draft.id].entries ?? []).map((d) => (
                                         <TableRow key={d.id} className="hover:bg-muted/20">
-                                          <TableCell className="text-sm py-2">{d.plateColorName}</TableCell>
+                                          <TableCell className="text-sm py-2">{d.menuName}</TableCell>
                                           <TableCell className="text-right tabular-nums text-sm py-2">{d.posSold}</TableCell>
-                                          <TableCell className="text-right tabular-nums text-sm py-2">{d.productionSold}</TableCell>
-                                          <TableCell className="text-right tabular-nums text-sm py-2 text-destructive">{d.productionWaste}</TableCell>
+                                          <TableCell className="text-right tabular-nums text-sm py-2">{d.produced}</TableCell>
+                                          <TableCell className="text-right tabular-nums text-sm py-2 text-destructive">{d.waste}</TableCell>
                                           <TableCell className="text-right tabular-nums text-sm py-2 text-blue-600">{d.adjustment > 0 ? '+' : ''}{d.adjustment}</TableCell>
                                           <TableCell className="text-right tabular-nums text-sm py-2 text-orange-600">{d.compensation > 0 ? '+' : ''}{d.compensation}</TableCell>
                                           <TableCell className="text-center py-2">
@@ -822,7 +822,7 @@ export function ClosingReport() {
                                               variant="ghost"
                                               className="h-7 w-7 p-0"
                                               title={compensationNotes[d.id] ? compensationNotes[d.id] : 'Tambah keterangan kompensasi'}
-                                              onClick={() => handleOpenNoteDialog(draft.id, d.id, d.plateColorName)}
+                                              onClick={() => handleOpenNoteDialog(draft.id, d.id, d.menuName || d.plateColorName || '')}
                                             >
                                               {compensationNotes[d.id]
                                                 ? <MessageSquare className="w-3.5 h-3.5 text-orange-500" />
@@ -831,8 +831,8 @@ export function ClosingReport() {
                                             </Button>
                                           </TableCell>
                                           <TableCell className="text-right tabular-nums text-sm py-2">
-                                            <span className={d.selisih !== 0 ? 'text-destructive font-semibold' : 'text-green-600 font-semibold'}>
-                                              {d.selisih > 0 ? '+' : ''}{d.selisih}
+                                            <span className={Math.abs(d.sold - d.posSold) !== 0 ? 'text-destructive font-semibold' : 'text-green-600 font-semibold'}>
+                                              {(d.sold - d.posSold) > 0 ? '+' : ''}{d.sold - d.posSold}
                                             </span>
                                           </TableCell>
                                         </TableRow>
