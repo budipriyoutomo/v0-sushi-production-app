@@ -40,11 +40,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setStatus('authenticated')
       } catch (apiError: unknown) {
         // If 404 or 401, user is not authenticated
-        const error = apiError as { response?: { status?: number } }
+        const error = apiError as { response?: { status?: number }; code?: string; message?: string }
+        
+        // Check for timeout or network errors - these are transient, don't clear token
+        const isTimeoutError = error?.code === 'ECONNABORTED' || 
+          (error?.message && error.message.includes('timeout'))
+        const isNetworkError = error?.code === 'ERR_NETWORK' || 
+          (error?.message && error.message.includes('Network Error'))
+        
         if (error?.response?.status === 404 || error?.response?.status === 401) {
+          // Token is invalid, clear it
           setUser(null)
           setStatus('unauthenticated')
           removeAuthToken()
+        } else if (isTimeoutError || isNetworkError) {
+          // Network/timeout error - API might be temporarily unavailable
+          // Don't clear the token, just mark as unauthenticated for now
+          console.warn('Auth API unavailable (timeout/network):', error?.message || 'Unknown error')
+          setUser(null)
+          setStatus('unauthenticated')
         } else {
           // For other errors, still mark as unauthenticated but log the error
           console.error('Auth API error:', apiError)
