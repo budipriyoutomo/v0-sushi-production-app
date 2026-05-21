@@ -46,6 +46,7 @@ export function ClosingReport() {
   const [isUploadingPhotos, setIsUploadingPhotos] = useState(false)
   const [currentReportId, setCurrentReportId] = useState<string | null>(null)
   const [status, setStatus] = useState<'draft' | 'submitted' | 'verified'>('draft')
+  const [hasLoadedData, setHasLoadedData] = useState(false)
 
   // Compensation note dialog state
   const [noteDialogOpen, setNoteDialogOpen] = useState(false)
@@ -156,6 +157,9 @@ export function ClosingReport() {
         title: 'Data Loaded',
         description: `Loaded ${entries.length} entries for ${date}`,
       })
+      
+      // Mark data as loaded to disable controls
+      setHasLoadedData(true)
     } catch (error) {
       toast({
         title: 'Error',
@@ -456,13 +460,13 @@ export function ClosingReport() {
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                disabled={status === 'submitted'}
+                disabled={status === 'submitted' || hasLoadedData}
                 className="w-32"
               />
               <Button 
                 onClick={handleGetData}
                 variant="outline"
-                disabled={status === 'submitted' || isLoadingData}
+                disabled={status === 'submitted' || isLoadingData || hasLoadedData}
                 className="gap-2"
               >
                 {isLoadingData ? (
@@ -475,7 +479,7 @@ export function ClosingReport() {
               <Button
                 onClick={handleGetSalesDrafts}
                 variant="outline"
-                disabled={status === 'submitted'}
+                disabled={status === 'submitted' || hasLoadedData}
                 className="gap-2"
               >
                 <FileText className="w-4 h-4" />
