@@ -91,7 +91,7 @@ export function ClosingReport() {
       } catch (error) {
         toast({
           title: 'Error',
-          description: getApiError(error),
+          description: getApiError(error).message,
           variant: 'destructive',
         })
       } finally {
@@ -159,7 +159,7 @@ export function ClosingReport() {
     } catch (error) {
       toast({
         title: 'Error',
-        description: getApiError(error),
+        description: getApiError(error).message,
         variant: 'destructive',
       })
     } finally {
@@ -316,7 +316,7 @@ export function ClosingReport() {
     } catch (error) {
       toast({
         title: 'Error',
-        description: getApiError(error),
+        description: getApiError(error).message,
         variant: 'destructive',
       })
     } finally {
@@ -370,7 +370,7 @@ export function ClosingReport() {
     } catch (error) {
       toast({
         title: 'Error',
-        description: getApiError(error),
+        description: getApiError(error).message,
         variant: 'destructive',
       })
     } finally {
