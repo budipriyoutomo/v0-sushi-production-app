@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { ChevronDown } from 'lucide-react'
+import { useAuth } from '@/hooks/use-auth'
 
 interface NavItem {
   label: string
@@ -13,6 +14,7 @@ interface NavItem {
 
 interface NavSection {
   section: string
+  module: string // Module key for access control
   items: NavItem[]
 }
 
@@ -22,6 +24,7 @@ interface SidebarNavProps {
 
 export function SidebarNav({ role }: SidebarNavProps) {
   const pathname = usePathname()
+  const { user, logout } = useAuth()
 
   const adminItems: NavItem[] = [
     { label: 'Outlets', href: '/admin/outlets' },
@@ -48,43 +51,61 @@ export function SidebarNav({ role }: SidebarNavProps) {
     { label: 'Waste Analysis', href: '/report/waste-analysis' },
   ]
 
-  const allItems = role === 'admin' 
-    ? [
-        { section: 'Management', items: adminItems },
-        { section: 'Production', items: productionItems },
-        { section: 'Operation', items: operationItems },
-        { section: 'Report', items: reportItems },
-      ]
-    : role === 'production'
-      ? [
-          { section: 'Production', items: productionItems },
-        ]
-      : role === 'operation'
-        ? [
-            { section: 'Operation', items: operationItems },
-          ]
-        : [
-            { section: 'Reports', items: reportItems },
-          ]
+  // All available sections with their module keys
+  const allSections: NavSection[] = [
+    { section: 'Management', module: 'admin', items: adminItems },
+    { section: 'Production', module: 'production', items: productionItems },
+    { section: 'Operation', module: 'operation', items: operationItems },
+    { section: 'Report', module: 'report', items: reportItems },
+  ]
 
-  // Only show outlet selector for non-admin roles
-  const showOutletSelector = role !== 'admin'
+  // Filter sections based on user's module_app access
+  const userModules = user?.module_app || []
+  const filteredSections = allSections.filter(section => 
+    userModules.includes(section.module)
+  )
+
+  // Determine title based on role or first available module
+  const getTitle = () => {
+    if (role === 'admin' && userModules.includes('admin')) return 'Admin'
+    if (role === 'production' && userModules.includes('production')) return 'Production'
+    if (role === 'operation' && userModules.includes('operation')) return 'Operation'
+    if (role === 'report' && userModules.includes('report')) return 'Reports'
+    // Default to first available module
+    if (userModules.includes('admin')) return 'Admin'
+    if (userModules.includes('production')) return 'Production'
+    if (userModules.includes('operation')) return 'Operation'
+    if (userModules.includes('report')) return 'Reports'
+    return 'Dashboard'
+  }
+
+  const getSubtitle = () => {
+    const title = getTitle()
+    switch (title) {
+      case 'Admin': return 'Management'
+      case 'Production': return 'Planning'
+      case 'Operation': return 'Operations'
+      case 'Reports': return 'Analytics'
+      default: return 'Overview'
+    }
+  }
+
+  const handleLogout = async () => {
+    await logout()
+    window.location.href = '/login'
+  }
 
   return (
     <aside className="w-64 h-screen bg-foreground text-background border-r border-border flex flex-col">
       {/* Header */}
       <div className="p-6 border-b border-border">
-        <h1 className="text-xl font-bold">
-          {role === 'admin' ? 'Admin' : role === 'production' ? 'Production' : role === 'operation' ? 'Operation' : 'Reports'}
-        </h1>
-        <p className="text-sm text-background/70 mt-1">
-          {role === 'admin' ? 'Management' : role === 'production' ? 'Planning' : role === 'operation' ? 'Operations' : 'Analytics'}
-        </p>
+        <h1 className="text-xl font-bold">{getTitle()}</h1>
+        <p className="text-sm text-background/70 mt-1">{getSubtitle()}</p>
       </div>
 
       {/* Navigation Items */}
       <nav className="flex-1 p-4 space-y-4 overflow-y-auto">
-        {allItems.map((section, idx) => (
+        {filteredSections.map((section, idx) => (
           <div key={idx}>
             <h3 className="text-xs font-semibold text-background/60 uppercase tracking-wider px-2 mb-2">
               {section.section}
@@ -117,10 +138,7 @@ export function SidebarNav({ role }: SidebarNavProps) {
         <Button
           variant="ghost"
           className="w-full justify-between text-background/80 hover:bg-background/10"
-          onClick={() => {
-            // Logout functionality
-            window.location.href = '/login'
-          }}
+          onClick={handleLogout}
         >
           Logout
           <ChevronDown className="w-4 h-4" />

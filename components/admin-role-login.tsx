@@ -10,18 +10,25 @@ import { useToast } from '@/hooks/use-toast'
 import { authService, getApiError } from '@/lib/api'
 import { Loader2 } from 'lucide-react'
 
-// Map role from API response to dashboard route
-function getDashboardRouteByRole(role: string): string {
-  const roleLower = role.toLowerCase()
-  if (roleLower.includes('admin') || roleLower.includes('administrator') || roleLower.includes('manager')) {
-    return '/admin/plate-colors'
+// Get first available route based on user's module_app
+function getFirstAvailableRoute(moduleApp: string[]): string {
+  // Priority order for routing
+  const moduleRoutes: Record<string, string> = {
+    'admin': '/admin/plate-colors',
+    'production': '/production/planning',
+    'operation': '/operation/sales-input',
+    'report': '/report/production-item-list',
+    'kitchen': '/kitchen/dashboard',
+    'service': '/operation/sales-input',
   }
-  if (roleLower.includes('production')) {
-    return '/production/planning'
+
+  // Find first available module (excluding 'app')
+  for (const mod of moduleApp) {
+    if (mod !== 'app' && moduleRoutes[mod]) {
+      return moduleRoutes[mod]
+    }
   }
-  if (roleLower.includes('operation')) {
-    return '/operation/sales-input'
-  }
+
   // Default fallback
   return '/admin/plate-colors'
 }
@@ -44,7 +51,8 @@ export function AdminRoleLogin() {
         title: 'Login Successful',
         description: `Welcome, ${user.name}!`,
       })
-      const route = getDashboardRouteByRole(user.role)
+      // Redirect based on user's module_app access
+      const route = getFirstAvailableRoute(user.module_app || [])
       router.push(route)
     } catch (error) {
       const apiError = getApiError(error)
