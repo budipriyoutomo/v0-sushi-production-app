@@ -85,17 +85,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (credentials: LoginCredentials): Promise<User> => {
     const { user: loggedInUser } = await authService.login(credentials)
-
-    await refreshUser()
-    
+    // Set state directly from login response — no extra API round-trip needed
     setUser(loggedInUser)
     setStatus('authenticated')
     return loggedInUser
   }
 
   const pinLogin = async (credentials: PinLoginCredentials): Promise<User> => {
-    const { user: loggedInUser } = await authService.pinLogin(credentials) 
-    await refreshUser()
+    const { user: loggedInUser } = await authService.pinLogin(credentials)
     setUser(loggedInUser)
     setStatus('authenticated')
     return loggedInUser
