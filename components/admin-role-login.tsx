@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
-import { authService, getApiError } from '@/lib/api'
+import { getApiError } from '@/lib/api'
+import { useAuth } from '@/hooks/use-auth'
 import { Loader2 } from 'lucide-react'
 
 // Get first available route based on user's module_app
@@ -36,6 +37,7 @@ function getFirstAvailableRoute(moduleApp: string[]): string {
 export function AdminRoleLogin() {
   const router = useRouter()
   const { toast } = useToast()
+  const { login } = useAuth()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -46,7 +48,8 @@ export function AdminRoleLogin() {
     setIsLoading(true)
 
     try {
-      const { user } = await authService.login({ email: username, password })
+      // Use auth context login so the navbar/layout state updates immediately
+      const user = await login({ email: username, password })
       toast({
         title: 'Login Successful',
         description: `Welcome, ${user.name}!`,
