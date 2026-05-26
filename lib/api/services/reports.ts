@@ -67,7 +67,7 @@ export interface WasteAnalysis {
 }
 
 class ReportsService {
-  private endpoint = '/report'
+  private endpoint = '/reports'
 
   // Submit sales data
   async submitSales(data: {
