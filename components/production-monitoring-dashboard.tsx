@@ -91,7 +91,7 @@ function KPICard({ label, value, trend, icon: Icon }: { label: string; value: st
 }
 
 export function ProductionMonitoringDashboard() {
-  const { selectedOutlet } = useOutlet()
+  const { selectedOutletId } = useOutlet()
   const { user } = useAuth()
   const { toast } = useToast()
   
@@ -109,7 +109,7 @@ export function ProductionMonitoringDashboard() {
   const wasteCostData = summaryData?.wasteCost || []
 
   // Get outlet ID from user's outlets or selected outlet
-  const outletId = selectedOutlet?.id || user?.outlet?.[0] || null
+  const outletId = selectedOutletId || user?.outlet?.[0] || null
 
   const fetchDailySummary = async () => {
     if (!outletId || !date) {

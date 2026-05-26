@@ -12,9 +12,7 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-md space-y-4">
         <AdminRoleLogin />
         <Link href="/login">
-          <Button variant="outline" className="w-full">
-            Back to Login Options
-          </Button>
+          
         </Link>
       </div>
     </div>
