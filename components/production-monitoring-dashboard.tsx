@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { TrendingUp, TrendingDown, Download, RefreshCw, Calendar, Loader2 } from 'lucide-react'
 import { PlateColorBadge, type PlateColor } from '@/components/plate-color-badge'
+import { OutletSelector } from '@/components/outlet-selector'
 import { useOutlet } from '@/lib/outlet-context'
 import { useAuth } from '@/hooks/use-auth'
 import { reportsService } from '@/lib/api'
@@ -159,12 +160,13 @@ export function ProductionMonitoringDashboard() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold">Production Monitoring Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Real-time operational efficiency and revenue performance</p>
+          <h1 className="text-3xl md:text-4xl font-bold">Daily Summary</h1>
+          <p className="text-muted-foreground mt-1">Daily operational efficiency and revenue performance</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <OutletSelector />
           <Button
             variant="outline"
             size="sm"
@@ -193,12 +195,6 @@ export function ProductionMonitoringDashboard() {
             className="w-40"
           />
         </div>
-        {outletId && (
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Outlet:</span>
-            <span className="text-sm font-medium">{summaryData?.outletName || selectedOutlet?.name || outletId}</span>
-          </div>
-        )}
         <Button 
           onClick={fetchDailySummary}
           disabled={isLoading || !outletId}
