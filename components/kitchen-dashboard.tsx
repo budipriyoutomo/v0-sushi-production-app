@@ -81,7 +81,58 @@ const getStatus = (
           Data statistik kitchen belum tersedia untuk outlet ini.
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+        <>
+          {/* Summary Card - Total Produce vs Total Target */}
+          {(() => {
+            const totalProduced = stats.reduce((sum, s) => sum + s.produced, 0)
+            const totalTarget = stats.reduce((sum, s) => sum + s.targetToday, 0)
+            const percentage = totalTarget > 0 ? (totalProduced / totalTarget) * 100 : 0
+            const isOverTarget = percentage > 100
+            const isUnderTarget = percentage < 80
+            
+            return (
+              <Card className="border-2 border-primary/20 bg-primary/5">
+                <CardContent className="p-4 md:p-6">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-muted-foreground">Total Production Progress</p>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-3xl md:text-4xl font-bold">{totalProduced}</span>
+                        <span className="text-xl text-muted-foreground">/</span>
+                        <span className="text-xl md:text-2xl text-muted-foreground">{totalTarget}</span>
+                        <span className="text-sm text-muted-foreground">plates</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-4">
+                      {/* Progress Bar */}
+                      <div className="flex-1 md:w-48">
+                        <div className="h-3 w-full bg-muted rounded-full overflow-hidden">
+                          <div 
+                            className={cn(
+                              "h-full rounded-full transition-all duration-500",
+                              isOverTarget ? "bg-amber-500" : isUnderTarget ? "bg-red-500" : "bg-green-500"
+                            )}
+                            style={{ width: `${Math.min(percentage, 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                      
+                      {/* Percentage */}
+                      <div className={cn(
+                        "text-2xl md:text-3xl font-bold min-w-[80px] text-right",
+                        isOverTarget ? "text-amber-600" : isUnderTarget ? "text-red-600" : "text-green-600"
+                      )}>
+                        {percentage.toFixed(1)}%
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })()}
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {[...stats]
             .sort((a, b) => {
               const priceA = priceMap[lowercase(a.plateColor)] || 0
@@ -137,7 +188,8 @@ const getStatus = (
                 </Card>
               )
             })}
-        </div>
+          </div>
+        </>
       )}
     </div>
   )
