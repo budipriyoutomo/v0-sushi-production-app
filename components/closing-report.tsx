@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast'
 import { useOutlet } from '@/lib/outlet-context'
 import { PlateColorBadge } from '@/components/plate-color-badge'
 import { Textarea } from '@/components/ui/textarea'
-import { CheckCircle, AlertCircle, Download, Upload, Loader2, MessageSquare, MessageSquarePlus } from 'lucide-react'
+import { CheckCircle, AlertCircle, Download, Upload, FileText, Loader2, MessageSquare, MessageSquarePlus } from 'lucide-react'
 import { closingReportService, type ClosingReportEntry, type ClosingReportSummary, getApiError } from '@/lib/api'
 
 interface MenuSalesEntry {
