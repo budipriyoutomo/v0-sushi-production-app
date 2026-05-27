@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast'
 import { useOutlet } from '@/lib/outlet-context'
 import { PlateColorBadge } from '@/components/plate-color-badge'
 import { Textarea } from '@/components/ui/textarea'
-import { CheckCircle, AlertCircle, Download, Upload, FileText, Loader2, MessageSquare, MessageSquarePlus } from 'lucide-react'
+import { CheckCircle, AlertCircle, Download, Upload, Loader2, MessageSquare, MessageSquarePlus } from 'lucide-react'
 import { closingReportService, type ClosingReportEntry, type ClosingReportSummary, getApiError } from '@/lib/api'
 
 interface MenuSalesEntry {
@@ -53,6 +53,25 @@ export function ClosingReport() {
   const [noteValue, setNoteValue] = useState('')
   // Store notes per detail id: { [detailId]: string }
   const [compensationNotes, setCompensationNotes] = useState<Record<string, string>>({})
+
+  // Success dialog state
+  const [successDialogOpen, setSuccessDialogOpen] = useState(false)
+  const [submittedDate, setSubmittedDate] = useState('')
+
+  const handleReloadPage = () => {
+    // Reset all form state to empty
+    setSalesEntries([])
+    setClosingEntries([])
+    setWastePhotos([])
+    setUploadedPhotoUrls([])
+    setKitchenLeader('')
+    setOperationLeader('')
+    setCurrentReportId(null)
+    setStatus('draft')
+    setDate(new Date().toISOString().split('T')[0])
+    setCompensationNotes({})
+    setSuccessDialogOpen(false)
+  }
 
   const handleOpenNoteDialog = (draftId: string, detailId: string, plateColorName: string) => {
     setNoteTarget({ draftId, detailId, plateColorName })
@@ -393,10 +412,8 @@ export function ClosingReport() {
       })
 
       setStatus('submitted')
-      toast({
-        title: 'Success',
-        description: 'Closing report submitted successfully',
-      })
+      setSubmittedDate(date)
+      setSuccessDialogOpen(true)
     } catch (error) {
       toast({
         title: 'Error',
@@ -475,15 +492,6 @@ export function ClosingReport() {
                   <Download className="w-4 h-4" />
                 )}
                 {isLoadingData ? 'Loading...' : 'Get Data'}
-              </Button>
-              <Button
-                onClick={handleGetClosingDrafts}
-                variant="outline"
-                disabled={status === 'submitted' || isLoadingData}
-                className="gap-2"
-              >
-                <FileText className="w-4 h-4" />
-                Get Closing Draft
               </Button>
             </div>
           </div>
@@ -653,21 +661,6 @@ export function ClosingReport() {
 
       {/* Action Buttons */}
       <div className="flex gap-2 justify-end">
-        <Button 
-          variant="outline" 
-          disabled={status === 'submitted' || isSavingDraft || salesEntries.length === 0}
-          onClick={handleSaveDraft}
-          className="gap-2"
-        >
-          {isSavingDraft ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Saving...
-            </>
-          ) : (
-            'Save as Draft'
-          )}
-        </Button>
         <Button
           onClick={handleSubmit}
           disabled={isSubmitting || status === 'submitted'}
@@ -677,6 +670,26 @@ export function ClosingReport() {
           {isSubmitting ? 'Submitting...' : 'Submit Closing Report'}
         </Button>
       </div>
+
+      {/* Success Dialog */}
+      <Dialog open={successDialogOpen} onOpenChange={setSuccessDialogOpen}>
+        <DialogContent className="max-w-sm w-full">
+          <div className="flex flex-col items-center text-center py-4">
+            <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-4">
+              <CheckCircle className="w-10 h-10 text-green-600" />
+            </div>
+            <DialogTitle className="text-xl font-semibold mb-2">Sukses!</DialogTitle>
+            <DialogDescription className="text-base text-muted-foreground">
+              Sukses Closing Colorplate {submittedDate}
+            </DialogDescription>
+          </div>
+          <div className="flex justify-center pt-2">
+            <Button onClick={handleReloadPage} className="w-full">
+              Reload Page
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Compensation Note Dialog */}
       <Dialog open={noteDialogOpen} onOpenChange={setNoteDialogOpen}>
