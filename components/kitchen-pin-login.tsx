@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { getApiError } from "@/lib/api"
 import { useAuth } from "@/hooks/use-auth"
-import { Loader2 } from "lucide-react"
+import { Loader2, X } from "lucide-react"
 
 export function KitchenPinLogin() {
   const router = useRouter()
@@ -34,9 +34,13 @@ export function KitchenPinLogin() {
     setError("")
   }
 
+  const handleClose = () => {
+    window.close()
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (pin.length !== 6 ) return
+    if (pin.length !== 6) return
 
     setIsLoading(true)
     setError("")
@@ -54,17 +58,29 @@ export function KitchenPinLogin() {
   }
 
   return (
-    <Card className="w-full max-w-md">
+    <Card className="w-full max-w-md relative">
+      {/* Close Button */}
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="absolute top-3 right-3 h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+        onClick={handleClose}
+        title="Close"
+      >
+        <X className="h-4 w-4" />
+      </Button>
+
       <CardHeader className="space-y-1 text-center">
         <div className="flex justify-center mb-4">
-            <div className="relative w-32 h-32 rounded-full flex items-center justify-center">
-              <Image
-                src="/Maharasa Logo_FA-01.png"
-                alt="Maharasa Logo"
-                fill
-                className="object-cover"
-              />
-            </div>
+          <div className="relative w-32 h-32 rounded-full flex items-center justify-center">
+            <Image
+              src="/Maharasa Logo_FA-01.png"
+              alt="Maharasa Logo"
+              fill
+              className="object-cover"
+            />
+          </div>
         </div>
         <CardTitle className="text-2xl font-bold">Kitchen Access</CardTitle>
         <CardDescription>Enter your 6-digit PIN to continue</CardDescription>
