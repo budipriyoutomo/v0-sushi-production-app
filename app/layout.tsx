@@ -9,27 +9,17 @@ const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Maharasa Production System",
+  title: "Sushi Production System",
   description: "Internal restaurant production management system",
-  applicationName: "Maharasa Production System",
   generator: "v0.app",
-  manifest: "/manifest.webmanifest",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "Maharasa",
-  },
-  formatDetection: {
-    telephone: false,
-  },
   icons: {
     icon: [
       {
-        url: "/pwa-icon-192.png",
+        url: "/maharasa_180x180-01.png",
         media: "(prefers-color-scheme: light)",
       },
       {
-        url: "/pwa-icon-192.png",
+        url: "/maharasa_180x180-01.png",
         media: "(prefers-color-scheme: dark)",
       },
       {

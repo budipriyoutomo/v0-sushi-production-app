@@ -8,8 +8,6 @@ interface AuthGuardProps {
   children: React.ReactNode
   allowedRoles?: string[]
   allowedModules?: string[]
-  unauthenticatedRedirect?: string
-  unauthorizedRedirect?: string
 }
 
 // Helper function to get module from pathname
@@ -19,13 +17,7 @@ function getModuleFromPath(pathname: string): string | null {
   return segments[0] // e.g., 'admin', 'production', 'kitchen', etc.
 }
 
-export function AuthGuard({
-  children,
-  allowedRoles,
-  allowedModules,
-  unauthenticatedRedirect = "/login",
-  unauthorizedRedirect = "/login",
-}: AuthGuardProps) {
+export function AuthGuard({ children, allowedRoles, allowedModules }: AuthGuardProps) {
   const { user, isLoading, isAuthenticated } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
@@ -35,13 +27,13 @@ export function AuthGuard({
 
     // Not logged in
     if (!isAuthenticated) {
-      router.replace(unauthenticatedRedirect)
+      router.replace("/login")
       return
     }
 
     // Role check (if allowedRoles is specified)
-    if (allowedRoles && user && !allowedRoles.includes(user.role.toLowerCase())) {
-      router.replace(unauthorizedRedirect)
+    if (allowedRoles && user && !allowedRoles.includes(user.role)) {
+      router.replace("/login")
       return
     }
 
@@ -55,32 +47,17 @@ export function AuthGuard({
       const allowedByProp = !allowedModules || allowedModules.some(m => user.module_app?.includes(m))
       
       if (!hasModuleAccess || !allowedByProp) {
-        if (allowedModules) {
-          router.replace(unauthorizedRedirect)
-          return
-        }
-
         // Redirect to first available module or login
         const firstModule = user.module_app.find(m => m !== 'app')
         if (firstModule) {
           router.replace(`/${firstModule}`)
         } else {
-          router.replace(unauthorizedRedirect)
+          router.replace("/login")
         }
         return
       }
     }
-  }, [
-    isLoading,
-    isAuthenticated,
-    user,
-    allowedRoles,
-    allowedModules,
-    pathname,
-    router,
-    unauthenticatedRedirect,
-    unauthorizedRedirect,
-  ])
+  }, [isLoading, isAuthenticated, user, allowedRoles, allowedModules, pathname, router])
 
   // Loading state
   if (isLoading) return null
@@ -89,7 +66,7 @@ export function AuthGuard({
   if (!isAuthenticated) return null
 
   // Role check
-  if (allowedRoles && user && !allowedRoles.includes(user.role.toLowerCase())) {
+  if (allowedRoles && user && !allowedRoles.includes(user.role)) {
     return null
   }
 
