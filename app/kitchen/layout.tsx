@@ -2,7 +2,6 @@
 
 import { AuthGuard } from '@/components/auth-guard'
 import { KitchenHeaderToolbar } from '@/components/kitchen-header-toolbar'
-import { useAuth } from '@/hooks/use-auth'
 import { OutletProvider } from '@/lib/outlet-context' 
  
 
@@ -12,6 +11,12 @@ export default function KitchenLayout({
   children: React.ReactNode
 }) { 
     return ( 
+      <AuthGuard
+        allowedRoles={['admin', 'kitchen', 'service']}
+        allowedModules={['kitchen']}
+        unauthenticatedRedirect="/login/kitchen"
+        unauthorizedRedirect="/login/kitchen"
+      >
         <OutletProvider>
           <div className="flex flex-col min-h-screen bg-background">
             <KitchenHeaderToolbar />
@@ -20,5 +25,6 @@ export default function KitchenLayout({
             </main>
           </div>
         </OutletProvider> 
+      </AuthGuard>
     ) 
 }
