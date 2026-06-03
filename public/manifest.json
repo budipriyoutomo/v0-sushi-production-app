@@ -2,7 +2,7 @@
   "name": "Maharasa Production System",
   "short_name": "Maharasa Ops",
   "description": "Restaurant production and operational monitoring system",
-  "start_url": "/",
+  "start_url": "/login/kitchen",
   "scope": "/",
   "display": "standalone",
   "orientation": "landscape",

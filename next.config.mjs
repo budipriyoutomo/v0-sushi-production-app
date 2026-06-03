@@ -5,6 +5,11 @@ const withPWA = withPWAInit({
   register: true,
   skipWaiting: true,
   disable: process.env.NODE_ENV === "development",
+  dynamicStartUrl: true,
+  dynamicStartUrlRedirect: "/login/kitchen",
+  reloadOnOnline: true,
+  skipWaiting: true,
+  clientsClaim: true,
   fallbacks: {
     document: "/offline",
   },
