@@ -1,11 +1,12 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
-import { authService, type LoginCredentials, type PinLoginCredentials } from '@/lib/api'
-import { getAuthToken, removeAuthToken } from '@/lib/config'
-import type { User } from '@/lib/types'
-
-type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated'
+import { createContext, useContext, useEffect, useCallback, type ReactNode } from "react"
+import { authService, type LoginCredentials, type PinLoginCredentials } from "@/lib/api"
+import { getAuthToken, removeAuthToken } from "@/lib/config"
+import { isAuthInvalidError, isTransientApiError } from "@/services/api-errors"
+import { logOperationalError } from "@/services/error-logger"
+import { useAuthStore } from "@/stores/auth-store"
+import type { User } from "@/lib/types"
 
 interface AuthContextType {
   user: User | null
@@ -20,81 +21,74 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [status, setStatus] = useState<AuthStatus>('loading')
+  const user = useAuthStore((state) => state.user)
+  const status = useAuthStore((state) => state.status)
+  const setSession = useAuthStore((state) => state.setSession)
+  const setStatus = useAuthStore((state) => state.setStatus)
+  const clearSession = useAuthStore((state) => state.clearSession)
 
   const refreshUser = useCallback(async () => {
+    const restoredUser = useAuthStore.getState().user
+
     try {
       const token = getAuthToken()
 
       if (!token) {
-        setUser(null)
-        setStatus('unauthenticated')
+        clearSession()
         return
       }
 
-      // Try to get current user from API
       try {
         const currentUser = await authService.getCurrentUser()
-        setUser(currentUser)
-        setStatus('authenticated')
+        setSession(currentUser, "authenticated")
       } catch (apiError: unknown) {
-        // If 404 or 401, user is not authenticated
-        const error = apiError as { response?: { status?: number }; code?: string; message?: string }
-        
-        // Check for timeout or network errors - these are transient, don't clear token
-        const isTimeoutError = error?.code === 'ECONNABORTED' || 
-          (error?.message && error.message.includes('timeout'))
-        const isNetworkError = error?.code === 'ERR_NETWORK' || 
-          (error?.message && error.message.includes('Network Error'))
-        
-        if (error?.response?.status === 404 || error?.response?.status === 401) {
-          // Token is invalid, clear it
-          setUser(null)
-          setStatus('unauthenticated')
+        if (isAuthInvalidError(apiError)) {
+          clearSession()
           removeAuthToken()
-        } else if (isTimeoutError || isNetworkError) {
-          // Network/timeout error - API might be temporarily unavailable
-          // Don't clear the token, just mark as unauthenticated for now
-          console.warn('Auth API unavailable (timeout/network):', error?.message || 'Unknown error')
-          setUser(null)
-          setStatus('unauthenticated')
-        } else {
-          // For other errors, still mark as unauthenticated but log the error
-          console.error('Auth API error:', apiError)
-          setUser(null)
-          setStatus('unauthenticated')
-          removeAuthToken()
+          return
         }
+
+        if (isTransientApiError(apiError)) {
+          logOperationalError({
+            level: "warning",
+            message: "Auth restoration deferred because API is unavailable",
+            error: apiError,
+          })
+          setStatus(restoredUser ? "authenticated" : "loading")
+          return
+        }
+
+        logOperationalError({
+          level: "error",
+          message: "Auth API error",
+          error: apiError,
+        })
+        setStatus(restoredUser ? "authenticated" : "unauthenticated")
       }
     } catch (error) {
-      console.error('Auth error:', error)
-      setUser(null)
-      setStatus('unauthenticated')
-      removeAuthToken()
+      logOperationalError({
+        level: "error",
+        message: "Auth restoration failed",
+        error,
+      })
+      setStatus(restoredUser ? "authenticated" : "unauthenticated")
     }
-  }, [])
+  }, [clearSession, setSession, setStatus])
 
   useEffect(() => {
-    const initAuth = async () => {
-      setStatus('loading')
-      await refreshUser()
-    }
-    initAuth()
-  }, [refreshUser])
+    setStatus(useAuthStore.getState().user ? "authenticated" : "loading")
+    void refreshUser()
+  }, [refreshUser, setStatus])
 
   const login = async (credentials: LoginCredentials): Promise<User> => {
     const { user: loggedInUser } = await authService.login(credentials)
-    // Set state directly from login response — no extra API round-trip needed
-    setUser(loggedInUser)
-    setStatus('authenticated')
+    setSession(loggedInUser, "authenticated")
     return loggedInUser
   }
 
   const pinLogin = async (credentials: PinLoginCredentials): Promise<User> => {
     const { user: loggedInUser } = await authService.pinLogin(credentials)
-    setUser(loggedInUser)
-    setStatus('authenticated')
+    setSession(loggedInUser, "authenticated")
     return loggedInUser
   }
 
@@ -102,12 +96,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await authService.logout()
     } catch (error) {
-      // Ignore logout API errors (e.g., 404 if endpoint doesn't exist)
-      // Still proceed to clear local auth state
-      console.warn('Logout API error (ignored):', error)
+      logOperationalError({
+        level: "warning",
+        message: "Logout API error ignored",
+        error,
+      })
     } finally {
-      setUser(null)
-      setStatus('unauthenticated')
+      clearSession()
     }
   }
 
@@ -115,8 +110,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
-        isLoading: status === 'loading',
-        isAuthenticated: status === 'authenticated',
+        isLoading: status === "loading",
+        isAuthenticated: status === "authenticated",
         login,
         pinLogin,
         logout,
@@ -131,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth(): AuthContextType {
   const context = useContext(AuthContext)
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider')
+    throw new Error("useAuth must be used within an AuthProvider")
   }
   return context
 }

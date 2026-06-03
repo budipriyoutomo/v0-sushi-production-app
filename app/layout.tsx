@@ -12,6 +12,16 @@ export const metadata: Metadata = {
   title: "Sushi Production System",
   description: "Internal restaurant production management system",
   generator: "v0.app",
+  manifest: "/manifest.json",
+  applicationName: "Maharasa Ops",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Maharasa Ops",
+  },
+  formatDetection: {
+    telephone: false,
+  },
   icons: {
     icon: [
       {
@@ -29,6 +39,10 @@ export const metadata: Metadata = {
     ],
     apple: "/maharasa_180x180-01.png",
   },
+}
+
+export const viewport = {
+  themeColor: "#111827",
 }
 
 export default function RootLayout({

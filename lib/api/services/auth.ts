@@ -1,5 +1,5 @@
 import apiClient from '../client'
-import { setAuthToken, removeAuthToken } from '@/lib/config'
+import { setAuthToken, setRefreshToken, removeAuthToken } from '@/lib/config'
 import type { User } from '@/lib/types'
 
 export interface LoginCredentials {
@@ -107,9 +107,10 @@ class AuthService {
 
   // Refresh token
   async refreshToken(): Promise<string> {
-    const response = await apiClient.post<{ data: { token: string } }>(`${this.endpoint}/refresh`)
-    const { token } = response.data.data
+    const response = await apiClient.post<{ data: { token: string; refreshToken?: string } }>(`${this.endpoint}/refresh`)
+    const { token, refreshToken } = response.data.data
     setAuthToken(token)
+    if (refreshToken) setRefreshToken(refreshToken)
     return token
   }
 }

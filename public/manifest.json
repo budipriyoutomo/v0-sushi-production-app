@@ -1,0 +1,25 @@
+{
+  "name": "Maharasa Production System",
+  "short_name": "Maharasa Ops",
+  "description": "Restaurant production and operational monitoring system",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#ffffff",
+  "theme_color": "#111827",
+  "icons": [
+    {
+      "src": "/maharasa_180x180-01.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/maharasa_180x180-01.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

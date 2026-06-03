@@ -22,6 +22,16 @@ export function setAuthToken(token: string): void {
   localStorage.setItem(config.auth.tokenKey, token)
 }
 
+export function setRefreshToken(token: string): void {
+  if (typeof window === 'undefined') return
+  localStorage.setItem(config.auth.refreshTokenKey, token)
+}
+
+export function getRefreshToken(): string | null {
+  if (typeof window === 'undefined') return null
+  return localStorage.getItem(config.auth.refreshTokenKey)
+}
+
 // Remove auth token from storage
 export function removeAuthToken(): void {
   if (typeof window === 'undefined') return

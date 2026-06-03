@@ -1,10 +1,11 @@
 'use client'
 
-import { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react'
+import { createContext, useContext, ReactNode, useEffect, useMemo } from 'react'
 import type { Outlet } from './types'
 import { useActiveOutlets } from '@/hooks/use-outlets' 
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/use-auth'
+import { useOutletStore } from '@/stores/outlet-store'
 
 interface OutletContextType {
   selectedOutletId: string
@@ -21,7 +22,8 @@ export function OutletProvider({ children }: { children: ReactNode }) {
   const shouldFetch = pathname !== '/login'
 
   const { outlets: allOutlets, isLoading } = useActiveOutlets(shouldFetch ? undefined : null)
-  const [selectedOutletId, setSelectedOutletId] = useState<string>('')
+  const selectedOutletId = useOutletStore((state) => state.selectedOutletId)
+  const setSelectedOutletId = useOutletStore((state) => state.setSelectedOutletId)
 
   // Filter outlets based on user's allowed outlet codes
   // Admin role bypasses filter and gets all outlets

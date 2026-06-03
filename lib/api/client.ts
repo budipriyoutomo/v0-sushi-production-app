@@ -1,5 +1,11 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios'
 import { config, getAuthToken, removeAuthToken } from '@/lib/config'
+import { isTransientApiError } from '@/services/api-errors'
+import { logOperationalError } from '@/services/error-logger'
+
+function isMutatingRequest(method?: string) {
+  return ['post', 'put', 'patch'].includes(String(method || '').toLowerCase())
+}
 
 // Create axios instance with base configuration
 const apiClient: AxiosInstance = axios.create({
@@ -12,11 +18,17 @@ const apiClient: AxiosInstance = axios.create({
 
 // Request interceptor - add auth token to all requests
 apiClient.interceptors.request.use(
-  (requestConfig: InternalAxiosRequestConfig) => {
+  async (requestConfig: InternalAxiosRequestConfig) => {
     const token = getAuthToken()
     if (token && requestConfig.headers) {
       requestConfig.headers.Authorization = `Bearer ${token}`
     }
+
+    if (isMutatingRequest(requestConfig.method) && requestConfig.headers && !requestConfig.headers['X-Client-Request-Id']) {
+      const { createQueueRequestId } = await import('@/services/offline-queue')
+      requestConfig.headers['X-Client-Request-Id'] = await createQueueRequestId(requestConfig)
+    }
+
     return requestConfig
   },
   (error: AxiosError) => {
@@ -27,13 +39,32 @@ apiClient.interceptors.request.use(
 // Response interceptor - handle errors globally
 apiClient.interceptors.response.use(
   (response) => response,
-  (error: AxiosError) => {
-    if (error.response?.status === 401) {
-      // Token expired or invalid - clear auth and redirect to login
-      removeAuthToken()
-      if (typeof window !== 'undefined') {
-        window.location.href = '/login'
+  async (error: AxiosError) => {
+    const requestConfig = error.config
+
+    if (
+      requestConfig &&
+      isMutatingRequest(requestConfig.method) &&
+      !requestConfig.skipOfflineQueue &&
+      isTransientApiError(error)
+    ) {
+      const { enqueueOfflineRequest } = await import('@/services/offline-queue')
+      const queuedRequest = await enqueueOfflineRequest(requestConfig)
+
+      if (queuedRequest) {
+        logOperationalError({
+          level: 'warning',
+          message: 'Queued failed mutation for retry',
+          error,
+          context: { url: requestConfig.url, method: requestConfig.method },
+        })
       }
+    }
+
+    if (error.response?.status === 401) {
+      // Token expired or invalid. Do not hard redirect here; route guards will
+      // handle session state after auth restoration confirms the token is bad.
+      removeAuthToken()
     }
     return Promise.reject(error)
   }
