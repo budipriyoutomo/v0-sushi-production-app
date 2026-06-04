@@ -105,13 +105,14 @@ class MenusService extends BaseService<SushiMenu, CreateMenuDTO, UpdateMenuDTO> 
   async update(id: string | number, data: UpdateMenuDTO): Promise<{ data: SushiMenu }> {
 
     const formData = new FormData()
+    formData.append('_method', 'PUT')
 
-    if (data.code) formData.append('code', data.code)
-    if (data.menuname) formData.append('menuname', data.menuname)
-    if (data.description) formData.append('description', data.description)
-    if (data.price) formData.append('price', String(data.price))
-    if (data.shelf_life) formData.append('shelf_life', String(data.shelf_life))
-    if (data.plate_color_id) formData.append('plate_color_id', data.plate_color_id)
+    if (data.code !== undefined) formData.append('code', data.code)
+    if (data.menuname !== undefined) formData.append('menuname', data.menuname)
+    if (data.description !== undefined) formData.append('description', data.description)
+    if (data.price !== undefined) formData.append('price', String(data.price))
+    if (data.shelf_life !== undefined) formData.append('shelf_life', String(data.shelf_life))
+    if (data.plate_color_id !== undefined) formData.append('plate_color_id', data.plate_color_id)
     if (data.is_active !== undefined) formData.append('is_active', String(data.is_active ? 1 : 0))
 
     if (data.image) {
