@@ -130,10 +130,11 @@ export function MenusAdmin() {
   const pagedMenus = filteredMenus.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const validateCode = (code: string, currentId?: string): string | undefined => {
-    if (!code) return "Code is required"
-    if (code.length > 50) return "Code must be at most 50 characters"
+    const safeCode = String(code || "");
+    if (!safeCode) return "Code is required"
+    if (safeCode.length > 50) return "Code must be at most 50 characters"
     const isDuplicate = menus.some(
-      (m) => typeof m.code === 'string' && m.code.toLowerCase() === code.toLowerCase() && m.id !== currentId
+      (m) => typeof m.code === 'string' && m.code.toLowerCase() === safeCode.toLowerCase() && m.id !== currentId
     )
     if (isDuplicate) return "Code already exists, must be unique"
     return undefined
@@ -162,8 +163,8 @@ export function MenusAdmin() {
     setImagePreview(item.image || "")
     setFormErrors({})
     setFormData({
-      code: item.code || "",
-      menuname: item.menuname,
+      code: String(item.code || ""),
+      menuname: String(item.menuname || ""),
       description: item.description, 
       price: item.price,
       shelf_life: item.shelfLife,
