@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { TrendingUp, TrendingDown, RefreshCw, AlertTriangle, CheckCircle, Loader2, Award, Clock, DollarSign, Layers } from 'lucide-react'
 import { PlateColorBadge, type PlateColor } from '@/components/plate-color-badge'
+import { OutletSelector } from '@/components/outlet-selector' // <-- IMPORT DIKEMBALIKAN
 import { useOutlet } from '@/lib/outlet-context'
 import { useAuth } from '@/hooks/use-auth'
 import { reportsService } from '@/lib/api'
@@ -116,7 +117,6 @@ export function ProductionMonitoringDashboard() {
       const response = await reportsService.getDailySummary(outletId, date)
       
       if (response) {
-        // Melakukan ekstrak jika dibungkus .data atau langsung objek mentah
         const extractedData = (response as any).status !== undefined && (response as any).data
           ? (response as any).data
           : response;
@@ -183,8 +183,11 @@ export function ProductionMonitoringDashboard() {
         </div>
       </div>
 
-      {/* Filter Toolbar */}
+      {/* Filter Toolbar dengan OutletSelector */}
       <div className="flex flex-wrap items-center gap-4 bg-muted/40 p-4 rounded-xl">
+        {/* DIKEMBALIKAN KE SINI */}
+        <OutletSelector /> 
+
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">Reporting Date:</span>
           <Input
@@ -215,7 +218,7 @@ export function ProductionMonitoringDashboard() {
       {/* Empty State */}
       {!isLoading && !summaryData && (
         <div className="flex items-center justify-center p-12 text-muted-foreground border-2 border-dashed rounded-xl">
-          No records loaded. Please choose a date target and click "Get Data".
+          No records loaded. Please choose an outlet & date target and click "Get Data".
         </div>
       )}
 
@@ -512,7 +515,6 @@ export function ProductionMonitoringDashboard() {
   )
 }
 
-// Sub-komponen KPI Card yang Dioptimalkan
 function KPICard({ label, value, description, icon: Icon, variant }: { 
   label: string; 
   value: string; 
