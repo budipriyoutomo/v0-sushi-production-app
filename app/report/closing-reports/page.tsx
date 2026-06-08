@@ -21,6 +21,7 @@ export default function ClosingReportsPage() {
   const [customEndDate, setCustomEndDate] = useState('')
   const [reports, setReports] = useState<ClosingReportSummary[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [reportDataView, setReportDataView] = useState<'colorplate' | 'menu'>('colorplate')
 
   const today = new Date().toISOString().split('T')[0]
   const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
@@ -76,7 +77,7 @@ export default function ClosingReportsPage() {
     } catch (error) {
       toast({
         title: 'Error',
-        description: getApiError(error),
+        description: getApiError(error).message,
         variant: 'destructive',
       })
     } finally {
@@ -87,10 +88,10 @@ export default function ClosingReportsPage() {
   const allItems = useMemo(() => {
     return reports.flatMap((report) =>
       report.entries.map(entry => ({
-        code: entry.plateColorCode,
-        menuName: entry.plateColorName,
+        code: entry.plateColorCode || '',
+        itemName: entry.plateColorName || '',
         sellingPrice: entry.sellingPrice,
-        plateColor: entry.plateColorName.toLowerCase(),
+        plateColor: (entry.plateColorName || '').toLowerCase(),
         produced: entry.produced,
         sold: entry.sold,
         waste: entry.waste,
@@ -102,6 +103,27 @@ export default function ClosingReportsPage() {
       }))
     )
   }, [reports])
+
+  const allMenuItems = useMemo(() => {
+    return reports.flatMap((report) =>
+      (report.menuEntries ?? []).map(entry => ({
+        code: entry.menuCode || '',
+        itemName: entry.menuName || '',
+        sellingPrice: entry.sellingPrice,
+        plateColor: (entry.plateColor?.name || entry.plateColorName || '').toLowerCase(),
+        produced: entry.produced,
+        sold: entry.sold,
+        waste: entry.waste,
+        posSold: entry.posSold,
+        adjustment: entry.adjustment,
+        compensation: entry.compensation,
+        reportId: report.id,
+        reportDate: report.date,
+      }))
+    )
+  }, [reports])
+
+  const displayedItems = reportDataView === 'menu' ? allMenuItems : allItems
 
   const handleRefresh = () => {
     fetchReports()
@@ -227,7 +249,7 @@ export default function ClosingReportsPage() {
               onClick={handleExportExcel}
               variant="outline"
               className="gap-2"
-              disabled={allItems.length === 0}
+              disabled={displayedItems.length === 0}
             >
               <Download className="w-4 h-4" />
               Excel
@@ -236,7 +258,7 @@ export default function ClosingReportsPage() {
               onClick={handleExportPDF}
               variant="outline"
               className="gap-2"
-              disabled={allItems.length === 0}
+              disabled={displayedItems.length === 0}
             >
               <FileText className="w-4 h-4" />
               PDF
@@ -248,11 +270,33 @@ export default function ClosingReportsPage() {
       {/* Data Table */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
             <CardTitle>Report Data</CardTitle>
-            <span className="text-sm text-muted-foreground">
-              {allItems.length} items from {reports.length} report(s)
-            </span>
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex rounded-md border p-1">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={reportDataView === 'colorplate' ? 'default' : 'ghost'}
+                  onClick={() => setReportDataView('colorplate')}
+                  className="h-8"
+                >
+                  Colorplate
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={reportDataView === 'menu' ? 'default' : 'ghost'}
+                  onClick={() => setReportDataView('menu')}
+                  className="h-8"
+                >
+                  Menu
+                </Button>
+              </div>
+              <span className="text-sm text-muted-foreground">
+                {displayedItems.length} items from {reports.length} report(s)
+              </span>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -261,7 +305,7 @@ export default function ClosingReportsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Code</TableHead>
-                  <TableHead>Menu</TableHead>
+                  <TableHead>{reportDataView === 'menu' ? 'Menu' : 'Colorplate'}</TableHead>
                   <TableHead className="text-right">Harga Jual</TableHead>
                   <TableHead>Color</TableHead>
                   <TableHead colSpan={3} className="text-center">COLORPLATE</TableHead>
@@ -295,17 +339,17 @@ export default function ClosingReportsPage() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ) : allItems.length === 0 ? (
+                ) : displayedItems.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={12} className="text-center py-6 text-muted-foreground">
                       No data available. Click &quot;Get Data&quot; to load closing reports.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  allItems.map((item, idx) => (
-                    <TableRow key={idx}>
+                  displayedItems.map((item, idx) => (
+                    <TableRow key={`${item.reportId}-${item.code}-${idx}`}>
                       <TableCell className="font-mono font-semibold text-sm">{item.code}</TableCell>
-                      <TableCell className="font-medium">{item.menuName}</TableCell>
+                      <TableCell className="font-medium">{item.itemName}</TableCell>
                       <TableCell className="text-right">Rp {item.sellingPrice.toLocaleString('id-ID')}</TableCell>
                       <TableCell>
                         <PlateColorBadge color={item.plateColor as 'white' | 'blue' | 'pink' | 'black' | 'red' | 'gold' | 'yellow'} />
@@ -338,7 +382,7 @@ export default function ClosingReportsPage() {
             <CardContent className="pt-4">
               <p className="text-xs text-muted-foreground mb-2">Total Produced</p>
               <p className="text-2xl font-bold text-blue-600">
-                {allItems.reduce((sum, i) => sum + i.produced, 0)}
+                {displayedItems.reduce((sum, i) => sum + i.produced, 0)}
               </p>
             </CardContent>
           </Card>
@@ -346,7 +390,7 @@ export default function ClosingReportsPage() {
             <CardContent className="pt-4">
               <p className="text-xs text-muted-foreground mb-2">Total Sold</p>
               <p className="text-2xl font-bold text-green-600">
-                {allItems.reduce((sum, i) => sum + i.sold, 0)}
+                {displayedItems.reduce((sum, i) => sum + i.sold, 0)}
               </p>
             </CardContent>
           </Card>
@@ -354,7 +398,7 @@ export default function ClosingReportsPage() {
             <CardContent className="pt-4">
               <p className="text-xs text-muted-foreground mb-2">Total Waste</p>
               <p className="text-2xl font-bold text-red-600">
-                {allItems.reduce((sum, i) => sum + i.waste, 0)}
+                {displayedItems.reduce((sum, i) => sum + i.waste, 0)}
               </p>
             </CardContent>
           </Card>
@@ -362,7 +406,7 @@ export default function ClosingReportsPage() {
             <CardContent className="pt-4">
               <p className="text-xs text-muted-foreground mb-2">Total Compensation Value</p>
               <p className="text-2xl font-bold text-purple-600">
-                Rp {allItems.reduce((sum, i) => sum + (i.compensation * i.sellingPrice), 0).toLocaleString('id-ID')}
+                Rp {displayedItems.reduce((sum, i) => sum + (i.compensation * i.sellingPrice), 0).toLocaleString('id-ID')}
               </p>
             </CardContent>
           </Card>

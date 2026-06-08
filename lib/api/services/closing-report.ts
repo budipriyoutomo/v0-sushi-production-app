@@ -49,6 +49,7 @@ export interface ClosingReportSummary {
   wastePhotoUrls?: string[]
   notes?: string
   entries: ClosingReportEntry[]
+  menuEntries?: ClosingReportEntry[]
   summary?: {
     totalRevenue: number
     averageSellingPrice: number
