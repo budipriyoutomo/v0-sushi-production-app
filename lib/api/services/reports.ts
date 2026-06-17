@@ -57,13 +57,30 @@ export interface DailySummary {
   topSellingItems: Array<{ menuName: string; quantity: number }>
 }
 
+export interface WasteAnalysisPlateColor {
+  plateColorId: string
+  plateColorName: string
+  wasteCount: number
+  productionCount: number
+  wastePercentage: number
+}
+
+export interface WasteAnalysisReason {
+  reason: string
+  count: number
+  percentage: number
+}
+
 export interface WasteAnalysis {
-  period: string
+  period: { startDate: string; endDate: string }
   totalWaste: number
-  wasteByReason: Record<string, number>
-  wasteByPlateColor: Record<PlateColor, number>
-  wasteByDay: Array<{ date: string; quantity: number }>
-  wasteTrend: 'increasing' | 'decreasing' | 'stable'
+  totalProduction: number
+  wastePercentage: number
+  wasteCost: number
+  topReason: string | null
+  byPlateColor: WasteAnalysisPlateColor[]
+  byReason: WasteAnalysisReason[]
+  byDay: Array<{ date: string; quantity: number }>
 }
 
 class ReportsService {

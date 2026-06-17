@@ -2,6 +2,11 @@ import { openDB, type DBSchema } from "idb"
 import type { AxiosRequestConfig, Method } from "axios"
 import apiClient from "@/lib/api/client"
 import { logOperationalError } from "@/services/error-logger"
+import { isTransientApiError } from "@/services/api-errors"
+
+// A queued request that keeps failing with a non-transient (client) error, or
+// exceeds this many attempts, is dropped so it cannot wedge the whole queue.
+const MAX_ATTEMPTS = 8
 
 const DB_NAME = "maharasa-offline-queue"
 const DB_VERSION = 1
@@ -133,19 +138,22 @@ export async function getQueuedRequestCount() {
 
 export async function drainOfflineQueue() {
   const db = await getDb()
-  if (!db || !navigator.onLine) return { retried: 0, remaining: 0 }
+  if (!db || !navigator.onLine) return { retried: 0, dropped: 0, remaining: 0 }
 
   const requests = await db.getAllFromIndex(STORE_NAME, "by-created-at")
   let retried = 0
+  let dropped = 0
 
   for (const request of requests) {
-    try {
-      await db.put(STORE_NAME, {
-        ...request,
-        attempts: request.attempts + 1,
-        lastAttemptAt: Date.now(),
-      })
+    const attempts = request.attempts + 1
 
+    await db.put(STORE_NAME, {
+      ...request,
+      attempts,
+      lastAttemptAt: Date.now(),
+    })
+
+    try {
       await apiClient.request({
         method: request.method,
         url: request.url,
@@ -158,11 +166,27 @@ export async function drainOfflineQueue() {
       await db.delete(STORE_NAME, request.id)
       retried += 1
     } catch (error) {
+      // Non-transient errors (4xx validation/auth) will never succeed on retry,
+      // and a request that exhausted its attempts is treated the same way: drop
+      // it (dead-letter) and keep draining the rest of the queue.
+      if (!isTransientApiError(error) || attempts >= MAX_ATTEMPTS) {
+        await db.delete(STORE_NAME, request.id)
+        dropped += 1
+        logOperationalError({
+          level: "error",
+          message: "Dropping unrecoverable queued request",
+          error,
+          context: { requestId: request.id, url: request.url, attempts },
+        })
+        continue
+      }
+
+      // Transient failure (network/5xx): stop here and retry on the next reconnect.
       logOperationalError({
         level: "warning",
-        message: "Offline queue retry failed",
+        message: "Offline queue retry failed (will retry later)",
         error,
-        context: { requestId: request.id, url: request.url },
+        context: { requestId: request.id, url: request.url, attempts },
       })
       break
     }
@@ -170,6 +194,7 @@ export async function drainOfflineQueue() {
 
   return {
     retried,
+    dropped,
     remaining: await db.count(STORE_NAME),
   }
 }

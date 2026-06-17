@@ -8,7 +8,6 @@ const withPWA = withPWAInit({
   dynamicStartUrl: true,
   dynamicStartUrlRedirect: "/login/kitchen",
   reloadOnOnline: true,
-  skipWaiting: true,
   clientsClaim: true,
   fallbacks: {
     document: "/offline",

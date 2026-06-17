@@ -6,8 +6,10 @@ export interface CreateUserDTO {
   email: string
   password: string
   role: UserRole
-  outletId?: string
   pin?: string
+  departemen?: string
+  outlet?: string[]
+  module_app?: string[]
 }
 
 export interface UpdateUserDTO {
@@ -15,9 +17,10 @@ export interface UpdateUserDTO {
   email?: string
   password?: string
   role?: UserRole
-  outletId?: string
   pin?: string
-  isActive?: boolean
+  departemen?: string
+  outlet?: string[]
+  module_app?: string[]
 }
 
 class UsersService extends BaseService<User, CreateUserDTO, UpdateUserDTO> {

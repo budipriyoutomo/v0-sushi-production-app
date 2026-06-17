@@ -26,7 +26,6 @@ export {
   type POSData,
   type ClosingReport,
   type DailySummary,
-  type SalesAnalysis,
   type WasteAnalysis,
   type ProductionMenuDetailItem,
 } from './services/reports'

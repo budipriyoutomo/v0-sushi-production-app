@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { OutletSelector } from '@/components/outlet-selector'
 import { useToast } from '@/hooks/use-toast'
 import { useOutlet } from '@/lib/outlet-context'
-import { reportsService, salesService, type POSData, type ProductionMenuDetailItem, type SalesDraft } from '@/lib/api'
+import { reportsService, salesService, getApiError, type POSData, type ProductionMenuDetailItem, type SalesDraft } from '@/lib/api'
 import type { PlateColor } from '@/components/plate-color-badge'
 import { PlateColorBadge } from '@/components/plate-color-badge'
 import { Textarea } from '@/components/ui/textarea'
@@ -143,9 +143,10 @@ export function SalesInput() {
         description: `Loaded ${posData.length} entries from POS`,
       })
     } catch (error) {
+      const apiError = getApiError(error)
       toast({
         title: 'Error',
-        description: 'Failed to fetch POS data',
+        description: apiError.message || 'Failed to fetch POS data',
         variant: 'destructive',
       })
     } finally {
@@ -295,6 +296,9 @@ export function SalesInput() {
   const [isSavingDraft, setIsSavingDraft] = useState(false)
 
   const handleSaveDraft = async () => {
+    // Guard against double-clicks while a save/submit is already in flight.
+    if (isSavingDraft || isSubmitting) return
+
     if (salesEntries.length === 0) {
       toast({
         title: 'Error',
@@ -372,6 +376,9 @@ export function SalesInput() {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async () => {
+    // Guard against double-clicks while a save/submit is already in flight.
+    if (isSubmitting || isSavingDraft) return
+
     if (salesEntries.length === 0) {
       toast({
         title: 'Error',

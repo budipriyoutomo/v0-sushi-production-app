@@ -291,6 +291,9 @@ export function ClosingReport() {
 
   // Save as draft
   const handleSaveDraft = async () => {
+    // Guard against double-clicks while a save/submit is already in flight.
+    if (isSavingDraft || isSubmitting) return
+
     if (!selectedOutletId) {
       toast({
         title: 'Error',
@@ -374,6 +377,9 @@ export function ClosingReport() {
   }
 
   const handleSubmit = async () => {
+    // Guard against double-clicks while a save/submit is already in flight.
+    if (isSubmitting || isSavingDraft) return
+
     if (!selectedOutletId) {
       toast({
         title: 'Error',

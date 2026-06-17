@@ -16,15 +16,16 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/hooks/use-toast'
 import { useUsers } from '@/hooks/use-users'
+import { getApiError } from '@/lib/api'
 import type { User, UserRole } from '@/lib/types'
-import { Plus, Trash2, Edit2, Shield, Lock, Loader2 } from 'lucide-react'
+import { Plus, Trash2, Edit2, Shield, Lock, Loader2, KeyRound } from 'lucide-react'
 
-const EMPTY_KITCHEN_FORM = { name: '', username: '', password: '', pin: '' }
-const EMPTY_ADMIN_FORM = { name: '', email: '', username: '', password: '', role: 'manager' as UserRole }
+const EMPTY_KITCHEN_FORM = { name: '', email: '', password: '', pin: '' }
+const EMPTY_ADMIN_FORM = { name: '', email: '', password: '', role: 'manager' as UserRole }
 
 export function UserManagement() {
   const { toast } = useToast()
-  const { users, isLoading, createUser, updateUser, deleteUser, toggleUserStatus } = useUsers()
+  const { users, isLoading, createUser, updateUser, deleteUser } = useUsers()
 
   const kitchenUsers = users.filter((u) => u.role === 'kitchen')
   const adminUsers = users.filter((u) => u.role !== 'kitchen')
@@ -50,13 +51,20 @@ export function UserManagement() {
 
   const handleEditKitchenUser = (user: User) => {
     setEditingKitchenUser(user)
-    setKitchenFormData({ name: user.name, username: user.username || '', password: '', pin: '' })
+    setKitchenFormData({ name: user.name, email: user.email || '', password: '', pin: '' })
     setKitchenDialogOpen(true)
   }
 
   const handleSaveKitchenUser = async () => {
-    if (!kitchenFormData.name || !kitchenFormData.username) {
-      toast({ title: 'Error', description: 'Please fill in name and username', variant: 'destructive' })
+    // Guard against double-clicks while a save is already in flight.
+    if (kitchenSaving) return
+
+    if (!kitchenFormData.name || !kitchenFormData.email) {
+      toast({ title: 'Error', description: 'Please fill in name and email', variant: 'destructive' })
+      return
+    }
+    if (!kitchenFormData.email.includes('@')) {
+      toast({ title: 'Error', description: 'Please enter a valid email', variant: 'destructive' })
       return
     }
     if (!editingKitchenUser && !kitchenFormData.password) {
@@ -69,7 +77,7 @@ export function UserManagement() {
       if (editingKitchenUser) {
         await updateUser(editingKitchenUser.id, {
           name: kitchenFormData.name,
-          username: kitchenFormData.username,
+          email: kitchenFormData.email,
           ...(kitchenFormData.password && { password: kitchenFormData.password }),
           ...(kitchenFormData.pin && { pin: kitchenFormData.pin }),
         })
@@ -77,7 +85,7 @@ export function UserManagement() {
       } else {
         await createUser({
           name: kitchenFormData.name,
-          username: kitchenFormData.username,
+          email: kitchenFormData.email,
           password: kitchenFormData.password,
           role: 'kitchen',
           ...(kitchenFormData.pin && { pin: kitchenFormData.pin }),
@@ -85,8 +93,8 @@ export function UserManagement() {
         toast({ title: 'Success', description: 'Kitchen user added' })
       }
       setKitchenDialogOpen(false)
-    } catch {
-      toast({ title: 'Error', description: 'Failed to save user', variant: 'destructive' })
+    } catch (error) {
+      toast({ title: 'Error', description: getApiError(error).message, variant: 'destructive' })
     } finally {
       setKitchenSaving(false)
     }
@@ -97,8 +105,8 @@ export function UserManagement() {
     try {
       await deleteUser(userId)
       toast({ title: 'Success', description: 'Kitchen user deleted' })
-    } catch {
-      toast({ title: 'Error', description: 'Failed to delete user', variant: 'destructive' })
+    } catch (error) {
+      toast({ title: 'Error', description: getApiError(error).message, variant: 'destructive' })
     }
   }
 
@@ -113,15 +121,17 @@ export function UserManagement() {
     setEditingAdminUser(user)
     setAdminFormData({
       name: user.name,
-      email: user.email,
-      username: user.username || '',
+      email: user.email || '',
       password: '',
-      role: user.role as UserRole,
+      role: (user.role as UserRole) || 'manager',
     })
     setAdminDialogOpen(true)
   }
 
   const handleSaveAdminUser = async () => {
+    // Guard against double-clicks while a save is already in flight.
+    if (adminSaving) return
+
     if (!adminFormData.name || !adminFormData.email) {
       toast({ title: 'Error', description: 'Please fill in name and email', variant: 'destructive' })
       return
@@ -141,7 +151,6 @@ export function UserManagement() {
         await updateUser(editingAdminUser.id, {
           name: adminFormData.name,
           email: adminFormData.email,
-          username: adminFormData.username,
           role: adminFormData.role,
           ...(adminFormData.password && { password: adminFormData.password }),
         })
@@ -150,15 +159,14 @@ export function UserManagement() {
         await createUser({
           name: adminFormData.name,
           email: adminFormData.email,
-          username: adminFormData.username,
           password: adminFormData.password,
           role: adminFormData.role,
         })
         toast({ title: 'Success', description: 'Admin user added' })
       }
       setAdminDialogOpen(false)
-    } catch {
-      toast({ title: 'Error', description: 'Failed to save user', variant: 'destructive' })
+    } catch (error) {
+      toast({ title: 'Error', description: getApiError(error).message, variant: 'destructive' })
     } finally {
       setAdminSaving(false)
     }
@@ -169,8 +177,8 @@ export function UserManagement() {
     try {
       await deleteUser(userId)
       toast({ title: 'Success', description: 'Admin user deleted' })
-    } catch {
-      toast({ title: 'Error', description: 'Failed to delete user', variant: 'destructive' })
+    } catch (error) {
+      toast({ title: 'Error', description: getApiError(error).message, variant: 'destructive' })
     }
   }
 
@@ -210,7 +218,8 @@ export function UserManagement() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Name</TableHead>
-                      <TableHead>Username</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>PIN</TableHead>
                       <TableHead>Role</TableHead>
                       <TableHead className="w-20">Actions</TableHead>
                     </TableRow>
@@ -218,7 +227,7 @@ export function UserManagement() {
                   <TableBody>
                     {kitchenUsers.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                           No kitchen staff found
                         </TableCell>
                       </TableRow>
@@ -226,7 +235,16 @@ export function UserManagement() {
                       kitchenUsers.map((user) => (
                         <TableRow key={user.id}>
                           <TableCell className="font-medium">{user.name}</TableCell>
-                          <TableCell className="text-sm text-muted-foreground">{user.username || '-'}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{user.email || '-'}</TableCell>
+                          <TableCell>
+                            {user.hasPin ? (
+                              <span className="inline-flex items-center gap-1 text-xs text-emerald-700">
+                                <KeyRound className="w-3 h-3" /> Set
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
                           <TableCell>
                             <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800">
                               {user.role}
@@ -273,7 +291,6 @@ export function UserManagement() {
                     <TableRow>
                       <TableHead>Name</TableHead>
                       <TableHead>Email</TableHead>
-                      <TableHead>Username</TableHead>
                       <TableHead>Role</TableHead>
                       <TableHead className="w-20">Actions</TableHead>
                     </TableRow>
@@ -281,7 +298,7 @@ export function UserManagement() {
                   <TableBody>
                     {adminUsers.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
                           No admin users found
                         </TableCell>
                       </TableRow>
@@ -289,8 +306,7 @@ export function UserManagement() {
                       adminUsers.map((user) => (
                         <TableRow key={user.id}>
                           <TableCell className="font-medium">{user.name}</TableCell>
-                          <TableCell className="text-sm">{user.email}</TableCell>
-                          <TableCell className="text-sm text-muted-foreground">{user.username || '-'}</TableCell>
+                          <TableCell className="text-sm">{user.email || '-'}</TableCell>
                           <TableCell>
                             <span className={`text-xs px-2 py-1 rounded-full ${user.role === 'admin' || user.role === 'administrator' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}`}>
                               {user.role}
@@ -336,12 +352,13 @@ export function UserManagement() {
                 />
               </div>
               <div>
-                <Label htmlFor="k-username">Username</Label>
+                <Label htmlFor="k-email">Email</Label>
                 <Input
-                  id="k-username"
-                  placeholder="username"
-                  value={kitchenFormData.username}
-                  onChange={(e) => setKitchenFormData({ ...kitchenFormData, username: e.target.value })}
+                  id="k-email"
+                  type="email"
+                  placeholder="chef@example.com"
+                  value={kitchenFormData.email}
+                  onChange={(e) => setKitchenFormData({ ...kitchenFormData, email: e.target.value })}
                 />
               </div>
               <div>
@@ -370,7 +387,7 @@ export function UserManagement() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setKitchenDialogOpen(false)}>
+              <Button variant="outline" onClick={() => setKitchenDialogOpen(false)} disabled={kitchenSaving}>
                 Cancel
               </Button>
               <Button onClick={handleSaveKitchenUser} disabled={kitchenSaving}>
@@ -411,15 +428,6 @@ export function UserManagement() {
                 />
               </div>
               <div>
-                <Label htmlFor="a-username">Username</Label>
-                <Input
-                  id="a-username"
-                  placeholder="username"
-                  value={adminFormData.username}
-                  onChange={(e) => setAdminFormData({ ...adminFormData, username: e.target.value })}
-                />
-              </div>
-              <div>
                 <Label htmlFor="a-password">
                   Password {editingAdminUser && <span className="text-muted-foreground text-xs">(leave blank to keep current)</span>}
                 </Label>
@@ -443,11 +451,12 @@ export function UserManagement() {
                   <option value="admin">Admin</option>
                   <option value="operation">Operation</option>
                   <option value="production">Production</option>
+                  <option value="service">Service</option>
                 </select>
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setAdminDialogOpen(false)}>
+              <Button variant="outline" onClick={() => setAdminDialogOpen(false)} disabled={adminSaving}>
                 Cancel
               </Button>
               <Button onClick={handleSaveAdminUser} disabled={adminSaving}>

@@ -133,69 +133,78 @@ export function OutletManagement() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8">
+    <div className="min-h-screen bg-background text-foreground selection:bg-emerald-500/30 p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl md:text-4xl font-bold">Outlet Management</h1>
-            <p className="text-muted-foreground mt-1">Manage all outlet locations and settings</p>
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Colorplate System</span>
+            </div>
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Outlet Management</h1>
+            <p className="text-muted-foreground mt-0.5">Manage all outlet locations and settings</p>
           </div>
-          <Button onClick={handleAdd} size="lg">
+          <Button
+            onClick={handleAdd}
+            size="lg"
+            className="bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-500/30 shadow-sm transition-all duration-200"
+          >
             <Plus className="w-5 h-5 mr-2" />
             Add Outlet
           </Button>
         </div>
 
         {/* Outlets Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Active Outlets</CardTitle>
+        <Card className="shadow-sm">
+          <CardHeader className="border-b">
+            <CardTitle className="text-base font-semibold tracking-wide">Active Outlets</CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />
               </div>
             ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Code</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Brand</TableHead>
-                    <TableHead>Address</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead className="w-20">Actions</TableHead>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Code</TableHead>
+                    <TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Name</TableHead>
+                    <TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Brand</TableHead>
+                    <TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Address</TableHead>
+                    <TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Status</TableHead>
+                    <TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Created</TableHead>
+                    <TableHead className="w-20 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {outlets.length === 0 ? (
-                    <TableRow>
+                    <TableRow className="hover:bg-transparent">
                       <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                         No outlets found
                       </TableCell>
                     </TableRow>
                   ) : (
                     outlets.map((outlet) => (
-                      <TableRow key={outlet.id}>
+                      <TableRow key={outlet.id} className="hover:bg-muted/50 transition-colors">
                         <TableCell className="font-semibold">{outlet.code}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <MapPin className="w-4 h-4 text-muted-foreground" />
+                            <MapPin className="w-4 h-4 text-emerald-500/70" />
                             {outlet.name}
                           </div>
                         </TableCell>
                         <TableCell>{outlet.brand}</TableCell>
-                        <TableCell>{outlet.address}</TableCell>
+                        <TableCell className="text-muted-foreground">{outlet.address}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Switch
                               checked={outlet.isActive}
                               onCheckedChange={() => handleToggleActive(outlet.id)}
+                              className="data-[state=checked]:bg-emerald-500"
                             />
-                            <span className="text-sm text-muted-foreground">
+                            <span className={`text-xs font-medium ${outlet.isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}>
                               {outlet.isActive ? 'Active' : 'Inactive'}
                             </span>
                           </div>
@@ -209,15 +218,17 @@ export function OutletManagement() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleEdit(outlet)}
+                              className="text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-500/10"
                             >
-                              <Edit2 className="w-4 h-4 text-blue-600" />
+                              <Edit2 className="w-4 h-4" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleDelete(outlet.id)}
+                              className="text-muted-foreground hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/10"
                             >
-                              <Trash2 className="w-4 h-4 text-red-600" />
+                              <Trash2 className="w-4 h-4" />
                             </Button>
                           </div>
                         </TableCell>
@@ -241,7 +252,7 @@ export function OutletManagement() {
                   ? 'Update the outlet details'
                   : 'Create a new outlet location'}
               </DialogDescription>
-            </DialogHeader> 
+            </DialogHeader>
     <div className="grid gap-4 py-4">
 
       <div className="grid gap-2">
@@ -253,6 +264,7 @@ export function OutletManagement() {
           onChange={(e) =>
             setFormData({ ...formData, name: e.target.value })
           }
+          className="focus-visible:ring-emerald-500/40"
         />
       </div>
 
@@ -266,6 +278,7 @@ export function OutletManagement() {
             onChange={(e) =>
               setFormData({ ...formData, brand: e.target.value })
             }
+            className="focus-visible:ring-emerald-500/40"
           />
         </div>
 
@@ -282,6 +295,7 @@ export function OutletManagement() {
                 code: e.target.value.toUpperCase()
               })
             }
+            className="focus-visible:ring-emerald-500/40"
           />
         </div>
       </div>
@@ -295,24 +309,30 @@ export function OutletManagement() {
           onChange={(e) =>
             setFormData({ ...formData, address: e.target.value })
           }
+          className="focus-visible:ring-emerald-500/40"
         />
       </div>
 
-      <div className="flex items-center justify-between rounded-md border p-3">
+      <div className="flex items-center justify-between rounded-md border bg-muted/40 p-3">
         <Label className="text-sm">Active Outlet</Label>
         <Switch
           checked={formData.is_active}
           onCheckedChange={(checked) =>
             setFormData({ ...formData, is_active: checked })
           }
+          className="data-[state=checked]:bg-emerald-500"
         />
-      </div> 
+      </div>
     </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={isSaving}>
                 Cancel
               </Button>
-              <Button onClick={handleSave} disabled={isSaving}>
+              <Button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-500/30"
+              >
                 {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 {editingOutlet ? 'Update' : 'Add'} Outlet
               </Button>

@@ -12,6 +12,7 @@ export interface User {
   outlet?: string[] // Array of outlet codes the user has access to
   module_app?: string[] // Array of modules the user has access to
   isActive?: boolean
+  hasPin?: boolean
   createdAt?: string | Date
 }
 

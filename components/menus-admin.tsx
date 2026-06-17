@@ -65,6 +65,7 @@ export function MenusAdmin() {
   const [editingItem, setEditingItem] = useState<SushiMenu | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string>("")
 
@@ -253,6 +254,9 @@ export function MenusAdmin() {
   }
 
   const handleSave = async () => {
+    // Guard against double-clicks while a save is already in flight.
+    if (isSaving) return
+
     const codeError = validateCode(formData.code, editingItem?.id)
     const newErrors: { code?: string; menuname?: string } = {}
 
@@ -293,6 +297,9 @@ export function MenusAdmin() {
   }
 
   const handleDelete = async (id: string) => {
+    // Guard against double-clicks firing the delete more than once.
+    if (isDeleting) return
+    setIsDeleting(true)
     try {
       await deleteMenu(id)
       setDeleteConfirm(null)
@@ -300,6 +307,8 @@ export function MenusAdmin() {
     } catch (error) {
       const apiError = getApiError(error)
       toast({ title: "Error", description: apiError.message, variant: "destructive" })
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -722,10 +731,15 @@ export function MenusAdmin() {
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setDeleteConfirm(null)}>
+              <Button variant="outline" onClick={() => setDeleteConfirm(null)} disabled={isDeleting}>
                 Cancel
               </Button>
-              <Button variant="destructive" onClick={() => deleteConfirm && handleDelete(deleteConfirm)}>
+              <Button
+                variant="destructive"
+                onClick={() => deleteConfirm && handleDelete(deleteConfirm)}
+                disabled={isDeleting}
+              >
+                {isDeleting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Delete
               </Button>
             </DialogFooter>

@@ -36,6 +36,14 @@ export function ConnectivityMonitor() {
             description: `${result.retried} queued operation${result.retried === 1 ? "" : "s"} completed.`,
           })
         }
+
+        if (result.dropped > 0) {
+          toast({
+            title: "Some changes could not be synced",
+            description: `${result.dropped} queued operation${result.dropped === 1 ? "" : "s"} were rejected and discarded.`,
+            variant: "destructive",
+          })
+        }
       } catch (error) {
         useOperationalUiStore.getState().setQueueRetrying(false)
         logOperationalError({

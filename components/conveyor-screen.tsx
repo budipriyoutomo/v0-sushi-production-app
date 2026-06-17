@@ -73,6 +73,8 @@ export function ConveyorScreen() {
   const { menus } = useMenus()
   const { wasteReasons } = useActiveWasteReasons()
   const [selectedColorId, setSelectedColorId] = useState<string | null>(null)
+  // Tracks the item whose "Sold" action is in flight, to prevent double submits.
+  const [markingSoldId, setMarkingSoldId] = useState<string | null>(null)
   const [wasteDialog, setWasteDialog] = useState<{
     open: boolean
     itemId: string
@@ -110,6 +112,9 @@ const activeItems = items.filter(
 )
 
   const handleMarkSold = async (itemId: string, menuName: string) => {
+    // Guard against double-clicks firing markSold more than once for the same item.
+    if (markingSoldId !== null) return
+    setMarkingSoldId(itemId)
     try {
       //await productionService.removeExpired([itemId])
       await productionService.markSold([itemId])
@@ -125,6 +130,8 @@ const activeItems = items.filter(
         description: apiError.message,
         variant: "destructive",
       })
+    } finally {
+      setMarkingSoldId(null)
     }
   }
 
@@ -290,10 +297,14 @@ const activeItems = items.filter(
                         size="sm"
                         className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-8 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                         onClick={() => handleMarkSold(item.id, item.menuName)}
-                        disabled={!canUseSoldWasteButtons}
+                        disabled={!canUseSoldWasteButtons || markingSoldId !== null}
                         title={!canUseSoldWasteButtons ? "Not available for kitchen role" : undefined}
                       >
-                        <CheckCircle className="w-3 h-3 mr-1" />
+                        {markingSoldId === item.id ? (
+                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                        ) : (
+                          <CheckCircle className="w-3 h-3 mr-1" />
+                        )}
                         Sold
                       </Button>
 
@@ -303,7 +314,7 @@ const activeItems = items.filter(
                         variant="destructive"
                         className="w-full h-8 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                         onClick={() => handleWasteClick(item)}
-                        disabled={!canUseSoldWasteButtons}
+                        disabled={!canUseSoldWasteButtons || markingSoldId !== null}
                         title={!canUseSoldWasteButtons ? "Not available for kitchen role" : undefined}
                       >
                         <XCircle className="w-3 h-3 mr-1" />

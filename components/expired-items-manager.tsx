@@ -102,6 +102,8 @@ export function ExpiredItemsManager() {
     }
 
     if (!selectedItem) return
+    // Guard against double-clicks while the update request is in flight.
+    if (isUpdating) return
 
     setIsUpdating(true)
     try {
