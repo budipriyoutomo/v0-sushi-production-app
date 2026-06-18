@@ -94,7 +94,7 @@ export function useConveyorItems(outletId: string | null) {
   }
 
   const removeExpiredItems = async (itemIds: string[]): Promise<void> => {
-    await productionService.removeExpired(itemIds)
+    await Promise.all(itemIds.map((id) => productionService.removeExpiredItem(id)))
     await mutate()
   }
 
@@ -118,9 +118,9 @@ export function useWasteRecords(outletId: string | null, startDate: string | nul
     }
   )
 
-  const recordWaste = async (menuId: string, quantity: number, reason: string): Promise<WasteRecord | null> => {
+  const recordWaste = async (itemIds: string[], reason: string): Promise<WasteRecord | null> => {
     if (!outletId) return null
-    const record = await productionService.recordWaste({ menuId, quantity, reason, outletId })
+    const record = await productionService.recordWaste({ itemIds, reason })
     await mutate()
     return record
   }

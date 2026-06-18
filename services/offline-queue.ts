@@ -75,6 +75,23 @@ async function digest(value: string) {
     .join("")
 }
 
+// Unique per-submission token. This becomes the server idempotency key, so it
+// MUST be unique per user action: two legitimately identical operations (e.g.
+// producing the same item twice) need distinct ids, otherwise the backend
+// replays the first response and silently drops the second. It is generated
+// once and preserved across retries of the same queued request, which is what
+// makes offline replay safe.
+export function createRequestId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID()
+  }
+
+  // Fallback for non-secure contexts where randomUUID is unavailable.
+  return `${Date.now().toString(16)}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`
+}
+
+// Content-based hash. Used only as the queue's dedup key when a request has no
+// X-Client-Request-Id header yet — NOT as the server idempotency key.
 export async function createQueueRequestId(config: AxiosRequestConfig) {
   const method = String(config.method || "post").toLowerCase()
   const url = config.url || ""
@@ -110,7 +127,10 @@ export async function enqueueOfflineRequest(config: AxiosRequestConfig) {
   const db = await getDb()
   if (!db) return null
 
-  const id = await createQueueRequestId(config)
+  // Reuse the unique id already stamped on the request so retries keep the same
+  // idempotency key; fall back to the content hash only if it is missing.
+  const headerId = (config.headers as Record<string, string> | undefined)?.["X-Client-Request-Id"]
+  const id = headerId || (await createQueueRequestId(config))
   const existing = await db.get(STORE_NAME, id)
 
   if (existing) return existing

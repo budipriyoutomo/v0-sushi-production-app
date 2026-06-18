@@ -25,8 +25,8 @@ apiClient.interceptors.request.use(
     }
 
     if (isMutatingRequest(requestConfig.method) && requestConfig.headers && !requestConfig.headers['X-Client-Request-Id']) {
-      const { createQueueRequestId } = await import('@/services/offline-queue')
-      requestConfig.headers['X-Client-Request-Id'] = await createQueueRequestId(requestConfig)
+      const { createRequestId } = await import('@/services/offline-queue')
+      requestConfig.headers['X-Client-Request-Id'] = createRequestId()
     }
 
     return requestConfig
