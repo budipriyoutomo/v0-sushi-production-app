@@ -53,15 +53,32 @@ function shouldSkipQueue(url?: string) {
   return ["/login", "/login-pin", "/logout", "/auth/refresh"].some((path) => url.includes(path))
 }
 
-async function getDb() {
-  if (!isBrowser()) return null
+// Reuse a single connection. Tanpa memoize, setiap pemanggilan (termasuk polling
+// jumlah antrean tiap 15 detik di ConnectivityMonitor) membuka koneksi IndexedDB
+// baru — pemborosan yang tidak perlu.
+let dbPromise: ReturnType<typeof openConnection> | null = null
 
+function openConnection() {
   return openDB<OfflineQueueDb>(DB_NAME, DB_VERSION, {
     upgrade(db) {
       const store = db.createObjectStore(STORE_NAME, { keyPath: "id" })
       store.createIndex("by-created-at", "createdAt")
     },
   })
+}
+
+async function getDb() {
+  if (!isBrowser()) return null
+
+  if (!dbPromise) {
+    dbPromise = openConnection()
+    // Jika koneksi gagal terbuka, reset agar percobaan berikutnya bisa membuka ulang.
+    dbPromise.catch(() => {
+      dbPromise = null
+    })
+  }
+
+  return dbPromise
 }
 
 async function digest(value: string) {

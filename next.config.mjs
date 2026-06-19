@@ -7,7 +7,11 @@ const withPWA = withPWAInit({
   disable: process.env.NODE_ENV === "development",
   dynamicStartUrl: true,
   dynamicStartUrlRedirect: "/login/kitchen",
-  reloadOnOnline: true,
+  // Jangan reload halaman penuh saat koneksi kembali. Pada internet yang
+  // tidak stabil, event online/offline berkedip terus dan reloadOnOnline
+  // memicu full reload berulang (terasa lemot/berkedip). Pemulihan koneksi
+  // sudah ditangani ConnectivityMonitor (drain queue) + SWR revalidateOnReconnect.
+  reloadOnOnline: false,
   clientsClaim: true,
   fallbacks: {
     document: "/offline",
@@ -52,10 +56,29 @@ const withPWA = withPWAInit({
       method: "GET",
       options: {
         cacheName: "api-runtime-cache",
-        networkTimeoutSeconds: 8,
+        // 8 detik terlalu lama untuk UI dapur interaktif: pada jaringan lambat
+        // setiap GET "menggantung" sampai 8s sebelum fallback ke cache. 3 detik
+        // tetap memberi jaringan kesempatan tapi cepat jatuh ke data cache.
+        networkTimeoutSeconds: 3,
         expiration: {
           maxEntries: 128,
           maxAgeSeconds: 60 * 5,
+        },
+      },
+    },
+    {
+      // Navigasi halaman (hard refresh / buka langsung URL). Tanpa ini, pada
+      // jaringan lambat browser menunggu server lama sebelum render. NetworkFirst
+      // dengan timeout 3s menyajikan shell halaman dari cache lalu fallback ke
+      // /offline jika benar-benar tidak ada koneksi.
+      urlPattern: ({ request }) => request.mode === "navigate",
+      handler: "NetworkFirst",
+      options: {
+        cacheName: "pages-cache",
+        networkTimeoutSeconds: 3,
+        expiration: {
+          maxEntries: 32,
+          maxAgeSeconds: 60 * 60 * 24,
         },
       },
     },
