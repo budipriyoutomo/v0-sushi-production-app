@@ -37,16 +37,15 @@ export function AuthGuard({ children, allowedRoles, allowedModules }: AuthGuardP
       return
     }
 
-    // Module check based on user's module_app
+    // Module check based on user's module_app.
+    // When allowedModules is specified it is authoritative (a page may be open
+    // to several modules); otherwise fall back to the module from the path.
     const currentModule = getModuleFromPath(pathname)
     if (currentModule && user?.module_app) {
-      // Check if user has access to this module
-      const hasModuleAccess = user.module_app.includes(currentModule)
-      
-      // Also check allowedModules prop if specified
-      const allowedByProp = !allowedModules || allowedModules.some(m => user.module_app?.includes(m))
-      
-      if (!hasModuleAccess || !allowedByProp) {
+      const modulesToCheck = allowedModules ?? [currentModule]
+      const hasModuleAccess = modulesToCheck.some(m => user.module_app?.includes(m))
+
+      if (!hasModuleAccess) {
         // Redirect to first available module or login
         const firstModule = user.module_app.find(m => m !== 'app')
         if (firstModule) {
@@ -73,10 +72,10 @@ export function AuthGuard({ children, allowedRoles, allowedModules }: AuthGuardP
   // Module check
   const currentModule = getModuleFromPath(pathname)
   if (currentModule && user?.module_app) {
-    const hasModuleAccess = user.module_app.includes(currentModule)
-    const allowedByProp = !allowedModules || allowedModules.some(m => user.module_app?.includes(m))
-    
-    if (!hasModuleAccess || !allowedByProp) {
+    const modulesToCheck = allowedModules ?? [currentModule]
+    const hasModuleAccess = modulesToCheck.some(m => user.module_app?.includes(m))
+
+    if (!hasModuleAccess) {
       return null
     }
   }
