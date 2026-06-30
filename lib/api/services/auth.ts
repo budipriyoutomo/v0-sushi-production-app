@@ -1,5 +1,5 @@
 import apiClient from '../client'
-import { setAuthToken, setRefreshToken, removeAuthToken } from '@/lib/config'
+import { setAuthToken, removeAuthToken } from '@/lib/config'
 import type { User } from '@/lib/types'
 
 export interface LoginCredentials {
@@ -10,7 +10,6 @@ export interface LoginCredentials {
 export interface LoginResponse {
   user: User
   token: string
-  refreshToken?: string
 }
 
 export interface PinLoginCredentials {
@@ -105,12 +104,11 @@ class AuthService {
     return response.data.data
   }
 
-  // Refresh token
+  // Refresh token (backend is pure JWT — re-issues a fresh access token)
   async refreshToken(): Promise<string> {
-    const response = await apiClient.post<{ data: { token: string; refreshToken?: string } }>(`${this.endpoint}/refresh`)
-    const { token, refreshToken } = response.data.data
+    const response = await apiClient.post<{ data: { token: string } }>(`${this.endpoint}/refresh`)
+    const { token } = response.data.data
     setAuthToken(token)
-    if (refreshToken) setRefreshToken(refreshToken)
     return token
   }
 }
