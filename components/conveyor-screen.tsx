@@ -20,7 +20,7 @@ import { useAuth } from "@/hooks/use-auth"
 import { productionService, getApiError } from "@/lib/api"
 import { CheckCircle, XCircle, Loader2 } from "lucide-react"
 import { formatRupiah, lowercase } from "@/lib/utils"
-import type { PlateColor, SushiMenu } from "@/lib/types"
+import type { SushiMenu } from "@/lib/types"
 
 // Siklus warna penanda waktu sesuai production-planning: Biru → Hitam → Merah → Kuning → Hijau
 const TIME_SLOT_COLORS = [
@@ -116,7 +116,6 @@ const activeItems = items.filter(
     if (markingSoldId !== null) return
     setMarkingSoldId(itemId)
     try {
-      //await productionService.removeExpired([itemId])
       await productionService.markSold([itemId])
       await refresh()
       toast({
@@ -258,7 +257,7 @@ const activeItems = items.filter(
 
                   {/* TOP SECTION */}
                   <div className="flex justify-between items-start">
-                    <PlateColorBadge color={(lowercase(item.plateColorName) as PlateColor) || "white"} />
+                    <PlateColorBadge color={lowercase(item.plateColorName) || "white"} />
                     {/* Penanda waktu produksi */}
                     {(() => {
                       const slotColor = getTimeSlotColor(item.producedAt)
@@ -355,7 +354,7 @@ const activeItems = items.filter(
               <div className="flex-1 min-w-0">
                 <h4 className="font-semibold text-foreground truncate">{wasteDialog.menuName}</h4>
                 <div className="mt-1 flex items-center gap-2">
-                  <PlateColorBadge color={(lowercase(wasteDialog.plateColorName) as PlateColor) || "white"} />
+                  <PlateColorBadge color={lowercase(wasteDialog.plateColorName) || "white"} />
                 </div>
                 {wasteDialog.producedAt && (
                   <p className="text-xs text-muted-foreground mt-2">

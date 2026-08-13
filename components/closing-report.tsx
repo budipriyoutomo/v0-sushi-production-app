@@ -253,7 +253,7 @@ export function ClosingReport() {
           posSold: d.posSold,
           adjustment: d.adjustment,
           compensation: d.compensation,
-          compensationReason: d.compensationReason,
+          compensationReason: d.compensationReason || undefined,
         }))
         setSalesEntries(entries)
         setDate(fullDraft.date)

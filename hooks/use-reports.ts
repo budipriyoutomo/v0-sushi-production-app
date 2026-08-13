@@ -1,39 +1,15 @@
 import useSWR from 'swr'
 import {
   reportsService,
-  type ClosingReport,
   type DailySummary,
   type WasteAnalysis,
 } from '@/lib/api'
 
 const REPORTS_KEY = '/reports'
 
-export function useClosingReports(params: {
-  outletId?: string
-  startDate?: string
-  endDate?: string
-}) {
-  const key = `${REPORTS_KEY}/closing?${JSON.stringify(params)}`
-
-  const { data, error, isLoading, mutate } = useSWR<ClosingReport[]>(key, async () => {
-    const reports = await reportsService.getClosingReports(params)
-    return reports
-  })
-
-  const submitClosingReport = async (outletId: string, date: string, notes?: string): Promise<ClosingReport> => {
-    const report = await reportsService.submitClosingReport({ outletId, date, notes })
-    await mutate()
-    return report
-  }
-
-  return {
-    reports: data || [],
-    isLoading,
-    error,
-    submitClosingReport,
-    refresh: mutate,
-  }
-}
+// NOTE: useClosingReports() used to live here and hit /reports/closing, a route
+// that does not exist. Closing reports are served by /closing-reports/* — use
+// closingReportService. Nothing consumed this hook.
 
 export function useDailySummary(outletId: string | null, date: string | null) {
   const { data, error, isLoading, mutate } = useSWR<DailySummary | null>(
@@ -74,13 +50,6 @@ export function useWasteAnalysis(params: {
   }
 }
 
-export function useSalesInput(outletId: string | null) {
-  const submitSales = async (date: string, sales: Array<{ menuId: string; quantity: number }>): Promise<void> => {
-    if (!outletId) return
-    await reportsService.submitSales({ outletId, date, sales })
-  }
-
-  return {
-    submitSales,
-  }
-}
+// NOTE: useSalesInput() used to live here and hit POST /reports/sales, a route
+// that does not exist. Sales input goes through salesService.create()
+// (POST /sales), which is what components/sales-input.tsx already calls.

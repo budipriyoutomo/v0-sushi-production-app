@@ -93,17 +93,11 @@ export function useConveyorItems(outletId: string | null) {
     await mutate()
   }
 
-  const removeExpiredItems = async (itemIds: string[]): Promise<void> => {
-    await Promise.all(itemIds.map((id) => productionService.removeExpiredItem(id)))
-    await mutate()
-  }
-
   return {
     items: data || [],
     isLoading,
     error,
     produceItem,
-    removeExpiredItems,
     refresh: mutate,
   }
 }
@@ -162,17 +156,11 @@ export function useExpiredItems(outletId: string | null) {
     }
   }
 
-  const removeExpiredItem = async (itemId: string): Promise<void> => {
-    await productionService.removeExpiredItem(itemId)
-    await mutate()
-  }
-
   return {
     expiredItems: data || [],
     isLoading,
     error,
     updateExpiredItem,
-    removeExpiredItem,
     refresh: mutate,
   }
 }

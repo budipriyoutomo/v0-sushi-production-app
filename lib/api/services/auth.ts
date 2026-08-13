@@ -22,7 +22,7 @@ class AuthService {
   // Admin login with email/password
   async login(credentials: LoginCredentials): Promise<LoginResponse> {
     const response = await apiClient.post<{
-      success: boolean
+      status: boolean
       message: string
       data: {
         user: {
@@ -57,7 +57,7 @@ class AuthService {
   // Kitchen login with PIN
   async pinLogin(credentials: PinLoginCredentials): Promise<LoginResponse> {
     const response = await apiClient.post<{
-      success: boolean
+      status: boolean
       message: string
       data: {
         user: {

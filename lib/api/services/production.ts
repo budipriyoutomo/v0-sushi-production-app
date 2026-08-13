@@ -105,11 +105,14 @@ function transformPlan(
 class ProductionService {
   private endpoint = '/production'
 
+  // platename (lowercased) -> plate color id. Cached because savePlan() needs
+  // it on every call, but see refreshPlateColors(): a stale map used to mean
+  // "Color X tidak ditemukan di master" until the whole page was reloaded.
   private colorMap: Record<string, string> = {}
   private isColorLoaded = false
 
-  private async loadPlateColors() {
-    if (this.isColorLoaded) return
+  private async loadPlateColors(force = false) {
+    if (this.isColorLoaded && !force) return
 
     const res = await plateColorsService.getAll()
 
@@ -118,6 +121,15 @@ class ProductionService {
     )
 
     this.isColorLoaded = true
+  }
+
+  /**
+   * Drop the cached plate colors. Call after the master data changes so the
+   * next savePlan() sees newly added colors without a page reload.
+   */
+  invalidatePlateColors(): void {
+    this.colorMap = {}
+    this.isColorLoaded = false
   }
 
   // Get production stats for dashboard
@@ -136,15 +148,20 @@ class ProductionService {
     return response.data.data
   }
 
-  // Save production plan
-  /*async savePlan(outletId: string, date: string, plan: ProductionPlanRow[]): Promise<void> {
-    await apiClient.post(`${this.endpoint}/plan`, { outletId, date, plan })
-  }*/
-
   async savePlan(outletId: string, date: string, plan: ProductionPlanRow[]): Promise<void> {
     await this.loadPlateColors()
 
-    const payload = transformPlan(plan, this.colorMap)
+    let payload: ProductionPlanRowPayload[]
+
+    try {
+      payload = transformPlan(plan, this.colorMap)
+    } catch {
+      // An unknown colour usually means the master gained a plate color while
+      // this session was open. Refetch once and retry before giving up, so the
+      // operator does not have to reload the page.
+      await this.loadPlateColors(true)
+      payload = transformPlan(plan, this.colorMap)
+    }
 
     await apiClient.post(`${this.endpoint}/plan`, {
       outletId,
@@ -171,11 +188,6 @@ class ProductionService {
     return response.data.data
   }
 
-  // Remove expired items
-  /*async removeExpired(itemIds: string[]): Promise<void> {
-    await apiClient.post(`${this.endpoint}/remove-expired`, { itemIds })
-  }*/
-  
   async markSold(itemIds: string[]): Promise<void> {
     await apiClient.post(`${this.endpoint}/mark-sold`, { itemIds })
   }
@@ -220,11 +232,6 @@ class ProductionService {
       data
     )
     return response.data.data
-  }
-
-  // Remove expired item
-  async removeExpiredItem(itemId: string): Promise<void> {
-    await apiClient.delete(`${this.endpoint}/expired/${itemId}`)
   }
 
   // Get production item list filtered by date

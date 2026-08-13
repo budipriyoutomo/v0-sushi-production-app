@@ -586,9 +586,10 @@ export function MenusAdmin() {
                     size="sm"
                     type="button"
                     onClick={() => {
+                      // formData has no image field — the upload is carried by
+                      // imageFile, so clearing those two is the whole reset.
                       setImageFile(null)
                       setImagePreview("")
-                      setFormData({ ...formData, image: "" })
                     }}
                     className="w-full"
                   >

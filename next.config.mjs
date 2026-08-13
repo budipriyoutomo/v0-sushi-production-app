@@ -88,7 +88,9 @@ const withPWA = withPWAInit({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   typescript: {
-    ignoreBuildErrors: true,
+    // Type errors fail the build again — the backlog that this flag was hiding
+    // is cleared. Run `npx tsc --noEmit` before flipping this back on.
+    ignoreBuildErrors: false,
   },
   images: {
     unoptimized: true,

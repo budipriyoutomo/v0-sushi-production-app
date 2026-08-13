@@ -1,5 +1,10 @@
 import useSWR from 'swr'
-import { plateColorsService, type CreatePlateColorDTO, type UpdatePlateColorDTO } from '@/lib/api'
+import {
+  plateColorsService,
+  productionService,
+  type CreatePlateColorDTO,
+  type UpdatePlateColorDTO,
+} from '@/lib/api'
 import type { PlateColorConfig } from '@/lib/types'
 
 const PLATE_COLORS_KEY = '/master/platecolor'
@@ -10,26 +15,33 @@ export function usePlateColors() {
     return response.data
   })
 
+  // productionService keeps its own platename -> id map for savePlan(). Drop it
+  // whenever the master changes, or planning breaks until a page reload.
+  const revalidate = async () => {
+    productionService.invalidatePlateColors()
+    await mutate()
+  }
+
   const createPlateColor = async (colorData: CreatePlateColorDTO): Promise<PlateColorConfig> => {
     const response = await plateColorsService.create(colorData)
-    await mutate()
+    await revalidate()
     return response.data
   }
 
   const updatePlateColor = async (id: string, colorData: UpdatePlateColorDTO): Promise<PlateColorConfig> => {
     const response = await plateColorsService.update(id, colorData)
-    await mutate()
+    await revalidate()
     return response.data
   }
 
   const deletePlateColor = async (id: string): Promise<void> => {
     await plateColorsService.delete(id)
-    await mutate()
+    await revalidate()
   }
 
   const updatePrice = async (id: string, price: number): Promise<PlateColorConfig> => {
     const color = await plateColorsService.updatePrice(id, price)
-    await mutate()
+    await revalidate()
     return color
   }
 

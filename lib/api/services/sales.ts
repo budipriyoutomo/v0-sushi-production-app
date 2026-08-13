@@ -71,43 +71,11 @@ class SalesService {
     return response.data.data
   }
 
-  // Update existing sales draft
-  async update(
-    id: string,
-    data: {
-      items?: Array<{
-        plate_color_id: string
-        pos_sold: number
-        production_sold: number
-        production_waste?: number
-        adjustment?: number
-        compensation?: number
-        details?: Array<{
-          menu_id: string
-          menu_name: string
-          total_produced: number
-          total_sold: number
-          total_wasted: number
-          adjustment?: number
-          compensation?: number
-        }>
-      }>
-    }
-  ): Promise<SalesDraft> {
-    const response = await apiClient.put<{ data: SalesDraft }>(`${this.endpoint}/${id}`, data)
-    return response.data.data
-  }
-
-  // Submit sales (change status from draft to submitted)
-  async submit(id: string): Promise<SalesDraft> {
-    const response = await apiClient.post<{ data: SalesDraft }>(`${this.endpoint}/${id}/submit`)
-    return response.data.data
-  }
-
-  // Delete sales draft
-  async delete(id: string): Promise<void> {
-    await apiClient.delete(`${this.endpoint}/${id}`)
-  }
+  // NOTE: there is deliberately no update/submit/delete here.
+  // The backend exposes no such routes — create() upserts on (outlet_id, date)
+  // and carries the draft/submitted status in its payload. The methods that
+  // used to live here called PUT /sales/{id}, POST /sales/{id}/submit and
+  // DELETE /sales/{id}, none of which exist; every one would have 404'd.
 }
 
 export const salesService = new SalesService()

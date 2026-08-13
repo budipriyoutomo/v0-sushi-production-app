@@ -86,34 +86,10 @@ export interface WasteAnalysis {
 class ReportsService {
   private endpoint = '/reports'
 
-  // Submit sales data
-  async submitSales(data: {
-    outletId: string
-    date: string
-    sales: Array<{ menuId: string; quantity: number }>
-  }): Promise<void> {
-    await apiClient.post(`${this.endpoint}/sales`, data)
-  }
-
-  // Get closing reports
-  async getClosingReports(params: {
-    outletId?: string
-    startDate?: string
-    endDate?: string
-  }): Promise<ClosingReport[]> {
-    const response = await apiClient.get<{ data: ClosingReport[] }>(`${this.endpoint}/closing`, { params })
-    return response.data.data
-  }
-
-  // Submit closing report
-  async submitClosingReport(data: {
-    outletId: string
-    date: string
-    notes?: string
-  }): Promise<ClosingReport> {
-    const response = await apiClient.post<{ data: ClosingReport }>(`${this.endpoint}/closing`, data)
-    return response.data.data
-  }
+  // NOTE: sales and closing reports are NOT served under /reports.
+  // Three methods used to live here calling POST /reports/sales and
+  // GET|POST /reports/closing — none of those routes exist. Use salesService
+  // (POST /sales) and closingReportService (/closing-reports/*) instead.
 
   // Get daily summary
   async getDailySummary(outletId: string, date: string): Promise<DailySummary> {

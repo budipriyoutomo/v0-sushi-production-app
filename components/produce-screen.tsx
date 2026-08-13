@@ -13,7 +13,7 @@ import { usePlateColorsSortedByPrice } from "@/hooks/use-plate-colors"
 import { useConveyorItems } from "@/hooks/use-production"
 import { getApiError } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
-import type { PlateColor, SushiMenu } from "@/lib/types"
+import type { SushiMenu } from "@/lib/types"
 import { Loader2 } from "lucide-react"
 import { formatRupiah, lowercase } from "@/lib/utils"
 
@@ -134,7 +134,7 @@ export function ProduceScreen() {
 
           {/* Top */}
           <div className="flex justify-between items-start">
-            <PlateColorBadge color={(lowercase(sushi.plateColorName) as PlateColor) || "white" }  />
+            <PlateColorBadge color={lowercase(sushi.plateColorName) || "white"} />
           </div>
 
           {/* Bottom Info */}

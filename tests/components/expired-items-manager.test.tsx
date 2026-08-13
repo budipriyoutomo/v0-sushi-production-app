@@ -4,7 +4,6 @@ import userEvent from "@testing-library/user-event"
 
 const mocks = vi.hoisted(() => ({
   updateExpiredItem: vi.fn(),
-  removeExpiredItem: vi.fn(),
   refresh: vi.fn().mockResolvedValue(undefined),
   toast: vi.fn(),
   expiredItems: [] as Array<Record<string, unknown>>,
@@ -15,7 +14,6 @@ vi.mock("@/hooks/use-production", () => ({
     expiredItems: mocks.expiredItems,
     isLoading: false,
     updateExpiredItem: mocks.updateExpiredItem,
-    removeExpiredItem: mocks.removeExpiredItem,
     refresh: mocks.refresh,
   }),
 }))

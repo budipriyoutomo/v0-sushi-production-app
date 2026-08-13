@@ -1,4 +1,7 @@
-export type PlateColor = "white" | "blue" | "pink" | "black" | "red" | "gold" | "choco motive" | "yellow" | "silver"
+// NOTE: there is no domain-level PlateColor union here on purpose. A plate
+// color is dynamic master data identified by UUID (see PlateColorConfig).
+// The fixed list of colour names is purely a badge palette and lives with the
+// component that owns it: `PlateColor` in components/plate-color-badge.tsx.
 
 export type UserRole = 'admin' | 'manager' | 'kitchen' | 'service' | 'operation' | 'production'
 
@@ -26,25 +29,6 @@ export interface Outlet {
   createdAt: Date
 }
 
-export interface KitchenUser {
-  id: string
-  name: string
-  pin: string
-  outletIds: string[]
-  status: 'active' | 'inactive'
-  createdAt: Date
-}
-
-export interface AdminUser {
-  id: string
-  name: string
-  email: string
-  role: 'admin' | 'manager'
-  outletIds: string[]
-  status: 'active' | 'inactive'
-  createdAt: Date
-}
-
 export interface PlateColorConfig {
   id: string
   platename: string
@@ -59,7 +43,8 @@ export interface SushiMenu {
   code: string
   menuname: string
   description: string
-  image: string
+  // Optional: menus.image_url is nullable, and every consumer already guards on it.
+  image?: string
   price: number
   shelfLife: number
   plateColorId: string
@@ -67,32 +52,8 @@ export interface SushiMenu {
   isActive: boolean
 }
 
-export interface ProductionItem {
-  id: string
-  outletId: string
-  sushiId: string
-  sushiName: string
-  plateColor: PlateColor
-  productionTime: Date
-  shelfLifeMinutes: number
-  status: "active" | "sold" | "waste"
-}
-
-export interface WasteEntry {
-  id: string
-  outletId: string
-  time: Date
-  sushiName: string
-  plateColor: PlateColor
-  quantity: number
-  reason: string
-}
-
-export interface ProductionStats {
-  outletId: string
-  plateColor: PlateColor
-  targetToday: number
-  produced: number
-  sold: number
-  expiringSoon: number
-}
+// ProductionItem / ProductionStats / WasteEntry deliberately do NOT live here.
+// They are response shapes owned by the service that fetches them:
+//   lib/api/services/production.ts  — ProductionItem, ProductionStats
+//   lib/api/services/waste.ts       — WasteEntry
+// Duplicating them here is what let the two definitions drift apart before.

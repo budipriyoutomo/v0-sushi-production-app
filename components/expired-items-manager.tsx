@@ -28,7 +28,7 @@ import { usePlateColorsSortedByPrice } from '@/hooks/use-plate-colors'
 import { useExpiredItems } from '@/hooks/use-production'
 import { useToast } from '@/hooks/use-toast'
 import { CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
-import type { PlateColor, SushiMenu } from "@/lib/types"
+import type { SushiMenu } from "@/lib/types"
 import { formatRupiah, lowercase } from "@/lib/utils"
 import { useActiveWasteReasons } from '@/hooks/use-waste-reasons'
 
@@ -65,7 +65,6 @@ export function ExpiredItemsManager() {
     expiredItems,
     isLoading: expiredLoading,
     updateExpiredItem,
-    removeExpiredItem,
     refresh,
   } = useExpiredItems(selectedOutletId)
 
@@ -202,7 +201,7 @@ export function ExpiredItemsManager() {
                 <div className="absolute inset-0 p-3 flex flex-col justify-between text-gray-900">
                   {/* TOP */}
                   <div className="flex justify-between items-start">
-                    <PlateColorBadge color={(lowercase(item.plateColorName) as PlateColor) || "white" } />
+                    <PlateColorBadge color={lowercase(item.plateColorName) || "white"} />
                     {/* Penanda waktu produksi */}
                     {(() => {
                       const slotColor = getTimeSlotColor(productionTime)
