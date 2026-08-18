@@ -5,6 +5,7 @@ export { default as apiClient, getApiError, type ApiError } from './client'
 export { BaseService, type ApiResponse } from './base-service'
 
 // Domain Services
+export { brandsService, type CreateBrandDTO, type UpdateBrandDTO } from './services/brands'
 export { outletsService, type CreateOutletDTO, type UpdateOutletDTO } from './services/outlets'
 export { menusService, type CreateMenuDTO, type UpdateMenuDTO } from './services/menus'
 export { plateColorsService, type CreatePlateColorDTO, type UpdatePlateColorDTO } from './services/plate-colors'

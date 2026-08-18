@@ -1,4 +1,5 @@
 import { BaseService } from '../base-service'
+import { text } from '../transform'
 import type { PlateColorConfig } from '@/lib/types'
 
 export interface CreatePlateColorDTO {
@@ -6,6 +7,7 @@ export interface CreatePlateColorDTO {
   price: number
   description: string
   target_foodcost: number
+  brand_id?: string
   is_active: boolean
 }
 
@@ -14,16 +16,25 @@ export interface UpdatePlateColorDTO {
   price?: number
   description?: string
   target_foodcost?: number
+  brand_id?: string
   is_active?: boolean
 }
 
-// API response format (snake_case)
+/**
+ * API response format (snake_case).
+ *
+ * `platename` dan `description` bisa datang sebagai number: `BaseResource`
+ * menebak tipe dari isi nilai, jadi varchar yang seluruhnya digit ikut
+ * dikonversi. Lihat `$textFields` di backend.
+ */
 interface PlateColorApiResponse {
   id: string
-  platename: string
+  platename: string | number
   price: number
-  description: string
+  description: string | number
   target_foodcost: number
+  brand_id: string | null
+  brand?: { id: string; name: string } | null
   is_active: boolean
   created_at?: string
 }
@@ -32,10 +43,12 @@ interface PlateColorApiResponse {
 function transformPlateColor(data: PlateColorApiResponse): PlateColorConfig {
   return {
     id: data.id,
-    platename: data.platename,
+    platename: text(data.platename),
     price: data.price,
-    description: data.description,
+    description: text(data.description),
     targetFoodCost: data.target_foodcost,
+    brandId: data.brand_id ?? null,
+    brandName: data.brand?.name,
     isActive: data.is_active,
   }
 }
@@ -79,11 +92,24 @@ class PlateColorsService extends BaseService<PlateColorConfig, CreatePlateColorD
     return response.data
   }
 
-  // Update price for a specific color
-  async updatePrice(id: string, price: number): Promise<PlateColorConfig> {
-    const response = await this.request<PlateColorApiResponse>('patch', `${id}/price`, { price })
-    return transformPlateColor(response.data)
+  /**
+   * Warna piring milik brand outlet ini (plus yang belum punya brand).
+   * `outlet_id` yang dikirim, bukan `brand_id` — pemetaan outlet → brand adalah
+   * aturan bisnis dan hidup di backend.
+   *
+   * `per_page: 'all'` sama alasannya dengan `menusService.getForOutlet()`:
+   * default backend adalah 15 baris. Satu brand jarang punya lebih dari 15
+   * warna, jadi kelalaian ini belum pernah menggigit — tapi kalau nanti
+   * menggigit, gejalanya adalah harga yang hilang dari layar, bukan error.
+   */
+  async getForOutlet(outletId: string, params?: Record<string, unknown>): Promise<PlateColorConfig[]> {
+    const response = await this.getAll({ per_page: 'all', ...params, outlet_id: outletId })
+    return response.data
   }
+
+  // CATATAN: `updatePrice()` dibuang. Ia memanggil
+  // `PATCH /master/platecolor/{id}/price` — route yang tidak pernah ada, dan
+  // nol pemakai di layar mana pun. Harga diubah lewat `update(id, { price })`.
 }
 
 export const plateColorsService = new PlateColorsService()

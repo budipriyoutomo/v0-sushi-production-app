@@ -47,7 +47,12 @@ Komponen  →  hooks/use-*.ts (SWR)  →  lib/api/services/*.ts  →  lib/api/cl
 
 Jangan pernah memanggil `apiClient` langsung dari komponen. Hook memegang cache key + revalidasi; service memegang bentuk request/response dan transformasi.
 
-Contoh transformasi yang hidup di service: `productionService.savePlan()` memuat master plate color sekali, lalu mengubah baris plan berbentuk `{ timeSlot, white: 5, blue: 3 }` menjadi `{ timeSlot, items: [{ plateColorId, qty }] }` yang diminta backend. Warna yang tidak ada di master → melempar error. Cache `colorMap` bersifat per-instance dan tidak pernah di-invalidate selama sesi.
+Contoh transformasi yang hidup di service: `productionService.savePlan()` memuat master plate color sekali, lalu mengubah baris plan berbentuk `{ timeSlot, white: 5, blue: 3 }` menjadi `{ timeSlot, items: [{ plateColorId, qty }] }` yang diminta backend. Warna yang tidak ada di master → melempar error.
+
+**Cache `colorMap` dikunci per outlet.** Sejak plate color jadi milik brand, dua brand boleh sama-sama punya "White" dengan id dan harga berbeda; satu peta global akan menyimpan salah satunya lalu memakainya untuk outlet mana pun — tanpa error, hanya target plan yang menempel ke piring brand lain. Peta itu dibuang oleh `productionService.invalidatePlateColors()`, yang dipanggil `usePlateColors()` setiap kali master berubah.
+
+### Brand ikut ke cache key
+Satu outlet melayani satu brand, dan menu serta plate color menempel ke brand. Karena itu `useMenus(outletId)` dan `usePlateColors(outletId)` memasukkan `outletId` ke SWR key. Key statis adalah bug diam: berpindah outlet akan menampilkan data brand sebelumnya dari cache. Layar admin sengaja memanggilnya **tanpa** `outletId` — master menampilkan semua brand. Lihat [../docs/brand-feature-plan.md](../docs/brand-feature-plan.md).
 
 ### Konfigurasi SWR global (`components/providers.tsx`)
 ```
@@ -143,5 +148,5 @@ Vitest + jsdom + Testing Library, setup di `tests/setup.ts`, `fake-indexeddb` un
 ## Jebakan
 
 - **Typecheck menggagalkan build** (`ignoreBuildErrors: false`). `npx tsc --noEmit` saat ini bersih — jaga tetap begitu, jangan hidupkan lagi flag itu untuk melewati error.
-- **`lib/types.ts` sudah melenceng dari backend.** `PlateColor` masih berupa union string literal (`"white" | "blue" | ...`) padahal backend memakai UUID plate color yang dinamis dari master data. `ProductionItem` di `lib/types.ts` juga berbeda dari `ProductionItem` di `lib/api/services/production.ts` — yang dipakai kode aktif adalah yang di service. Rapikan sebelum menambah fitur di area ini.
+- **`lib/types.ts`:** union `PlateColor` sudah dibuang — plate color adalah master data ber-UUID (`PlateColorConfig`), dan daftar nama warna yang tersisa hanyalah palet badge milik `components/plate-color-badge.tsx`. Yang masih menyimpang: `ProductionItem` di `lib/types.ts` berbeda dari `ProductionItem` di `lib/api/services/production.ts` — yang dipakai kode aktif adalah yang di service.
 - **Bentuk respons backend tidak seragam.** Sebagian endpoint mengembalikan `{ status, message, data }`, sebagian `{ success, data }`. Service frontend menyesuaikan satu per satu. Cek bentuk aktualnya saat menambah endpoint.

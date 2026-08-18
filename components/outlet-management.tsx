@@ -17,6 +17,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Switch } from '@/components/ui/switch'
 import { useToast } from '@/hooks/use-toast'
 import { useOutlets } from '@/hooks/use-outlets'
+import { useBrands } from '@/hooks/use-brands'
+import { BrandSelect } from '@/components/brand-select'
 import { getApiError } from '@/lib/api'
 import type { Outlet } from '@/lib/types'
 import { Plus, Trash2, Edit2, MapPin, Loader2 } from 'lucide-react'
@@ -24,20 +26,27 @@ import { Plus, Trash2, Edit2, MapPin, Loader2 } from 'lucide-react'
 export function OutletManagement() {
   const { toast } = useToast()
   const { outlets, isLoading, createOutlet, updateOutlet, deleteOutlet, toggleOutletStatus } = useOutlets()
+  const { brands } = useBrands()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingOutlet, setEditingOutlet] = useState<Outlet | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [formData, setFormData] = useState({
     code: '',
     name: '',
-    brand: '',
+    brand_id: '',
     address: '',
     is_active: true,
   })
 
   const handleAdd = () => {
     setEditingOutlet(null)
-    setFormData({ code: '', name: '', brand: '', address: '', is_active: true })
+    setFormData({
+      code: '',
+      name: '',
+      brand_id: brands.length === 1 ? brands[0].id : '',
+      address: '',
+      is_active: true,
+    })
     setDialogOpen(true)
   }
 
@@ -46,7 +55,12 @@ export function OutletManagement() {
     setFormData({
       code: outlet.code,
       name: outlet.name,
-      brand: outlet.brand,
+      // Outlet lama bisa punya teks brand tanpa brand_id. Cocokkan lewat nama
+      // supaya form membuka pilihan yang benar, bukan kosong.
+      brand_id:
+        outlet.brandId ||
+        brands.find((b) => b.name.toLowerCase() === (outlet.brand || '').toLowerCase())?.id ||
+        '',
       address: outlet.address,
       is_active: outlet.isActive,
     })
@@ -54,7 +68,7 @@ export function OutletManagement() {
   }
 
   const handleSave = async () => {
-    if (!formData.name || !formData.brand || !formData.address || !formData.code) {
+    if (!formData.name || !formData.brand_id || !formData.address || !formData.code) {
       toast({
         title: 'Error',
         description: 'Please fill in all required fields',
@@ -74,14 +88,21 @@ export function OutletManagement() {
 
     setIsSaving(true)
     try {
+      // Kolom teks `brand` masih ada di backend dan masih divalidasi. Kirim
+      // keduanya supaya tetap sinkron sampai kolom itu di-drop.
+      const payload = {
+        ...formData,
+        brand: brands.find((b) => b.id === formData.brand_id)?.name || '',
+      }
+
       if (editingOutlet) {
-        await updateOutlet(editingOutlet.id, formData)
+        await updateOutlet(editingOutlet.id, payload)
         toast({
           title: 'Success',
           description: 'Outlet updated successfully',
         })
       } else {
-        await createOutlet(formData)
+        await createOutlet(payload)
         toast({
           title: 'Success',
           description: 'Outlet added successfully',
@@ -119,9 +140,9 @@ export function OutletManagement() {
     }
   }
 
-  const handleToggleActive = async (outletId: string) => {
+  const handleToggleActive = async (outletId: string, isActive: boolean) => {
     try {
-      await toggleOutletStatus(outletId)
+      await toggleOutletStatus(outletId, isActive)
     } catch (error) {
       const apiError = getApiError(error)
       toast({
@@ -201,7 +222,7 @@ export function OutletManagement() {
                           <div className="flex items-center gap-2">
                             <Switch
                               checked={outlet.isActive}
-                              onCheckedChange={() => handleToggleActive(outlet.id)}
+                              onCheckedChange={() => handleToggleActive(outlet.id, outlet.isActive)}
                               className="data-[state=checked]:bg-emerald-500"
                             />
                             <span className={`text-xs font-medium ${outlet.isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}>
@@ -271,14 +292,10 @@ export function OutletManagement() {
       <div className="grid grid-cols-2 gap-4">
         <div className="grid gap-2">
           <Label htmlFor="brand">Brand</Label>
-          <Input
-            id="brand"
-            placeholder="Sushi King"
-            value={formData.brand}
-            onChange={(e) =>
-              setFormData({ ...formData, brand: e.target.value })
-            }
-            className="focus-visible:ring-emerald-500/40"
+          <BrandSelect
+            brands={brands}
+            value={formData.brand_id}
+            onChange={(brandId) => setFormData({ ...formData, brand_id: brandId })}
           />
         </div>
 

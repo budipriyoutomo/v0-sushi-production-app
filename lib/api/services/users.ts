@@ -40,23 +40,15 @@ class UsersService extends BaseService<User, CreateUserDTO, UpdateUserDTO> {
     return response.data
   }
 
-  // Toggle user active status
-  async toggleStatus(id: string): Promise<User> {
-    const response = await this.request<User>('patch', `${id}/toggle-status`)
-    return response.data
-  }
-
-  // Update user PIN
-  async updatePin(id: string, pin: string): Promise<User> {
-    const response = await this.request<User>('patch', `${id}/pin`, { pin })
-    return response.data
-  }
-
-  // Verify PIN for kitchen login
-  async verifyPin(pin: string, outletId: string): Promise<User> {
-    const response = await this.request<User>('post', 'verify-pin', { pin, outletId })
-    return response.data
-  }
+  // CATATAN: backend hanya punya GET / POST / PUT /{id} / DELETE /{id} di
+  // prefix `/users`. Pernah ada `toggleStatus()`, `updatePin()` dan
+  // `verifyPin()` di sini yang memanggil `/users/{id}/toggle-status`,
+  // `/users/{id}/pin` dan `/users/verify-pin` — tidak satu pun route itu
+  // pernah ada, jadi semuanya 404. `toggleStatus` bahkan mustahil: tabel
+  // `users` tidak punya kolom `is_active`.
+  //
+  // PIN diubah lewat `update()` biasa (field `pin`), dan verifikasi PIN adalah
+  // `POST /login-pin` yang dipegang `authService`.
 }
 
 export const usersService = new UsersService()

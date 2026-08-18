@@ -36,8 +36,8 @@ export function useOutlets() {
     await mutate()
   }
 
-  const toggleOutletStatus = async (id: string): Promise<Outlet> => {
-    const outlet = await outletsService.toggleStatus(id)
+  const toggleOutletStatus = async (id: string, isActive: boolean): Promise<Outlet> => {
+    const outlet = await outletsService.toggleStatus(id, isActive)
     await mutate()
     return outlet
   }

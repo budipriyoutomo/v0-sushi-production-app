@@ -38,7 +38,7 @@ interface GroupedWasteEntry {
 export function WasteManagement() {
   const { toast } = useToast()
   const { selectedOutletId } = useOutlet()
-  const { plateColors, isLoading: isLoadingPlateColors } = usePlateColors()
+  const { plateColors, isLoading: isLoadingPlateColors } = usePlateColors(selectedOutletId)
   
   const [filterColorId, setFilterColorId] = useState<string>("all")
   const [entries, setEntries] = useState<WasteEntryLocal[]>([])

@@ -27,17 +27,9 @@ export function useUsers() {
     await mutate()
   }
 
-  const toggleUserStatus = async (id: string): Promise<User> => {
-    const user = await usersService.toggleStatus(id)
-    await mutate()
-    return user
-  }
-
-  const updateUserPin = async (id: string, pin: string): Promise<User> => {
-    const user = await usersService.updatePin(id, pin)
-    await mutate()
-    return user
-  }
+  // `toggleUserStatus` dan `updateUserPin` dibuang bersama method service yang
+  // mereka bungkus — keduanya memanggil route yang tidak pernah ada. PIN diubah
+  // lewat `updateUser(id, { pin })`.
 
   return {
     users: data || [],
@@ -46,8 +38,6 @@ export function useUsers() {
     createUser,
     updateUser,
     deleteUser,
-    toggleUserStatus,
-    updateUserPin,
     refresh: mutate,
   }
 }

@@ -16,19 +16,111 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/hooks/use-toast'
 import { useUsers } from '@/hooks/use-users'
+import { useOutlets } from '@/hooks/use-outlets'
 import { getApiError } from '@/lib/api'
+import {
+  MODULE_APPS,
+  MODULE_APP_LABELS,
+  USER_ROLE_LABELS,
+  type ModuleApp,
+} from '@/lib/constants/access'
 import type { User, UserRole } from '@/lib/types'
 import { Plus, Trash2, Edit2, Shield, Lock, Loader2, KeyRound } from 'lucide-react'
 
-const EMPTY_KITCHEN_FORM = { name: '', email: '', password: '', pin: '' }
-const EMPTY_ADMIN_FORM = { name: '', email: '', password: '', role: 'manager' as UserRole }
+/**
+ * PIN minimal 6 digit — sama dengan aturan backend (`/login-pin` dan
+ * `UserController` sama-sama meminta `min:6`). Form ini dulu menjanjikan
+ * "4–6 digit", jadi PIN 4 digit bisa diketik lalu ditolak 422 tanpa penjelasan.
+ */
+const PIN_LENGTH = 6
+
+/**
+ * `outlet` dan `module_app` wajib diisi.
+ *
+ * Backend menerima keduanya null, tapi user tanpa modul tidak bisa membuka
+ * halaman apa pun dan user tanpa outlet tidak melihat data apa pun. Form ini
+ * dulu tidak mengirim keduanya sama sekali — setiap akun yang dibuat dari sini
+ * lahir dalam keadaan itu.
+ */
+const EMPTY_KITCHEN_FORM = {
+  name: '',
+  email: '',
+  password: '',
+  pin: '',
+  departemen: '',
+  outlet: [] as string[],
+  module_app: ['app', 'kitchen'] as string[],
+}
+
+const EMPTY_ADMIN_FORM = {
+  name: '',
+  email: '',
+  password: '',
+  role: 'manager' as UserRole,
+  departemen: '',
+  outlet: [] as string[],
+  module_app: ['app'] as string[],
+}
+
+const ADMIN_ROLE_OPTIONS: UserRole[] = ['manager', 'admin', 'operation', 'production', 'service']
+
+function toggleInList(list: string[], value: string): string[] {
+  return list.includes(value) ? list.filter((v) => v !== value) : [...list, value]
+}
+
+/** Ringkasan array untuk sel tabel; menghindari baris yang melebar tak terkendali. */
+function summarize(values: string[] | undefined, emptyLabel: string): string {
+  if (!values || values.length === 0) return emptyLabel
+  if (values.length <= 2) return values.join(', ')
+  return `${values.slice(0, 2).join(', ')} +${values.length - 2}`
+}
+
+interface CheckboxGroupProps {
+  legend: string
+  options: Array<{ value: string; label: string }>
+  selected: string[]
+  onToggle: (value: string) => void
+  emptyHint?: string
+}
+
+function CheckboxGroup({ legend, options, selected, onToggle, emptyHint }: CheckboxGroupProps) {
+  return (
+    <fieldset className="space-y-2">
+      <legend className="text-sm font-medium">{legend}</legend>
+      {options.length === 0 ? (
+        <p className="text-xs text-muted-foreground">{emptyHint}</p>
+      ) : (
+        <div className="grid grid-cols-2 gap-1 rounded-md border border-input p-2 max-h-40 overflow-y-auto">
+          {options.map((option) => (
+            <label
+              key={option.value}
+              className="flex items-center gap-2 text-sm cursor-pointer py-0.5"
+            >
+              <input
+                type="checkbox"
+                className="h-4 w-4"
+                checked={selected.includes(option.value)}
+                onChange={() => onToggle(option.value)}
+              />
+              {option.label}
+            </label>
+          ))}
+        </div>
+      )}
+    </fieldset>
+  )
+}
 
 export function UserManagement() {
   const { toast } = useToast()
   const { users, isLoading, createUser, updateUser, deleteUser } = useUsers()
+  const { outlets } = useOutlets()
 
   const kitchenUsers = users.filter((u) => u.role === 'kitchen')
   const adminUsers = users.filter((u) => u.role !== 'kitchen')
+
+  const outletOptions = outlets.map((o) => ({ value: o.code, label: `${o.name} (${o.code})` }))
+  const moduleOptions = MODULE_APPS.map((m) => ({ value: m, label: MODULE_APP_LABELS[m] }))
 
   // Kitchen User Form
   const [kitchenDialogOpen, setKitchenDialogOpen] = useState(false)
@@ -42,6 +134,23 @@ export function UserManagement() {
   const [adminFormData, setAdminFormData] = useState(EMPTY_ADMIN_FORM)
   const [adminSaving, setAdminSaving] = useState(false)
 
+  /**
+   * Pemeriksaan yang sama untuk kedua form. Mengembalikan pesan error pertama,
+   * atau null kalau lolos.
+   */
+  const validateForm = (
+    form: { name: string; email: string; password: string; outlet: string[]; module_app: string[]; pin?: string },
+    isEditing: boolean
+  ): string | null => {
+    if (!form.name || !form.email) return 'Please fill in name and email'
+    if (!form.email.includes('@')) return 'Please enter a valid email'
+    if (!isEditing && !form.password) return 'Password is required for new users'
+    if (form.outlet.length === 0) return 'Pick at least one outlet'
+    if (form.module_app.length === 0) return 'Pick at least one module'
+    if (form.pin && form.pin.length < PIN_LENGTH) return `PIN must be ${PIN_LENGTH} digits`
+    return null
+  }
+
   // Kitchen User Handlers
   const handleAddKitchenUser = () => {
     setEditingKitchenUser(null)
@@ -51,7 +160,15 @@ export function UserManagement() {
 
   const handleEditKitchenUser = (user: User) => {
     setEditingKitchenUser(user)
-    setKitchenFormData({ name: user.name, email: user.email || '', password: '', pin: '' })
+    setKitchenFormData({
+      name: user.name,
+      email: user.email || '',
+      password: '',
+      pin: '',
+      departemen: user.departemen || '',
+      outlet: user.outlet ?? [],
+      module_app: user.module_app ?? [],
+    })
     setKitchenDialogOpen(true)
   }
 
@@ -59,37 +176,29 @@ export function UserManagement() {
     // Guard against double-clicks while a save is already in flight.
     if (kitchenSaving) return
 
-    if (!kitchenFormData.name || !kitchenFormData.email) {
-      toast({ title: 'Error', description: 'Please fill in name and email', variant: 'destructive' })
-      return
-    }
-    if (!kitchenFormData.email.includes('@')) {
-      toast({ title: 'Error', description: 'Please enter a valid email', variant: 'destructive' })
-      return
-    }
-    if (!editingKitchenUser && !kitchenFormData.password) {
-      toast({ title: 'Error', description: 'Password is required for new users', variant: 'destructive' })
+    const error = validateForm(kitchenFormData, Boolean(editingKitchenUser))
+    if (error) {
+      toast({ title: 'Error', description: error, variant: 'destructive' })
       return
     }
 
     setKitchenSaving(true)
     try {
+      const shared = {
+        name: kitchenFormData.name,
+        email: kitchenFormData.email,
+        outlet: kitchenFormData.outlet,
+        module_app: kitchenFormData.module_app,
+        ...(kitchenFormData.departemen && { departemen: kitchenFormData.departemen }),
+        ...(kitchenFormData.password && { password: kitchenFormData.password }),
+        ...(kitchenFormData.pin && { pin: kitchenFormData.pin }),
+      }
+
       if (editingKitchenUser) {
-        await updateUser(editingKitchenUser.id, {
-          name: kitchenFormData.name,
-          email: kitchenFormData.email,
-          ...(kitchenFormData.password && { password: kitchenFormData.password }),
-          ...(kitchenFormData.pin && { pin: kitchenFormData.pin }),
-        })
+        await updateUser(editingKitchenUser.id, shared)
         toast({ title: 'Success', description: 'Kitchen user updated' })
       } else {
-        await createUser({
-          name: kitchenFormData.name,
-          email: kitchenFormData.email,
-          password: kitchenFormData.password,
-          role: 'kitchen',
-          ...(kitchenFormData.pin && { pin: kitchenFormData.pin }),
-        })
+        await createUser({ ...shared, password: kitchenFormData.password, role: 'kitchen' })
         toast({ title: 'Success', description: 'Kitchen user added' })
       }
       setKitchenDialogOpen(false)
@@ -124,6 +233,9 @@ export function UserManagement() {
       email: user.email || '',
       password: '',
       role: (user.role as UserRole) || 'manager',
+      departemen: user.departemen || '',
+      outlet: user.outlet ?? [],
+      module_app: user.module_app ?? [],
     })
     setAdminDialogOpen(true)
   }
@@ -132,36 +244,29 @@ export function UserManagement() {
     // Guard against double-clicks while a save is already in flight.
     if (adminSaving) return
 
-    if (!adminFormData.name || !adminFormData.email) {
-      toast({ title: 'Error', description: 'Please fill in name and email', variant: 'destructive' })
-      return
-    }
-    if (!adminFormData.email.includes('@')) {
-      toast({ title: 'Error', description: 'Please enter a valid email', variant: 'destructive' })
-      return
-    }
-    if (!editingAdminUser && !adminFormData.password) {
-      toast({ title: 'Error', description: 'Password is required for new users', variant: 'destructive' })
+    const error = validateForm(adminFormData, Boolean(editingAdminUser))
+    if (error) {
+      toast({ title: 'Error', description: error, variant: 'destructive' })
       return
     }
 
     setAdminSaving(true)
     try {
+      const shared = {
+        name: adminFormData.name,
+        email: adminFormData.email,
+        role: adminFormData.role,
+        outlet: adminFormData.outlet,
+        module_app: adminFormData.module_app,
+        ...(adminFormData.departemen && { departemen: adminFormData.departemen }),
+        ...(adminFormData.password && { password: adminFormData.password }),
+      }
+
       if (editingAdminUser) {
-        await updateUser(editingAdminUser.id, {
-          name: adminFormData.name,
-          email: adminFormData.email,
-          role: adminFormData.role,
-          ...(adminFormData.password && { password: adminFormData.password }),
-        })
+        await updateUser(editingAdminUser.id, shared)
         toast({ title: 'Success', description: 'Admin user updated' })
       } else {
-        await createUser({
-          name: adminFormData.name,
-          email: adminFormData.email,
-          password: adminFormData.password,
-          role: adminFormData.role,
-        })
+        await createUser({ ...shared, password: adminFormData.password })
         toast({ title: 'Success', description: 'Admin user added' })
       }
       setAdminDialogOpen(false)
@@ -221,13 +326,15 @@ export function UserManagement() {
                       <TableHead>Email</TableHead>
                       <TableHead>PIN</TableHead>
                       <TableHead>Role</TableHead>
+                      <TableHead>Outlet</TableHead>
+                      <TableHead>Modules</TableHead>
                       <TableHead className="w-20">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {kitchenUsers.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                           No kitchen staff found
                         </TableCell>
                       </TableRow>
@@ -249,6 +356,12 @@ export function UserManagement() {
                             <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800">
                               {user.role}
                             </span>
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {summarize(user.outlet, 'No outlet')}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {summarize(user.module_app, 'No module')}
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-1">
@@ -292,13 +405,15 @@ export function UserManagement() {
                       <TableHead>Name</TableHead>
                       <TableHead>Email</TableHead>
                       <TableHead>Role</TableHead>
+                      <TableHead>Outlet</TableHead>
+                      <TableHead>Modules</TableHead>
                       <TableHead className="w-20">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {adminUsers.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                           No admin users found
                         </TableCell>
                       </TableRow>
@@ -308,9 +423,15 @@ export function UserManagement() {
                           <TableCell className="font-medium">{user.name}</TableCell>
                           <TableCell className="text-sm">{user.email || '-'}</TableCell>
                           <TableCell>
-                            <span className={`text-xs px-2 py-1 rounded-full ${user.role === 'admin' || user.role === 'administrator' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}`}>
+                            <span className={`text-xs px-2 py-1 rounded-full ${user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}`}>
                               {user.role}
                             </span>
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {summarize(user.outlet, 'No outlet')}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {summarize(user.module_app, 'No module')}
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-1">
@@ -334,7 +455,7 @@ export function UserManagement() {
 
         {/* Kitchen User Dialog */}
         <Dialog open={kitchenDialogOpen} onOpenChange={setKitchenDialogOpen}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingKitchenUser ? 'Edit Kitchen Staff' : 'Add Kitchen Staff'}</DialogTitle>
               <DialogDescription>
@@ -379,12 +500,44 @@ export function UserManagement() {
                 </Label>
                 <Input
                   id="k-pin"
-                  placeholder="4–6 digit PIN"
-                  maxLength={6}
+                  inputMode="numeric"
+                  placeholder={`${PIN_LENGTH} digit PIN`}
+                  maxLength={PIN_LENGTH}
                   value={kitchenFormData.pin}
-                  onChange={(e) => setKitchenFormData({ ...kitchenFormData, pin: e.target.value.replace(/\D/g, '') })}
+                  onChange={(e) =>
+                    setKitchenFormData({ ...kitchenFormData, pin: e.target.value.replace(/\D/g, '') })
+                  }
                 />
               </div>
+              <div>
+                <Label htmlFor="k-departemen">Departemen</Label>
+                <Input
+                  id="k-departemen"
+                  placeholder="Kitchen"
+                  value={kitchenFormData.departemen}
+                  onChange={(e) => setKitchenFormData({ ...kitchenFormData, departemen: e.target.value })}
+                />
+              </div>
+              <CheckboxGroup
+                legend="Outlet"
+                options={outletOptions}
+                selected={kitchenFormData.outlet}
+                onToggle={(value) =>
+                  setKitchenFormData({ ...kitchenFormData, outlet: toggleInList(kitchenFormData.outlet, value) })
+                }
+                emptyHint="No outlet in master data yet — add one first."
+              />
+              <CheckboxGroup
+                legend="Modules"
+                options={moduleOptions}
+                selected={kitchenFormData.module_app}
+                onToggle={(value) =>
+                  setKitchenFormData({
+                    ...kitchenFormData,
+                    module_app: toggleInList(kitchenFormData.module_app, value as ModuleApp),
+                  })
+                }
+              />
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setKitchenDialogOpen(false)} disabled={kitchenSaving}>
@@ -400,7 +553,7 @@ export function UserManagement() {
 
         {/* Admin User Dialog */}
         <Dialog open={adminDialogOpen} onOpenChange={setAdminDialogOpen}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingAdminUser ? 'Edit Admin User' : 'Add Admin User'}</DialogTitle>
               <DialogDescription>
@@ -447,13 +600,42 @@ export function UserManagement() {
                   onChange={(e) => setAdminFormData({ ...adminFormData, role: e.target.value as UserRole })}
                   className="w-full px-3 py-2 border border-input rounded-md bg-background"
                 >
-                  <option value="manager">Manager</option>
-                  <option value="admin">Admin</option>
-                  <option value="operation">Operation</option>
-                  <option value="production">Production</option>
-                  <option value="service">Service</option>
+                  {ADMIN_ROLE_OPTIONS.map((role) => (
+                    <option key={role} value={role}>
+                      {USER_ROLE_LABELS[role]}
+                    </option>
+                  ))}
                 </select>
               </div>
+              <div>
+                <Label htmlFor="a-departemen">Departemen</Label>
+                <Input
+                  id="a-departemen"
+                  placeholder="Operation"
+                  value={adminFormData.departemen}
+                  onChange={(e) => setAdminFormData({ ...adminFormData, departemen: e.target.value })}
+                />
+              </div>
+              <CheckboxGroup
+                legend="Outlet"
+                options={outletOptions}
+                selected={adminFormData.outlet}
+                onToggle={(value) =>
+                  setAdminFormData({ ...adminFormData, outlet: toggleInList(adminFormData.outlet, value) })
+                }
+                emptyHint="No outlet in master data yet — add one first."
+              />
+              <CheckboxGroup
+                legend="Modules"
+                options={moduleOptions}
+                selected={adminFormData.module_app}
+                onToggle={(value) =>
+                  setAdminFormData({
+                    ...adminFormData,
+                    module_app: toggleInList(adminFormData.module_app, value as ModuleApp),
+                  })
+                }
+              />
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setAdminDialogOpen(false)} disabled={adminSaving}>

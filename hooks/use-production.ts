@@ -93,11 +93,19 @@ export function useConveyorItems(outletId: string | null) {
     await mutate()
   }
 
+  const closeDay = async (): Promise<number> => {
+    if (!outletId) return 0
+    const closed = await productionService.closeDay(outletId)
+    await mutate()
+    return closed
+  }
+
   return {
     items: data || [],
     isLoading,
     error,
     produceItem,
+    closeDay,
     refresh: mutate,
   }
 }

@@ -4,9 +4,29 @@ import type { SushiMenu } from '@/lib/types'
 
 const MENUS_KEY = '/master/menu'
 
-export function useMenus() {
-  const { data, error, isLoading, mutate } = useSWR<SushiMenu[]>(MENUS_KEY, async () => {
-    const response = await menusService.getAll()
+/**
+ * `outletId` menentukan brand mana yang terlihat, dan ikut jadi bagian cache key.
+ *
+ * Key statis adalah bug: begitu menu jadi milik brand tertentu, berpindah outlet
+ * akan menampilkan menu brand sebelumnya dari cache — dapur melihat piring yang
+ * tidak dijual di tempatnya, dengan harga yang salah.
+ *
+ * Tanpa `outletId` (layar admin) tidak ada penyaringan: master menampilkan
+ * semua brand.
+ */
+export function useMenus(outletId?: string | null) {
+  const key = outletId ? ([MENUS_KEY, outletId] as const) : MENUS_KEY
+
+  const { data, error, isLoading, mutate } = useSWR<SushiMenu[]>(key, async () => {
+    const response = outletId
+      ? { data: await menusService.getForOutlet(outletId) }
+      // `per_page: 'all'` wajib: backend memaginasi 15 baris kalau tidak
+      // diminta lain, sementara layar master menyaring, mengurutkan, dan
+      // memaginasi di sisi klien. Tanpa ini pencarian hanya melihat 15 menu
+      // pertama dan menu selebihnya seolah tidak ada — sama seperti
+      // `usePlateColors` dan `useBrands` yang sudah memintanya.
+      : await menusService.getAll({ per_page: 'all' })
+
     return response.data
   })
 
@@ -27,11 +47,9 @@ export function useMenus() {
     await mutate()
   }
 
-  const uploadMenuImage = async (id: string, imageFile: File): Promise<string> => {
-    const imagePath = await menusService.uploadImage(id, imageFile)
-    await mutate()
-    return imagePath
-  }
+  // `uploadMenuImage` dibuang bersama method service yang dibungkusnya — route
+  // `PATCH /master/menu/{id}/image` tidak pernah ada. Gambar dikirim lewat
+  // `updateMenu(id, { image })`.
 
   return {
     menus: data || [],
@@ -40,7 +58,6 @@ export function useMenus() {
     createMenu,
     updateMenu,
     deleteMenu,
-    uploadMenuImage,
     refresh: mutate,
   }
 }

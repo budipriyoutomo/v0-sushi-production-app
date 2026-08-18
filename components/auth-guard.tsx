@@ -17,6 +17,30 @@ function getModuleFromPath(pathname: string): string | null {
   return segments[0] // e.g., 'admin', 'production', 'kitchen', etc.
 }
 
+/**
+ * Modul yang dimiliki user, selalu sebagai array.
+ *
+ * `module_app` yang null/kosong berarti **tidak punya modul**, bukan punya
+ * semuanya. Versi lama menjadikan `user?.module_app` sebagai syarat masuk blok
+ * pengecekan, jadi user tanpa modul melewati pemeriksaan sama sekali dan bisa
+ * membuka setiap halaman — persis kebalikan dari yang dimaksud. Semua user yang
+ * dibuat lewat layar User Management dulu berada di keadaan itu.
+ */
+function modulesOf(moduleApp: string[] | undefined): string[] {
+  return Array.isArray(moduleApp) ? moduleApp : []
+}
+
+function hasModuleAccess(
+  moduleApp: string[] | undefined,
+  currentModule: string,
+  allowedModules?: string[]
+): boolean {
+  const modules = modulesOf(moduleApp)
+  const modulesToCheck = allowedModules ?? [currentModule]
+
+  return modulesToCheck.some((m) => modules.includes(m))
+}
+
 export function AuthGuard({ children, allowedRoles, allowedModules }: AuthGuardProps) {
   const { user, isLoading, isAuthenticated } = useAuth()
   const router = useRouter()
@@ -41,20 +65,16 @@ export function AuthGuard({ children, allowedRoles, allowedModules }: AuthGuardP
     // When allowedModules is specified it is authoritative (a page may be open
     // to several modules); otherwise fall back to the module from the path.
     const currentModule = getModuleFromPath(pathname)
-    if (currentModule && user?.module_app) {
-      const modulesToCheck = allowedModules ?? [currentModule]
-      const hasModuleAccess = modulesToCheck.some(m => user.module_app?.includes(m))
-
-      if (!hasModuleAccess) {
-        // Redirect to first available module or login
-        const firstModule = user.module_app.find(m => m !== 'app')
-        if (firstModule) {
-          router.replace(`/${firstModule}`)
-        } else {
-          router.replace("/login")
-        }
-        return
+    if (currentModule && !hasModuleAccess(user?.module_app, currentModule, allowedModules)) {
+      // Redirect to first available module or login. `app` is skipped: it is a
+      // base module with no page of its own.
+      const firstModule = modulesOf(user?.module_app).find(m => m !== 'app')
+      if (firstModule) {
+        router.replace(`/${firstModule}`)
+      } else {
+        router.replace("/login")
       }
+      return
     }
   }, [isLoading, isAuthenticated, user, allowedRoles, allowedModules, pathname, router])
 
@@ -71,13 +91,8 @@ export function AuthGuard({ children, allowedRoles, allowedModules }: AuthGuardP
 
   // Module check
   const currentModule = getModuleFromPath(pathname)
-  if (currentModule && user?.module_app) {
-    const modulesToCheck = allowedModules ?? [currentModule]
-    const hasModuleAccess = modulesToCheck.some(m => user.module_app?.includes(m))
-
-    if (!hasModuleAccess) {
-      return null
-    }
+  if (currentModule && !hasModuleAccess(user?.module_app, currentModule, allowedModules)) {
+    return null
   }
 
   return <>{children}</>

@@ -46,7 +46,7 @@ export function ProductionPlanning() {
   const [isSaving, setIsSaving] = useState(false)
 
   // Fetch plate colors from API
-  const { plateColors, isLoading: isLoadingColors } = usePlateColorsSortedByPrice()
+  const { plateColors, isLoading: isLoadingColors } = usePlateColorsSortedByPrice(selectedOutletId)
 
   // Fetch production plan from API
   const { plan: apiPlan, isLoading: isLoadingPlan, savePlan, refresh } = useProductionPlan(

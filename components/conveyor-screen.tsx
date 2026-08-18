@@ -5,7 +5,7 @@ import Image from "next/image"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { PlateColorBadge } from "@/components/plate-color-badge"
 import { OutletSelector } from "@/components/outlet-selector"
@@ -18,7 +18,7 @@ import { useActiveWasteReasons } from "@/hooks/use-waste-reasons"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/hooks/use-auth"
 import { productionService, getApiError } from "@/lib/api"
-import { CheckCircle, XCircle, Loader2 } from "lucide-react"
+import { XCircle, Loader2, PackageCheck } from "lucide-react"
 import { formatRupiah, lowercase } from "@/lib/utils"
 import type { SushiMenu } from "@/lib/types"
 
@@ -65,16 +65,18 @@ export function ConveyorScreen() {
   const { user } = useAuth()
   const { selectedOutletId } = useOutlet()
   
-  // Check if user can use Sold and Waste buttons
-  // Kitchen role should have these buttons disabled
-  const canUseSoldWasteButtons = user?.role?.toLowerCase() !== 'kitchen'
-  const { items: conveyorItems, isLoading, refresh } = useConveyorItems(selectedOutletId)
-  const { plateColors } = usePlateColorsSortedByPrice()
-  const { menus } = useMenus()
+  // Kitchen role tidak boleh memfinalisasi plate. Waste dan Tutup Hari adalah
+  // satu-satunya jalan yang mengisi final_status, keduanya milik service/operation.
+  const canFinalizePlates = user?.role?.toLowerCase() !== 'kitchen'
+  const { items: conveyorItems, isLoading, refresh, closeDay } = useConveyorItems(selectedOutletId)
+  const { plateColors } = usePlateColorsSortedByPrice(selectedOutletId)
+  const { menus } = useMenus(selectedOutletId)
   const { wasteReasons } = useActiveWasteReasons()
   const [selectedColorId, setSelectedColorId] = useState<string | null>(null)
-  // Tracks the item whose "Sold" action is in flight, to prevent double submits.
-  const [markingSoldId, setMarkingSoldId] = useState<string | null>(null)
+  const [closeDayDialog, setCloseDayDialog] = useState<{ open: boolean; isSubmitting: boolean }>({
+    open: false,
+    isSubmitting: false,
+  })
   const [wasteDialog, setWasteDialog] = useState<{
     open: boolean
     itemId: string
@@ -111,26 +113,26 @@ const activeItems = items.filter(
   (a, b) => a.expiresAt.getTime() - b.expiresAt.getTime()
 )
 
-  const handleMarkSold = async (itemId: string, menuName: string) => {
-    // Guard against double-clicks firing markSold more than once for the same item.
-    if (markingSoldId !== null) return
-    setMarkingSoldId(itemId)
+  const handleCloseDay = async () => {
+    // Guard against double submits: menutup dua kali memang no-op di backend,
+    // tapi jaringan dapur tidak stabil dan request kedua cuma bikin bingung.
+    if (closeDayDialog.isSubmitting) return
+    setCloseDayDialog((prev) => ({ ...prev, isSubmitting: true }))
     try {
-      await productionService.markSold([itemId])
-      await refresh()
+      const closed = await closeDay()
+      setCloseDayDialog({ open: false, isSubmitting: false })
       toast({
-        title: "Marked as Sold",
-        description: `${menuName} removed from conveyor`,
+        title: "Hari ditutup",
+        description: `${closed} plate sisa ditandai terjual`,
       })
     } catch (error) {
       const apiError = getApiError(error)
+      setCloseDayDialog((prev) => ({ ...prev, isSubmitting: false }))
       toast({
         title: "Error",
         description: apiError.message,
         variant: "destructive",
       })
-    } finally {
-      setMarkingSoldId(null)
     }
   }
 
@@ -192,7 +194,18 @@ const activeItems = items.filter(
           <h1 className="text-3xl md:text-4xl font-bold">Conveyor Management</h1>
           <p className="text-muted-foreground mt-1">Monitor and manage active production</p>
         </div>
-        <OutletSelector />
+        <div className="flex items-center gap-2">
+          <OutletSelector />
+          <Button
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            onClick={() => setCloseDayDialog({ open: true, isSubmitting: false })}
+            disabled={!canFinalizePlates || !selectedOutletId || activeItems.length === 0}
+            title={!canFinalizePlates ? "Not available for kitchen role" : undefined}
+          >
+            <PackageCheck className="w-4 h-4 mr-2" />
+            Tutup Hari
+          </Button>
+        </div>
       </div>
 
       { /* Filter by Plate Color */ }
@@ -291,30 +304,15 @@ const activeItems = items.filter(
                     {/* ACTIONS */}
                     <div className="space-y-1">
 
-                      {/* SOLD BUTTON */}
-                      <Button
-                        size="sm"
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-8 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                        onClick={() => handleMarkSold(item.id, item.menuName)}
-                        disabled={!canUseSoldWasteButtons || markingSoldId !== null}
-                        title={!canUseSoldWasteButtons ? "Not available for kitchen role" : undefined}
-                      >
-                        {markingSoldId === item.id ? (
-                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                        ) : (
-                          <CheckCircle className="w-3 h-3 mr-1" />
-                        )}
-                        Sold
-                      </Button>
-
-                      {/* WASTE BUTTON */}
+                      {/* WASTE BUTTON — satu-satunya aksi per plate.
+                          Plate yang tidak dibuang dianggap terjual saat Tutup Hari. */}
                       <Button
                         size="sm"
                         variant="destructive"
                         className="w-full h-8 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                         onClick={() => handleWasteClick(item)}
-                        disabled={!canUseSoldWasteButtons || markingSoldId !== null}
-                        title={!canUseSoldWasteButtons ? "Not available for kitchen role" : undefined}
+                        disabled={!canFinalizePlates}
+                        title={!canFinalizePlates ? "Not available for kitchen role" : undefined}
                       >
                         <XCircle className="w-3 h-3 mr-1" />
                         Waste
@@ -328,6 +326,42 @@ const activeItems = items.filter(
           })}
         </div>
       )}
+
+      {/* Close Day Confirmation */}
+      <Dialog
+        open={closeDayDialog.open}
+        onOpenChange={(open) => {
+          if (!closeDayDialog.isSubmitting) setCloseDayDialog((prev) => ({ ...prev, open }))
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Tutup Hari</DialogTitle>
+            <DialogDescription>
+              {activeItems.length} plate masih di belt dan belum ditandai waste. Menutup hari
+              menandai semuanya sebagai terjual. Buang dulu plate yang tidak laku — aksi ini tidak
+              bisa dibatalkan.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setCloseDayDialog({ open: false, isSubmitting: false })}
+              disabled={closeDayDialog.isSubmitting}
+            >
+              Batal
+            </Button>
+            <Button
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              onClick={handleCloseDay}
+              disabled={closeDayDialog.isSubmitting}
+            >
+              {closeDayDialog.isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Tandai Terjual
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Waste Reason Dialog */}
       <Dialog open={wasteDialog.open} onOpenChange={handleWasteDialogClose}>

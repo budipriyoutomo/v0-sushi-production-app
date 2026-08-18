@@ -25,7 +25,7 @@ const plateColorBg: Record<PlateColor, string> = {
 export function KitchenDashboard() {
   const { selectedOutletId, isLoading: outletsLoading } = useOutlet()
   const { stats, isLoading } = useProductionStats(selectedOutletId)
-  const { plateColors } = usePlateColorsSortedByPrice()
+  const { plateColors } = usePlateColorsSortedByPrice(selectedOutletId)
 
   // ✅ O(1) lookup (no more find in loop)
   const priceMap = Object.fromEntries(

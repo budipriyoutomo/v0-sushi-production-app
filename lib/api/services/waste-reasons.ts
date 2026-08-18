@@ -61,17 +61,11 @@ class WasteReasonsService extends BaseService<WasteReason, CreateWasteReasonDTO,
         ...response,
         data: response.data as WasteReason,
       }
-    } 
-    
-  // Toggle waste reason active status
-  async toggleStatus(id: string): Promise<WasteReason> {
-    const response = await this.request<WasteReason>(
-      'patch',
-      `${id}/toggle-status`
-    )
-    return response.data
-  }
-    
+    }
+
+  // CATATAN: `toggleStatus()` dibuang. Ia memanggil
+  // `PATCH /master/waste-reason/{id}/toggle-status` — route yang tidak pernah
+  // ada, dan nol pemakai. Status diubah lewat `update(id, { is_active })`.
 }
 
 export const wasteReasonsService = new WasteReasonsService()

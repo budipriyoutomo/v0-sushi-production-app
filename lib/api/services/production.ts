@@ -105,22 +105,30 @@ function transformPlan(
 class ProductionService {
   private endpoint = '/production'
 
-  // platename (lowercased) -> plate color id. Cached because savePlan() needs
-  // it on every call, but see refreshPlateColors(): a stale map used to mean
-  // "Color X tidak ditemukan di master" until the whole page was reloaded.
-  private colorMap: Record<string, string> = {}
-  private isColorLoaded = false
+  // outlet id -> (platename lowercased -> plate color id).
+  //
+  // Dikunci PER OUTLET, dan itu wajib sejak warna piring jadi milik brand: dua
+  // brand boleh sama-sama punya "Merah" dengan id dan harga berbeda. Satu peta
+  // global akan menyimpan salah satunya lalu memakainya untuk outlet mana pun —
+  // tanpa error, hanya target plan yang menempel ke piring brand lain.
+  //
+  // Tetap di-cache karena savePlan() membutuhkannya setiap panggilan; lihat
+  // invalidatePlateColors(): peta basi dulu berarti "Color X tidak ditemukan di
+  // master" sampai seluruh halaman di-reload.
+  private colorMapByOutlet: Record<string, Record<string, string>> = {}
 
-  private async loadPlateColors(force = false) {
-    if (this.isColorLoaded && !force) return
+  private async loadPlateColors(outletId: string, force = false): Promise<Record<string, string>> {
+    if (!force && this.colorMapByOutlet[outletId]) {
+      return this.colorMapByOutlet[outletId]
+    }
 
-    const res = await plateColorsService.getAll()
+    const colors = await plateColorsService.getForOutlet(outletId)
 
-    this.colorMap = Object.fromEntries(
-      res.data.map(c => [c.platename.toLowerCase(), c.id])
+    this.colorMapByOutlet[outletId] = Object.fromEntries(
+      colors.map(c => [c.platename.toLowerCase(), c.id])
     )
 
-    this.isColorLoaded = true
+    return this.colorMapByOutlet[outletId]
   }
 
   /**
@@ -128,8 +136,7 @@ class ProductionService {
    * next savePlan() sees newly added colors without a page reload.
    */
   invalidatePlateColors(): void {
-    this.colorMap = {}
-    this.isColorLoaded = false
+    this.colorMapByOutlet = {}
   }
 
   // Get production stats for dashboard
@@ -149,18 +156,18 @@ class ProductionService {
   }
 
   async savePlan(outletId: string, date: string, plan: ProductionPlanRow[]): Promise<void> {
-    await this.loadPlateColors()
+    let colorMap = await this.loadPlateColors(outletId)
 
     let payload: ProductionPlanRowPayload[]
 
     try {
-      payload = transformPlan(plan, this.colorMap)
+      payload = transformPlan(plan, colorMap)
     } catch {
       // An unknown colour usually means the master gained a plate color while
       // this session was open. Refetch once and retry before giving up, so the
       // operator does not have to reload the page.
-      await this.loadPlateColors(true)
-      payload = transformPlan(plan, this.colorMap)
+      colorMap = await this.loadPlateColors(outletId, true)
+      payload = transformPlan(plan, colorMap)
     }
 
     await apiClient.post(`${this.endpoint}/plan`, {
@@ -188,11 +195,16 @@ class ProductionService {
     return response.data.data
   }
 
-  async markSold(itemIds: string[]): Promise<void> {
-    await apiClient.post(`${this.endpoint}/mark-sold`, { itemIds })
+  // Tutup hari: semua plate hari ini yang belum difinalisasi jadi sold.
+  // Operator hanya menandai waste per plate; sisanya dianggap terjual.
+  async closeDay(outletId: string): Promise<number> {
+    const response = await apiClient.post<{ data: { closed: number } }>(
+      `${this.endpoint}/close-day`,
+      { outletId }
+    )
+    return response.data.data.closed
   }
- 
-  
+
   async markWaste(itemIds: string[]): Promise<void> {
     await apiClient.post(`${this.endpoint}/mark-waste`, { itemIds })
   }

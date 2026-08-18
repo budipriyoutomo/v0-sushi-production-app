@@ -6,9 +6,10 @@ import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { 
   LogOut, 
-  Store, 
-  Users, 
-  Layers, 
+  Store,
+  Tag,
+  Users,
+  Layers,
   FileQuestion, 
   UtensilsCrossed, 
   CalendarDays, 
@@ -49,6 +50,7 @@ export function SidebarNav({ role }: SidebarNavProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
 
   const adminItems: NavItem[] = [
+    { label: 'Brands', href: '/admin/brands', icon: Tag },
     { label: 'Outlets', href: '/admin/outlets', icon: Store },
     { label: 'Users', href: '/admin/users', icon: Users },
     { label: 'Plate Colors', href: '/admin/plate-colors', icon: Layers },

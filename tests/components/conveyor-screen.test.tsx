@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event"
 
 // Shared mock handles, hoisted so the vi.mock factories below can reference them.
 const mocks = vi.hoisted(() => ({
-  markSold: vi.fn(),
+  closeDay: vi.fn(),
   markWaste: vi.fn(),
   recordWaste: vi.fn(),
   refresh: vi.fn().mockResolvedValue(undefined),
@@ -15,7 +15,6 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/api", () => ({
   productionService: {
-    markSold: mocks.markSold,
     markWaste: mocks.markWaste,
     recordWaste: mocks.recordWaste,
   },
@@ -23,7 +22,12 @@ vi.mock("@/lib/api", () => ({
 }))
 
 vi.mock("@/hooks/use-production", () => ({
-  useConveyorItems: () => ({ items: mocks.conveyorItems, isLoading: false, refresh: mocks.refresh }),
+  useConveyorItems: () => ({
+    items: mocks.conveyorItems,
+    isLoading: false,
+    refresh: mocks.refresh,
+    closeDay: mocks.closeDay,
+  }),
 }))
 vi.mock("@/hooks/use-plate-colors", () => ({
   usePlateColorsSortedByPrice: () => ({
@@ -73,61 +77,84 @@ function makeItem() {
   }
 }
 
-describe("ConveyorScreen — Sold button double-click guard", () => {
+describe("ConveyorScreen — no per-plate Sold action", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.refresh.mockResolvedValue(undefined)
+    mocks.closeDay.mockResolvedValue(1)
     mocks.user = { id: "u1", role: "service" }
     mocks.conveyorItems = [makeItem()]
   })
 
-  it("calls markSold only once when the Sold button is clicked twice rapidly", async () => {
+  it("renders no Sold button on a plate card", () => {
+    render(<ConveyorScreen />)
+
+    // Waste tetap satu-satunya aksi per plate.
+    expect(screen.getByRole("button", { name: /waste/i })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: /^sold$/i })).not.toBeInTheDocument()
+  })
+})
+
+describe("ConveyorScreen — Tutup Hari", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.refresh.mockResolvedValue(undefined)
+    mocks.closeDay.mockResolvedValue(1)
+    mocks.user = { id: "u1", role: "service" }
+    mocks.conveyorItems = [makeItem()]
+  })
+
+  it("closes the day only after the confirmation dialog is accepted", async () => {
+    const user = userEvent.setup()
+    render(<ConveyorScreen />)
+
+    await user.click(screen.getByRole("button", { name: /tutup hari/i }))
+
+    // Membuka dialog saja belum boleh memfinalisasi apa pun.
+    expect(mocks.closeDay).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole("button", { name: /tandai terjual/i }))
+
+    await waitFor(() => expect(mocks.closeDay).toHaveBeenCalledTimes(1))
+  })
+
+  it("calls closeDay only once when confirmed twice rapidly", async () => {
     // Keep the request in flight so the in-flight guard stays active across clicks.
-    let resolveMarkSold: () => void = () => {}
-    mocks.markSold.mockImplementation(
-      () => new Promise<void>((resolve) => { resolveMarkSold = resolve })
+    let resolveCloseDay: (value: number) => void = () => {}
+    mocks.closeDay.mockImplementation(
+      () => new Promise<number>((resolve) => { resolveCloseDay = resolve })
     )
 
     const user = userEvent.setup()
     render(<ConveyorScreen />)
 
-    const soldButton = screen.getByRole("button", { name: /sold/i })
+    await user.click(screen.getByRole("button", { name: /tutup hari/i }))
 
-    await user.click(soldButton)
-    // After the first click the button must be disabled (in-flight).
-    expect(soldButton).toBeDisabled()
+    const confirm = screen.getByRole("button", { name: /tandai terjual/i })
+    await user.click(confirm)
+    expect(confirm).toBeDisabled()
 
-    // A second click while disabled / in-flight must not trigger another request.
-    await user.click(soldButton)
+    await user.click(confirm)
 
-    expect(mocks.markSold).toHaveBeenCalledTimes(1)
-    expect(mocks.markSold).toHaveBeenCalledWith(["item-1"])
+    expect(mocks.closeDay).toHaveBeenCalledTimes(1)
 
-    // Cleanup: let the pending request resolve.
-    resolveMarkSold()
-    await waitFor(() => expect(mocks.refresh).toHaveBeenCalledTimes(1))
+    resolveCloseDay(1)
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
   })
 
-  it("re-enables the Sold button and refreshes after a successful sale", async () => {
-    mocks.markSold.mockResolvedValue(undefined)
-
-    const user = userEvent.setup()
-    render(<ConveyorScreen />)
-
-    const soldButton = screen.getByRole("button", { name: /sold/i })
-    await user.click(soldButton)
-
-    await waitFor(() => {
-      expect(mocks.markSold).toHaveBeenCalledTimes(1)
-      expect(mocks.refresh).toHaveBeenCalledTimes(1)
-    })
-  })
-
-  it("disables Sold for kitchen role (cannot mark sold at all)", async () => {
+  it("disables Tutup Hari for kitchen role", () => {
     mocks.user = { id: "u2", role: "kitchen" }
 
     render(<ConveyorScreen />)
 
-    expect(screen.getByRole("button", { name: /sold/i })).toBeDisabled()
+    expect(screen.getByRole("button", { name: /tutup hari/i })).toBeDisabled()
+  })
+
+  it("disables Tutup Hari when no plate is left on the belt", () => {
+    mocks.conveyorItems = []
+
+    render(<ConveyorScreen />)
+
+    expect(screen.getByRole("button", { name: /tutup hari/i })).toBeDisabled()
   })
 })

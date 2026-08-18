@@ -58,9 +58,9 @@ function getTimeSlotColor(producedAt: Date) {
 
 export function ExpiredItemsManager() {
   const { toast } = useToast() 
-  const { menus, isLoading: menusLoading } = useMenus()
   const { selectedOutletId } = useOutlet()
-  const { plateColors, isLoading: plateColorsLoading } = usePlateColorsSortedByPrice() 
+  const { menus, isLoading: menusLoading } = useMenus(selectedOutletId)
+  const { plateColors, isLoading: plateColorsLoading } = usePlateColorsSortedByPrice(selectedOutletId)
   const {
     expiredItems,
     isLoading: expiredLoading,

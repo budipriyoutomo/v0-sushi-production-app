@@ -14,16 +14,32 @@ export interface User {
   departemen?: string
   outlet?: string[] // Array of outlet codes the user has access to
   module_app?: string[] // Array of modules the user has access to
-  isActive?: boolean
+  // Tidak ada `isActive`: tabel `users` tidak punya kolom `is_active`, dan
+  // `UserManagementResource` tidak pernah mengirimnya. Field itu dulu ada di
+  // sini bersama `usersService.toggleStatus()` yang memanggil route hantu.
   hasPin?: boolean
   createdAt?: string | Date
+}
+
+export interface Brand {
+  id: string
+  code: string
+  name: string
+  description: string
+  logo?: string
+  isActive: boolean
 }
 
 export interface Outlet {
   id: string
   code: string
   name: string
+  /**
+   * Nama brand sebagai teks bebas — kolom warisan yang masih ditulis backend.
+   * `brandId` adalah penggantinya; teksnya dibuang setelah semua pembaca pindah.
+   */
   brand: string
+  brandId?: string | null
   address: string
   isActive: boolean
   createdAt: Date
@@ -35,6 +51,9 @@ export interface PlateColorConfig {
   price: number
   description: string
   targetFoodCost: number
+  /** null berarti "belum ditetapkan" — baris seperti ini terlihat semua outlet. */
+  brandId?: string | null
+  brandName?: string
   isActive: boolean
 }
 
@@ -49,6 +68,9 @@ export interface SushiMenu {
   shelfLife: number
   plateColorId: string
   plateColorName: string
+  /** null berarti "belum ditetapkan" — menu seperti ini terlihat semua outlet. */
+  brandId?: string | null
+  brandName?: string
   isActive: boolean
 }
 

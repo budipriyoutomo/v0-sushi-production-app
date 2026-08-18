@@ -9,14 +9,28 @@ import type { PlateColorConfig } from '@/lib/types'
 
 const PLATE_COLORS_KEY = '/master/platecolor'
 
-export function usePlateColors() {
-  const { data, error, isLoading, mutate } = useSWR<PlateColorConfig[]>(PLATE_COLORS_KEY, async () => {
-    const response = await plateColorsService.getAll()
+/**
+ * Sama seperti useMenus: `outletId` menentukan brand yang terlihat dan ikut jadi
+ * bagian cache key. Di sini taruhannya lebih tinggi — warna piring adalah unit
+ * harga, jadi cache yang basi berarti harga yang salah di layar.
+ *
+ * Tanpa `outletId` (layar admin) semua brand ditampilkan.
+ */
+export function usePlateColors(outletId?: string | null) {
+  const key = outletId ? ([PLATE_COLORS_KEY, outletId] as const) : PLATE_COLORS_KEY
+
+  const { data, error, isLoading, mutate } = useSWR<PlateColorConfig[]>(key, async () => {
+    if (outletId) {
+      return plateColorsService.getForOutlet(outletId)
+    }
+
+    const response = await plateColorsService.getAll({ per_page: 'all' })
     return response.data
   })
 
-  // productionService keeps its own platename -> id map for savePlan(). Drop it
-  // whenever the master changes, or planning breaks until a page reload.
+  // productionService menyimpan peta platename -> id per outlet untuk savePlan().
+  // Buang setiap kali master berubah, kalau tidak planning rusak sampai halaman
+  // di-reload.
   const revalidate = async () => {
     productionService.invalidatePlateColors()
     await mutate()
@@ -39,11 +53,9 @@ export function usePlateColors() {
     await revalidate()
   }
 
-  const updatePrice = async (id: string, price: number): Promise<PlateColorConfig> => {
-    const color = await plateColorsService.updatePrice(id, price)
-    await revalidate()
-    return color
-  }
+  // `updatePrice` dibuang bersama method service yang dibungkusnya — route
+  // `PATCH /master/platecolor/{id}/price` tidak pernah ada. Harga diubah lewat
+  // `updatePlateColor(id, { price })`.
 
   return {
     plateColors: data || [],
@@ -52,22 +64,23 @@ export function usePlateColors() {
     createPlateColor,
     updatePlateColor,
     deletePlateColor,
-    updatePrice,
     refresh: mutate,
   }
 }
 
 // Hook to get plate colors sorted by price (cheapest first)
-export function usePlateColorsSortedByPrice() {
-  const key = [PLATE_COLORS_KEY, { sortBy: 'price', sortOrder: 'asc' }]
+export function usePlateColorsSortedByPrice(outletId?: string | null) {
+  const params = { sortBy: 'price', sortOrder: 'asc' }
+  const key = [PLATE_COLORS_KEY, outletId ?? 'all', params] as const
 
-  const { data, error, isLoading, mutate } = useSWR(
-    key,
-    async ([_, params]: [string, Record<string, unknown>]) => {
-      const colors = await plateColorsService.getAll(params)
-      return colors.data
+  const { data, error, isLoading, mutate } = useSWR(key, async () => {
+    if (outletId) {
+      return plateColorsService.getForOutlet(outletId, params)
     }
-  )
+
+    const colors = await plateColorsService.getAll(params)
+    return colors.data
+  })
 
   return {
     plateColors: data || [],

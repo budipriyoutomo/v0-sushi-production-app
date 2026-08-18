@@ -7,6 +7,8 @@ import { PlateColorBadge } from "@/components/plate-color-badge"
 import type { SushiMenu } from "@/lib/types"
 import { useMenus } from "@/hooks/use-menus"
 import { usePlateColors } from "@/hooks/use-plate-colors"
+import { useBrands } from "@/hooks/use-brands"
+import { BrandSelect } from "@/components/brand-select"
 import { getApiError } from "@/lib/api"
 import { Plus, Pencil, Trash2, Upload, X, Loader2, Search, ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight } from "lucide-react"
 import {
@@ -59,8 +61,10 @@ function SortHeader({
 
 export function MenusAdmin() {
   const { toast } = useToast()
+  // Tanpa outletId: layar master menampilkan menu SEMUA brand.
   const { menus, isLoading, createMenu, updateMenu, deleteMenu } = useMenus()
   const { plateColors } = usePlateColors()
+  const { brands } = useBrands()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<SushiMenu | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
@@ -76,14 +80,26 @@ export function MenusAdmin() {
     price: 0,
     shelf_life: 2,
     plate_color_id: "",
+    brand_id: "",
     is_active: true,
   })
 
   const [formErrors, setFormErrors] = useState<{ code?: string; menuname?: string }>({})
 
+  /**
+   * Warna piring yang boleh dipilih ikut brand yang sedang dipilih di form.
+   * Menu brand A yang menunjuk warna brand B akan ditolak backend saat
+   * diproduksi — lebih baik pilihannya tidak pernah muncul.
+   *
+   * Warna tanpa brand tetap ikut: sama dengan aturan transisi di backend.
+   */
+  const selectablePlateColors = formData.brand_id
+    ? plateColors.filter((p) => !p.brandId || p.brandId === formData.brand_id)
+    : plateColors
+
   // Search, sort, pagination
   const [searchQuery, setSearchQuery] = useState("")
-  const [sortKey, setSortKey] = useState<"code" | "menuname" | "plateColorName" | "price" | "shelfLife" | "isActive">("menuname")
+  const [sortKey, setSortKey] = useState<SortKey>("menuname")
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc")
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 10
@@ -104,8 +120,9 @@ export function MenusAdmin() {
       const q = searchQuery.toLowerCase()
       return (
         (m.code || "").toLowerCase().includes(q) ||
-        m.menuname.toLowerCase().includes(q) ||
+        (m.menuname || "").toLowerCase().includes(q) ||
         (m.plateColorName || "").toLowerCase().includes(q) ||
+        (m.brandName || "").toLowerCase().includes(q) ||
         (m.description || "").toLowerCase().includes(q)
       )
     })
@@ -130,14 +147,28 @@ export function MenusAdmin() {
   const totalPages = Math.max(1, Math.ceil(filteredMenus.length / PAGE_SIZE))
   const pagedMenus = filteredMenus.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
-  const validateCode = (code: string, currentId?: string): string | undefined => {
+  /**
+   * Kode unik DI DALAM brand, bukan global — dua brand boleh memakai kode yang
+   * sama. Aturannya harus mencerminkan backend, termasuk bagian yang halus:
+   * baris tanpa brand terlihat semua outlet, jadi ikut bentrok dengan brand
+   * mana pun.
+   */
+  const validateCode = (code: string, currentId?: string, brandId?: string): string | undefined => {
     const safeCode = String(code || "");
     if (!safeCode) return "Code is required"
     if (safeCode.length > 50) return "Code must be at most 50 characters"
-    const isDuplicate = menus.some(
-      (m) => typeof m.code === 'string' && m.code.toLowerCase() === safeCode.toLowerCase() && m.id !== currentId
-    )
-    if (isDuplicate) return "Code already exists, must be unique"
+
+    const isDuplicate = menus.some((m) => {
+      if (m.id === currentId) return false
+      if (typeof m.code !== 'string' || m.code.toLowerCase() !== safeCode.toLowerCase()) return false
+
+      // Salah satu sisi tanpa brand → tetap tampil berdampingan → bentrok.
+      if (!brandId || !m.brandId) return true
+
+      return m.brandId === brandId
+    })
+
+    if (isDuplicate) return "Code already exists in this brand"
     return undefined
   }
 
@@ -152,7 +183,10 @@ export function MenusAdmin() {
       description: "", 
       price: 0,
       shelf_life: 2,
-      plate_color_id: plateColors[0]?.id || "",
+      plate_color_id: "",
+      // Satu brand saja: pilih sendiri. Backend juga melakukannya, tapi
+      // menampilkannya di form lebih jujur daripada terisi diam-diam.
+      brand_id: brands.length === 1 ? brands[0].id : "",
       is_active: true,
     })
     setIsDialogOpen(true)
@@ -170,6 +204,7 @@ export function MenusAdmin() {
       price: item.price,
       shelf_life: item.shelfLife,
       plate_color_id: item.plateColorId,
+      brand_id: item.brandId || "",
       is_active: item.isActive,
     })
     setIsDialogOpen(true)
@@ -257,7 +292,7 @@ export function MenusAdmin() {
     // Guard against double-clicks while a save is already in flight.
     if (isSaving) return
 
-    const codeError = validateCode(formData.code, editingItem?.id)
+    const codeError = validateCode(formData.code, editingItem?.id, formData.brand_id)
     const newErrors: { code?: string; menuname?: string } = {}
 
     if (codeError) newErrors.code = codeError
@@ -277,6 +312,7 @@ export function MenusAdmin() {
     try {
       const submitData = {
         ...formData,
+        brand_id: formData.brand_id || undefined,
         image: imageFile || undefined,
       }
 
@@ -334,7 +370,7 @@ export function MenusAdmin() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input
                   type="text"
-                  placeholder="Search code, name, color..."
+                  placeholder="Search code, name, color, brand..."
                   value={searchQuery}
                   onChange={(e) => { setSearchQuery(e.target.value); setPage(1) }}
                   className="w-full pl-9 pr-3 py-2 text-sm border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
@@ -520,7 +556,7 @@ export function MenusAdmin() {
                   setFormData({ ...formData, code: val })
                   setFormErrors((prev) => ({
                     ...prev,
-                    code: validateCode(val, editingItem?.id),
+                    code: validateCode(val, editingItem?.id, formData.brand_id),
                   }))
                 }}
                 placeholder="e.g. SALMON-01"
@@ -632,9 +668,26 @@ export function MenusAdmin() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
             <div className="grid gap-2">
+              <Label>Brand</Label>
+              <BrandSelect
+                brands={brands}
+                value={formData.brand_id}
+                onChange={(brandId) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    brand_id: brandId,
+                    // Warna yang sudah dipilih bisa jadi milik brand lama.
+                    // Kosongkan daripada mengirim pasangan yang akan ditolak.
+                    plate_color_id: "",
+                  }))
+                }
+              />
+            </div>
+
+            <div className="grid gap-2">
               <Label>Plate Color</Label>
               <Select
-                value={formData.plate_color_id}
+                value={formData.plate_color_id || undefined}
                 onValueChange={(value) =>
                   setFormData({ ...formData, plate_color_id: value })
                 }
@@ -644,7 +697,7 @@ export function MenusAdmin() {
                 </SelectTrigger>
 
                 <SelectContent>
-                  {plateColors.map((plate) => (
+                  {selectablePlateColors.map((plate) => (
                     <SelectItem key={plate.id} value={plate.id}>
                       {plate.platename} - Rp{" "}
                       {plate.price.toLocaleString("id-ID")}

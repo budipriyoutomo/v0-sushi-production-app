@@ -20,8 +20,8 @@ import { formatRupiah, lowercase } from "@/lib/utils"
 export function ProduceScreen() {
   const { toast } = useToast()
   const { selectedOutletId } = useOutlet()
-  const { menus, isLoading: menusLoading } = useMenus()
-  const { plateColors, isLoading: plateColorsLoading } = usePlateColorsSortedByPrice()
+  const { menus, isLoading: menusLoading } = useMenus(selectedOutletId)
+  const { plateColors, isLoading: plateColorsLoading } = usePlateColorsSortedByPrice(selectedOutletId)
   const { produceItem } = useConveyorItems(selectedOutletId)
   const [producing, setProducing] = useState<string | null>(null)
   const [selectedColorId, setSelectedColorId] = useState<string | null>(null)
