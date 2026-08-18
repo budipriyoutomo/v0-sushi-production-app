@@ -28,6 +28,10 @@ export function ProduceScreen() {
   const [calculatorOpen, setCalculatorOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState<SushiMenu | null>(null)
 
+  // Tanpa outlet tidak ada brand, dan tanpa brand tidak ada menu yang boleh
+  // ditampilkan. Terjadi sebelum OutletProvider memilih outlet pertama, dan
+  // menetap kalau `users.outlet` tidak cocok satu outlet aktif pun.
+  const hasOutlet = Boolean(selectedOutletId)
   const isLoading = menusLoading || plateColorsLoading
   const isAnyProducing = producing !== null  
 
@@ -80,6 +84,18 @@ export function ProduceScreen() {
         <OutletSelector />
       </div>
 
+      {!hasOutlet ? (
+        <Card>
+          <CardContent className="p-12 text-center space-y-2">
+            <p className="text-lg font-medium">Belum ada outlet terpilih</p>
+            <p className="text-muted-foreground">
+              Menu dan harga menempel ke brand outlet, jadi tidak ada yang bisa ditampilkan sampai
+              outlet dipilih. Kalau daftar outlet kosong, akses outlet akun ini belum diatur.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+      <>
       {/* Filter by Plate Color */}
       <div className="flex gap-2 flex-wrap">
         <Button
@@ -167,6 +183,9 @@ export function ProduceScreen() {
         <div className="text-center py-12">
           <p className="text-muted-foreground">No items available for this color</p>
         </div>
+      )}
+
+      </>
       )}
 
       {/* Quantity Calculator */}

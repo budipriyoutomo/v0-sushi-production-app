@@ -6,6 +6,7 @@ import {
   type UpdatePlateColorDTO,
 } from '@/lib/api'
 import type { PlateColorConfig } from '@/lib/types'
+import { outletScopedKey } from './use-outlet-scoped-key'
 
 const PLATE_COLORS_KEY = '/master/platecolor'
 
@@ -16,8 +17,9 @@ const PLATE_COLORS_KEY = '/master/platecolor'
  *
  * Tanpa `outletId` (layar admin) semua brand ditampilkan.
  */
+
 export function usePlateColors(outletId?: string | null) {
-  const key = outletId ? ([PLATE_COLORS_KEY, outletId] as const) : PLATE_COLORS_KEY
+  const key = outletScopedKey(PLATE_COLORS_KEY, outletId)
 
   const { data, error, isLoading, mutate } = useSWR<PlateColorConfig[]>(key, async () => {
     if (outletId) {
@@ -71,7 +73,11 @@ export function usePlateColors(outletId?: string | null) {
 // Hook to get plate colors sorted by price (cheapest first)
 export function usePlateColorsSortedByPrice(outletId?: string | null) {
   const params = { sortBy: 'price', sortOrder: 'asc' }
-  const key = [PLATE_COLORS_KEY, outletId ?? 'all', params] as const
+  // Aturan yang sama dengan usePlateColors, hanya key-nya ikut membawa params.
+  // `outletId ?? 'all'` yang lama menyamakan "" dengan mode admin — dan di sini
+  // taruhannya harga, jadi salah brand berarti salah harga di layar.
+  const scoped = outletScopedKey(PLATE_COLORS_KEY, outletId)
+  const key = scoped === null ? null : ([...(Array.isArray(scoped) ? scoped : [scoped]), params] as const)
 
   const { data, error, isLoading, mutate } = useSWR(key, async () => {
     if (outletId) {

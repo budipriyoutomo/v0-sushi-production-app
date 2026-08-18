@@ -1,6 +1,7 @@
 import useSWR from 'swr'
 import { menusService, type CreateMenuDTO, type UpdateMenuDTO } from '@/lib/api'
 import type { SushiMenu } from '@/lib/types'
+import { outletScopedKey } from './use-outlet-scoped-key'
 
 const MENUS_KEY = '/master/menu'
 
@@ -12,10 +13,11 @@ const MENUS_KEY = '/master/menu'
  * tidak dijual di tempatnya, dengan harga yang salah.
  *
  * Tanpa `outletId` (layar admin) tidak ada penyaringan: master menampilkan
- * semua brand.
+ * semua brand. `outletId` kosong justru sebaliknya — lihat `outletScopedKey()`.
  */
+
 export function useMenus(outletId?: string | null) {
-  const key = outletId ? ([MENUS_KEY, outletId] as const) : MENUS_KEY
+  const key = outletScopedKey(MENUS_KEY, outletId)
 
   const { data, error, isLoading, mutate } = useSWR<SushiMenu[]>(key, async () => {
     const response = outletId

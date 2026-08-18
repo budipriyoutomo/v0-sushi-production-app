@@ -5,6 +5,8 @@ import userEvent from "@testing-library/user-event"
 const mocks = vi.hoisted(() => ({
   produceItem: vi.fn(),
   toast: vi.fn(),
+  selectedOutletId: "outlet-1",
+  menus: [] as Array<Record<string, unknown>>,
 }))
 
 vi.mock("@/lib/api", () => ({
@@ -14,20 +16,7 @@ vi.mock("@/hooks/use-production", () => ({
   useConveyorItems: () => ({ produceItem: mocks.produceItem }),
 }))
 vi.mock("@/hooks/use-menus", () => ({
-  useMenus: () => ({
-    menus: [
-      {
-        id: "menu-1",
-        menuname: "Salmon",
-        image: null,
-        plateColorId: "color-1",
-        plateColorName: "Merah",
-        price: 20000,
-        shelfLife: 60,
-      },
-    ],
-    isLoading: false,
-  }),
+  useMenus: () => ({ menus: mocks.menus, isLoading: false }),
 }))
 vi.mock("@/hooks/use-plate-colors", () => ({
   usePlateColorsSortedByPrice: () => ({
@@ -39,7 +28,7 @@ vi.mock("@/hooks/use-toast", () => ({
   useToast: () => ({ toast: mocks.toast }),
 }))
 vi.mock("@/lib/outlet-context", () => ({
-  useOutlet: () => ({ selectedOutletId: "outlet-1" }),
+  useOutlet: () => ({ selectedOutletId: mocks.selectedOutletId }),
 }))
 vi.mock("next/image", () => ({ default: () => null }))
 vi.mock("@/components/outlet-selector", () => ({ OutletSelector: () => null }))
@@ -47,9 +36,44 @@ vi.mock("@/components/plate-color-badge", () => ({ PlateColorBadge: () => null, 
 
 import { ProduceScreen } from "@/components/produce-screen"
 
+const SALMON = {
+  id: "menu-1",
+  menuname: "Salmon",
+  image: null,
+  plateColorId: "color-1",
+  plateColorName: "Merah",
+  price: 20000,
+  shelfLife: 60,
+}
+
+describe("ProduceScreen — tanpa outlet terpilih", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.selectedOutletId = ""
+    // Hook sudah gagal-tertutup, jadi daftar menunya memang kosong di sini.
+    mocks.menus = []
+  })
+
+  it("menjelaskan keadaannya, bukan menampilkan grid kosong", () => {
+    render(<ProduceScreen />)
+
+    expect(screen.getByText(/belum ada outlet terpilih/i)).toBeInTheDocument()
+  })
+
+  it("tidak menawarkan satu pun tombol produksi", () => {
+    render(<ProduceScreen />)
+
+    // Tanpa outlet tidak ada brand, jadi tidak ada menu yang boleh diproduksi.
+    expect(screen.queryByRole("button", { name: /make/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: /all colors/i })).not.toBeInTheDocument()
+  })
+})
+
 describe("ProduceScreen — produce double-submit guard", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.selectedOutletId = "outlet-1"
+    mocks.menus = [SALMON]
   })
 
   it("produces once with the chosen quantity", async () => {

@@ -79,6 +79,65 @@ describe("useMenus", () => {
   })
 })
 
+describe("outlet kosong bukan izin lintas brand", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockMenus.getAll.mockResolvedValue({ data: [{ id: "all" }] })
+    mockMenus.getForOutlet.mockResolvedValue([{ id: "scoped" }])
+    mockPlateColors.getAll.mockResolvedValue({ data: [{ id: "all" }] })
+    mockPlateColors.getForOutlet.mockResolvedValue([{ id: "scoped" }])
+  })
+
+  // `selectedOutletId` mulai sebagai "" dan tetap "" kalau `users.outlet` tidak
+  // cocok satu outlet aktif pun. Dulu "" jatuh ke cabang layar admin, jadi dapur
+  // melihat master semua brand. Harus mati total, bukan terbuka.
+  it.each([
+    ["string kosong", ""],
+    ["null", null],
+  ])("useMenus tidak mengambil apa pun ketika outletId %s", async (_label, outletId) => {
+    const { result } = renderHook(() => useMenus(outletId as string | null), { wrapper })
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+
+    expect(result.current.menus).toEqual([])
+    expect(mockMenus.getAll).not.toHaveBeenCalled()
+    expect(mockMenus.getForOutlet).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ["string kosong", ""],
+    ["null", null],
+  ])("usePlateColors tidak mengambil apa pun ketika outletId %s", async (_label, outletId) => {
+    const { result } = renderHook(() => usePlateColors(outletId as string | null), { wrapper })
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+
+    expect(result.current.plateColors).toEqual([])
+    expect(mockPlateColors.getAll).not.toHaveBeenCalled()
+    expect(mockPlateColors.getForOutlet).not.toHaveBeenCalled()
+  })
+
+  // Harga hidup di sini, jadi varian sorted ikut diuji terpisah.
+  it("sorted-by-price juga mati ketika outlet kosong", async () => {
+    const { result } = renderHook(() => usePlateColorsSortedByPrice(""), { wrapper })
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+
+    expect(result.current.plateColors).toEqual([])
+    expect(mockPlateColors.getAll).not.toHaveBeenCalled()
+    expect(mockPlateColors.getForOutlet).not.toHaveBeenCalled()
+  })
+
+  // Layar master admin memanggil tanpa argumen sama sekali — itu tetap boleh.
+  it("undefined tetap berarti lintas brand untuk layar master", async () => {
+    const { result } = renderHook(() => useMenus(), { wrapper })
+
+    await waitFor(() => expect(result.current.menus).toHaveLength(1))
+
+    expect(mockMenus.getAll).toHaveBeenCalled()
+  })
+})
+
 describe("usePlateColors", () => {
   beforeEach(() => {
     vi.clearAllMocks()
