@@ -62,7 +62,7 @@ const EMPTY_ADMIN_FORM = {
   module_app: ['app'] as string[],
 }
 
-const ADMIN_ROLE_OPTIONS: UserRole[] = ['manager', 'admin', 'operation', 'production', 'service']
+const ADMIN_ROLE_OPTIONS: UserRole[] = ['manager', 'admin', 'operation', 'production']
 
 function toggleInList(list: string[], value: string): string[] {
   return list.includes(value) ? list.filter((v) => v !== value) : [...list, value]

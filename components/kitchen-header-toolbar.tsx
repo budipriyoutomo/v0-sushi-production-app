@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/use-auth'
 import { log } from 'console'
 
-type Role = 'admin' | 'kitchen' | 'service'
+type Role = 'admin' | 'kitchen'
 
 type MenuItem = {
   label: string
@@ -23,7 +23,7 @@ const MENU_ITEMS: MenuItem[] = [
   {
     label: 'Dashboard',
     path: '/kitchen/dashboard',
-    roles: ['admin', 'kitchen', 'service'],
+    roles: ['admin', 'kitchen'],
   },
   {
     label: 'Production',
@@ -33,12 +33,12 @@ const MENU_ITEMS: MenuItem[] = [
   {
     label: 'Conveyor',
     path: '/kitchen/conveyor',
-    roles: ['admin', 'kitchen', 'service'],
+    roles: ['admin', 'kitchen'],
   },
   {
     label: 'Expired',
     path: '/kitchen/expired',
-    roles: ['admin', 'service'],
+    roles: ['admin', 'kitchen'],
     danger: true,
   },
 ]

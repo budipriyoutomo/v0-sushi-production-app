@@ -16,7 +16,6 @@ import { usePlateColorsSortedByPrice } from "@/hooks/use-plate-colors"
 import { useMenus } from "@/hooks/use-menus"
 import { useActiveWasteReasons } from "@/hooks/use-waste-reasons"
 import { useToast } from "@/hooks/use-toast"
-import { useAuth } from "@/hooks/use-auth"
 import { productionService, getApiError } from "@/lib/api"
 import { XCircle, Loader2, PackageCheck } from "lucide-react"
 import { formatRupiah, lowercase } from "@/lib/utils"
@@ -62,12 +61,8 @@ interface ItemWithWasteReason {
 
 export function ConveyorScreen() {
   const { toast } = useToast()
-  const { user } = useAuth()
   const { selectedOutletId } = useOutlet()
   
-  // Kitchen role tidak boleh memfinalisasi plate. Waste dan Tutup Hari adalah
-  // satu-satunya jalan yang mengisi final_status, keduanya milik service/operation.
-  const canFinalizePlates = user?.role?.toLowerCase() !== 'kitchen'
   const { items: conveyorItems, isLoading, refresh, closeDay } = useConveyorItems(selectedOutletId)
   const { plateColors } = usePlateColorsSortedByPrice(selectedOutletId)
   const { menus } = useMenus(selectedOutletId)
@@ -199,8 +194,7 @@ const activeItems = items.filter(
           <Button
             className="bg-emerald-600 hover:bg-emerald-700 text-white"
             onClick={() => setCloseDayDialog({ open: true, isSubmitting: false })}
-            disabled={!canFinalizePlates || !selectedOutletId || activeItems.length === 0}
-            title={!canFinalizePlates ? "Not available for kitchen role" : undefined}
+            disabled={!selectedOutletId || activeItems.length === 0}
           >
             <PackageCheck className="w-4 h-4 mr-2" />
             Tutup Hari
@@ -311,8 +305,6 @@ const activeItems = items.filter(
                         variant="destructive"
                         className="w-full h-8 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                         onClick={() => handleWasteClick(item)}
-                        disabled={!canFinalizePlates}
-                        title={!canFinalizePlates ? "Not available for kitchen role" : undefined}
                       >
                         <XCircle className="w-3 h-3 mr-1" />
                         Waste

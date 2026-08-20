@@ -21,7 +21,7 @@ function getFirstAvailableRoute(moduleApp: string[]): string {
     'operation': '/operation/sales-input',
     'report': '/report/production-item-list',
     'kitchen': '/kitchen/dashboard',
-    'service': '/operation/sales-input',
+    'service': '/kitchen/dashboard',
   }
 
   // Find first available module (excluding 'app')

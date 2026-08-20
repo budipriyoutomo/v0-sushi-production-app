@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
   recordWaste: vi.fn(),
   refresh: vi.fn().mockResolvedValue(undefined),
   toast: vi.fn(),
-  user: { id: "u1", role: "service" } as { id: string; role: string },
+  user: { id: "u1", role: "kitchen" } as { id: string; role: string },
   conveyorItems: [] as Array<Record<string, unknown>>,
 }))
 
@@ -82,7 +82,7 @@ describe("ConveyorScreen — no per-plate Sold action", () => {
     vi.clearAllMocks()
     mocks.refresh.mockResolvedValue(undefined)
     mocks.closeDay.mockResolvedValue(1)
-    mocks.user = { id: "u1", role: "service" }
+    mocks.user = { id: "u1", role: "kitchen" }
     mocks.conveyorItems = [makeItem()]
   })
 
@@ -100,7 +100,7 @@ describe("ConveyorScreen — Tutup Hari", () => {
     vi.clearAllMocks()
     mocks.refresh.mockResolvedValue(undefined)
     mocks.closeDay.mockResolvedValue(1)
-    mocks.user = { id: "u1", role: "service" }
+    mocks.user = { id: "u1", role: "kitchen" }
     mocks.conveyorItems = [makeItem()]
   })
 
@@ -142,12 +142,20 @@ describe("ConveyorScreen — Tutup Hari", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
   })
 
-  it("disables Tutup Hari for kitchen role", () => {
+  it("lets kitchen close the day now that the service role is gone", () => {
     mocks.user = { id: "u2", role: "kitchen" }
 
     render(<ConveyorScreen />)
 
-    expect(screen.getByRole("button", { name: /tutup hari/i })).toBeDisabled()
+    expect(screen.getByRole("button", { name: /tutup hari/i })).toBeEnabled()
+  })
+
+  it("lets kitchen waste a plate", () => {
+    mocks.user = { id: "u2", role: "kitchen" }
+
+    render(<ConveyorScreen />)
+
+    expect(screen.getByRole("button", { name: /waste/i })).toBeEnabled()
   })
 
   it("disables Tutup Hari when no plate is left on the belt", () => {

@@ -3,7 +3,7 @@
 // The fixed list of colour names is purely a badge palette and lives with the
 // component that owns it: `PlateColor` in components/plate-color-badge.tsx.
 
-export type UserRole = 'admin' | 'manager' | 'kitchen' | 'service' | 'operation' | 'production'
+export type UserRole = 'admin' | 'manager' | 'kitchen' | 'operation' | 'production'
 
 export interface User {
   id: string

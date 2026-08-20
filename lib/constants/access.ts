@@ -8,11 +8,15 @@
  * Harus sama persis dengan `backend/src/app/Support/AccessOptions.php`.
  */
 
+/**
+ * Role `service` sudah dihapus: izinnya di backend identik dengan `kitchen`
+ * (keduanya hanya boleh membaca master), jadi memisahkannya tidak pernah
+ * menjaga apa pun. Modul `service` di bawah **tetap ada** — itu sumbu lain.
+ */
 export const USER_ROLES = [
   'admin',
   'manager',
   'kitchen',
-  'service',
   'operation',
   'production',
 ] as const
@@ -20,6 +24,10 @@ export const USER_ROLES = [
 /**
  * `app` adalah modul dasar tanpa halaman sendiri — dilewati saat mencari
  * modul tujuan redirect di `auth-guard.tsx`.
+ *
+ * `service` bertahan walau role bernama sama sudah hilang: modul inilah yang
+ * sekarang memisahkan staf service dari staf kitchen, dan `app/kitchen/layout.tsx`
+ * masih menerimanya sebagai jalan masuk ke layar dapur.
  */
 export const MODULE_APPS = [
   'app',
@@ -39,7 +47,6 @@ export const USER_ROLE_LABELS: Record<UserRoleOption, string> = {
   admin: 'Admin',
   manager: 'Manager',
   kitchen: 'Kitchen',
-  service: 'Service',
   operation: 'Operation',
   production: 'Production',
 }
