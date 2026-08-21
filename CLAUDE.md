@@ -91,16 +91,42 @@ Header `Authorization` sengaja tidak ikut disimpan (`normalizeHeaders` membuangn
 | Store | Persist | Isi |
 |-------|---------|-----|
 | `auth-store` | `maharasa-auth-session` | `user`, `status`, `lastRestoredAt` |
-| `outlet-store` | `maharasa-active-outlet` | `selectedOutletId` |
+| `outlet-store` | `maharasa-active-outlet` | `selectedOutletId` — lihat peringatan di bawah |
 | `connectivity-store` | — | `isOnline`, `pendingMutationCount`, timestamp |
 | `operational-ui-store` | — | status drain antrean |
 
 Token JWT sendiri ada di `localStorage` (`auth_token`), dikelola `lib/config.ts`, terpisah dari store.
 
+**`selectedOutletId` bertahan lintas pengguna — jangan pakai mentah.**
+
+Tablet dapur dipakai bergantian, dan `outlet-store` persist di localStorage tanpa ikut dibersihkan `clearSession()`. Dua pagar menjaganya, keduanya perlu:
+
+1. **`OutletProvider` menurunkan** `selectedOutletId` dari nilai tersimpan, dan hanya mempercayainya setelah terbukti ada di `outlets` yang boleh dilihat user ini. Selama daftar outlet belum datang, nilainya `""` — gagal-tertutup, tidak ada yang di-fetch. Jangan kembalikan pemakaian nilai store secara langsung: koreksinya lewat effect punya jendela antara halaman terbuka dan `/master/outlet` menjawab, dan selama jendela itu setiap hook sudah menembak dengan outlet pengguna sebelumnya.
+2. **Login mereset pilihan ke `""`** (`use-auth.tsx`). Pagar pertama tidak menutup kasus dua pengguna yang sama-sama memegang outlet itu — tidak ada yang janggal untuk ditolak, dan orang berikutnya diam-diam bekerja di outlet yang salah. Resetnya di **login**, bukan logout: tab yang ditutup tanpa logout dan sesi yang diakhiri interceptor 401 tidak pernah melewati jalur logout.
+
+Perlu diingat `outletScopedKey()` **tidak** menolong di sini — ia gagal-tertutup untuk outlet *kosong*, bukan outlet *basi*. Server pun tidak selalu menahan: `outlet.access` melewati admin sepenuhnya, dan dua user yang sama-sama memegang outlet itu tidak kena 403. Yang muncul bukan kebocoran melainkan salah atribusi — piring tercatat ke outlet yang keliru, tanpa ada yang menandai.
+
+Dijaga [outlet-context.test.tsx](tests/lib/outlet-context.test.tsx) dan [use-auth-outlet-reset.test.tsx](tests/hooks/use-auth-outlet-reset.test.tsx).
+
+**`user.id` selalu string.** Semua respons user dilewatkan `transformUser()` di [lib/api/services/auth.ts](lib/api/services/auth.ts) — `/login`, `/login-pin`, dan `/auth/me`. `users.id` satu-satunya auto-increment di backend, jadi dulu ia terkirim sebagai angka dan hanya jalur login yang menormalkannya; akibatnya id berubah bentuk di tengah sesi begitu `refreshUser()` jalan. `UserResource` sekarang sudah melakukan cast, tapi normalisasi di sini tetap dipertahankan karena service worker menyimpan respons `GET /api/*` selama 5 menit.
+
 **Pemulihan sesi (`hooks/use-auth.tsx`) — perilaku sengaja:**
 - API 401/404 saat restore → sesi dibersihkan.
 - API error transien (backend down / offline) → sesi **dipertahankan**, status tetap `authenticated`. Operator tidak boleh terlempar keluar hanya karena wifi dapur putus.
-- Interceptor 401 menghapus token tapi **tidak** melakukan hard redirect — `AuthGuard` yang memutuskan.
+- `refreshUser()` hanya jalan sekali saat `AuthProvider` mount. Ia **bukan** yang menjaga sesi tetap hidup — itu tugas interceptor di bawah.
+
+**Perpanjangan token (`lib/api/client.ts`) — jangan dipotong:**
+
+Token JWT hidup 60 menit (`JWT_TTL`, default), sementara tablet dapur membuka PWA sepanjang shift. Interceptor 401 yang menanganinya:
+
+1. 401 di endpoint non-auth → tukar token lewat `POST /auth/refresh`, lalu ulang request aslinya.
+2. Retry memakai `apiClient(config)` supaya `X-Client-Request-Id` yang sudah menempel ikut terbawa. **Ini wajib** — id baru membuat server memperlakukan retry sebagai aksi kedua, bukan aksi yang sama.
+3. Penukaran di-*single-flight* (`inFlightRefresh`). Satu layar menjalankan beberapa hook SWR sekaligus, dan tiap penukaran mem-blacklist token sebelumnya, jadi dua penukaran bersamaan saling membatalkan.
+4. Request yang tiba membawa token lama padahal penyimpanan sudah berisi token baru → langsung diulang, tanpa menukar lagi.
+5. Retry tetap 401, atau penukaran ditolak → `endSession()`: token dibuang **dan** store dibersihkan. Membuang token saja meninggalkan `status: "authenticated"`, jadi `AuthGuard` terus meloloskan halaman yang datanya tidak akan pernah datang.
+6. 401 dari `/login`, `/login-pin`, `/logout`, `/auth/refresh` sendiri tidak memicu penukaran — di sana 401 berarti kredensial salah, bukan sesi basi.
+
+Catatan penting: **401 bukan error transien** (`isTransientApiError`), jadi mutasi yang kena 401 tidak masuk antrean offline. Sebelum ada perpanjangan token, itu berarti piring yang dicatat setelah token mati hilang tanpa jejak. Kalau menyentuh jalur ini, jaga agar 401 selalu berujung di salah satu: berhasil di-retry, atau sesi diakhiri.
 
 ---
 

@@ -5,7 +5,7 @@ import axios from "axios"
 // idempotency keys on every mutation, and offline queueing on transient
 // failures. Both dependencies are dynamically imported inside the
 // interceptors, so they are mocked at module level here.
-const { mockOfflineQueue, mockErrorLogger } = vi.hoisted(() => ({
+const { mockOfflineQueue, mockErrorLogger, mockAuthService, mockAuthStore } = vi.hoisted(() => ({
   mockOfflineQueue: {
     createRequestId: vi.fn(() => "generated-request-id"),
     enqueueOfflineRequest: vi.fn(async () => ({ id: "queued-1" })),
@@ -13,10 +13,22 @@ const { mockOfflineQueue, mockErrorLogger } = vi.hoisted(() => ({
   mockErrorLogger: {
     logOperationalError: vi.fn(),
   },
+  // Dipakai jalur pemulihan 401: interceptor menukar token lalu mengulang
+  // request. Keduanya di-import dinamis di dalam interceptor.
+  mockAuthService: {
+    refreshToken: vi.fn(async () => "jwt-baru"),
+  },
+  mockAuthStore: {
+    clearSession: vi.fn(),
+  },
 }))
 
 vi.mock("@/services/offline-queue", () => mockOfflineQueue)
 vi.mock("@/services/error-logger", () => mockErrorLogger)
+vi.mock("@/lib/api/services/auth", () => ({ authService: mockAuthService }))
+vi.mock("@/stores/auth-store", () => ({
+  useAuthStore: { getState: () => mockAuthStore },
+}))
 
 import apiClient, { getApiError } from "@/lib/api/client"
 import { config } from "@/lib/config"
@@ -178,21 +190,6 @@ describe("apiClient response interceptor", () => {
     expect(mockErrorLogger.logOperationalError).not.toHaveBeenCalled()
   })
 
-  it("clears stored tokens on 401 without redirecting", async () => {
-    localStorage.setItem(config.auth.tokenKey, "jwt-abc")
-    localStorage.setItem(config.auth.refreshTokenKey, "refresh-abc")
-
-    const error = axiosErrorWith({
-      config: { method: "get", url: "/auth/me", headers: {} },
-      response: { status: 401, data: {} },
-    })
-
-    await expect(responseInterceptor.rejected(error)).rejects.toBe(error)
-
-    expect(localStorage.getItem(config.auth.tokenKey)).toBeNull()
-    expect(localStorage.getItem(config.auth.refreshTokenKey)).toBeNull()
-  })
-
   it("keeps the token on other error statuses", async () => {
     localStorage.setItem(config.auth.tokenKey, "jwt-abc")
 
@@ -204,6 +201,229 @@ describe("apiClient response interceptor", () => {
     await expect(responseInterceptor.rejected(error)).rejects.toBe(error)
 
     expect(localStorage.getItem(config.auth.tokenKey)).toBe("jwt-abc")
+  })
+})
+
+/**
+ * Token JWT hidup 60 menit, sementara tablet dapur membuka PWA sepanjang shift.
+ * Sebelumnya tidak ada yang memperpanjangnya: 401 pertama menghapus token tapi
+ * membiarkan store tetap `authenticated`, jadi layar terlihat hidup sementara
+ * setiap request gagal — dan mutasi yang kena 401 tidak masuk antrean offline
+ * (401 bukan error transien), jadi piring yang dicatat setelah itu hilang tanpa
+ * jejak.
+ */
+describe("apiClient — pemulihan sesi saat token kedaluwarsa", () => {
+  // `apiClient(config)` pada retry menjalankan interceptor + adapter sungguhan.
+  // Adapter palsu memotongnya di lapisan transport, bukan di logika yang diuji.
+  let adapter: ReturnType<typeof vi.fn>
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    localStorage.clear()
+
+    adapter = vi.fn(async (cfg: any) => ({
+      data: { ok: true },
+      status: 200,
+      statusText: "OK",
+      headers: {},
+      config: cfg,
+    }))
+    apiClient.defaults.adapter = adapter as any
+
+    mockAuthService.refreshToken.mockImplementation(async () => {
+      localStorage.setItem(config.auth.tokenKey, "jwt-baru")
+      return "jwt-baru"
+    })
+  })
+
+  function unauthorized(overrides: Record<string, unknown> = {}) {
+    return axiosErrorWith({
+      config: {
+        method: "get",
+        url: "/production/conveyor",
+        headers: { Authorization: "Bearer jwt-lama" },
+        ...overrides,
+      },
+      response: { status: 401, data: {} },
+    })
+  }
+
+  it("menukar token lalu mengulang request yang kena 401", async () => {
+    localStorage.setItem(config.auth.tokenKey, "jwt-lama")
+
+    const response = await responseInterceptor.rejected(unauthorized())
+
+    expect(mockAuthService.refreshToken).toHaveBeenCalledTimes(1)
+    expect(response.status).toBe(200)
+    // Retry berangkat dengan token baru, bukan yang sudah mati.
+    expect(adapter.mock.calls[0][0].headers.Authorization).toBe("Bearer jwt-baru")
+  })
+
+  it("mempertahankan idempotency key saat mengulang mutasi", async () => {
+    // Inti dari perbaikan ini. Kalau retry memakai id baru, server
+    // memperlakukannya sebagai piring kedua, bukan aksi yang sama.
+    localStorage.setItem(config.auth.tokenKey, "jwt-lama")
+
+    await responseInterceptor.rejected(
+      unauthorized({
+        method: "post",
+        url: "/production/produce",
+        headers: { Authorization: "Bearer jwt-lama", "X-Client-Request-Id": "aksi-asli" },
+      }),
+    )
+
+    expect(adapter.mock.calls[0][0].headers["X-Client-Request-Id"]).toBe("aksi-asli")
+    expect(mockOfflineQueue.createRequestId).not.toHaveBeenCalled()
+  })
+
+  it("mengakhiri sesi ketika penukaran token ditolak", async () => {
+    localStorage.setItem(config.auth.tokenKey, "jwt-lama")
+    mockAuthService.refreshToken.mockRejectedValueOnce(new Error("refresh window lewat"))
+
+    const error = unauthorized()
+
+    await expect(responseInterceptor.rejected(error)).rejects.toBe(error)
+
+    // Token dibuang **dan** store dibersihkan. Tanpa yang kedua, AuthGuard terus
+    // meloloskan halaman yang datanya tidak akan pernah datang.
+    expect(localStorage.getItem(config.auth.tokenKey)).toBeNull()
+    expect(mockAuthStore.clearSession).toHaveBeenCalledTimes(1)
+  })
+
+  it("menyerah kalau request yang sudah diulang tetap 401", async () => {
+    localStorage.setItem(config.auth.tokenKey, "jwt-baru")
+
+    const error = unauthorized({ authRetried: true })
+
+    await expect(responseInterceptor.rejected(error)).rejects.toBe(error)
+
+    expect(mockAuthService.refreshToken).not.toHaveBeenCalled()
+    expect(mockAuthStore.clearSession).toHaveBeenCalledTimes(1)
+  })
+
+  it("menukar token sekali saja walau beberapa request kena 401 bersamaan", async () => {
+    // Satu layar dapur menjalankan beberapa hook SWR sekaligus. Tiap penukaran
+    // mem-blacklist token sebelumnya, jadi penukaran kedua membatalkan hasil
+    // penukaran pertama.
+    localStorage.setItem(config.auth.tokenKey, "jwt-lama")
+
+    // Deferred dibuat di muka supaya `release` sudah terpasang sebelum
+    // interceptor sempat memanggil refresh — bukan di dalam mockImplementation,
+    // yang baru jalan setelah `await import()` di dalam interceptor selesai.
+    let release: (value: string) => void = () => {}
+    const pendingRefresh = new Promise<string>((resolve) => {
+      release = (token) => {
+        localStorage.setItem(config.auth.tokenKey, token)
+        resolve(token)
+      }
+    })
+    mockAuthService.refreshToken.mockImplementation(() => pendingRefresh)
+
+    const inFlight = [
+      responseInterceptor.rejected(unauthorized({ url: "/production/conveyor" })),
+      responseInterceptor.rejected(unauthorized({ url: "/production/stats" })),
+      responseInterceptor.rejected(unauthorized({ url: "/master/menu" })),
+    ]
+
+    // Beri ketiganya kesempatan mendaftar ke penukaran yang sama sebelum
+    // dilepas. Tanpa jeda ini yang teruji cuma kebetulan urutan.
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    release("jwt-baru")
+    await Promise.all(inFlight)
+
+    expect(mockAuthService.refreshToken).toHaveBeenCalledTimes(1)
+    expect(adapter).toHaveBeenCalledTimes(3)
+  })
+
+  it("langsung mengulang tanpa menukar lagi kalau token sudah diganti request lain", async () => {
+    // Request yang berangkat sebelum penukaran tiba membawa token lama yang
+    // sudah di-blacklist. Menukar lagi akan mematikan token yang baru saja
+    // dipakai request lain.
+    localStorage.setItem(config.auth.tokenKey, "jwt-baru")
+
+    const response = await responseInterceptor.rejected(unauthorized())
+
+    expect(mockAuthService.refreshToken).not.toHaveBeenCalled()
+    expect(response.status).toBe(200)
+    expect(adapter.mock.calls[0][0].headers.Authorization).toBe("Bearer jwt-baru")
+  })
+
+  it("langsung mengakhiri sesi kalau memang tidak ada token tersimpan", async () => {
+    // Sesudah logout, request yang masih menggantung akan kena 401. Menembak
+    // `/auth/refresh` tanpa token hanya menghasilkan 401 kedua.
+    const error = unauthorized({ headers: {} })
+
+    await expect(responseInterceptor.rejected(error)).rejects.toBe(error)
+
+    expect(mockAuthService.refreshToken).not.toHaveBeenCalled()
+    expect(mockAuthStore.clearSession).toHaveBeenCalledTimes(1)
+  })
+
+  /**
+   * Skenario yang jadi alasan seluruh perbaikan ini ada, lewat pipeline axios
+   * sungguhan — bukan dengan memanggil handler interceptor langsung.
+   *
+   * Tablet offline sepanjang jam sibuk, mutasi menumpuk di IndexedDB, token
+   * kedaluwarsa sementara itu. Saat koneksi kembali `drainOfflineQueue()`
+   * memanggil `apiClient.request()`. Sebelumnya request pertama kena 401, dan
+   * karena 401 bukan error transien, drain memperlakukannya sebagai
+   * "unrecoverable" lalu **menghapus** antreannya — piring yang sudah dicatat
+   * dapur hilang tanpa jejak.
+   */
+  it("menyelamatkan replay antrean offline yang tokennya keburu mati", async () => {
+    localStorage.setItem(config.auth.tokenKey, "jwt-lama")
+
+    adapter.mockImplementation(async (cfg: any) => {
+      if (cfg.headers.Authorization === "Bearer jwt-lama") {
+        return Promise.reject(
+          Object.assign(new Error("Request failed with status code 401"), {
+            isAxiosError: true,
+            config: cfg,
+            response: { status: 401, data: {}, headers: {}, config: cfg },
+          }),
+        )
+      }
+
+      return { data: { ok: true }, status: 200, statusText: "OK", headers: {}, config: cfg }
+    })
+
+    // Bentuk panggilan yang dipakai drainOfflineQueue().
+    const response = await apiClient.request({
+      method: "post",
+      url: "/production/produce",
+      data: { menuId: "m1", quantity: 1 },
+      headers: { "X-Client-Request-Id": "aksi-dari-antrean" },
+      skipOfflineQueue: true,
+    })
+
+    expect(response.status).toBe(200)
+    expect(mockAuthService.refreshToken).toHaveBeenCalledTimes(1)
+    expect(mockAuthStore.clearSession).not.toHaveBeenCalled()
+
+    // Percobaan kedua membawa token baru tapi id aksi yang sama — server
+    // memperlakukannya sebagai piring yang sama, bukan piring kedua.
+    const replay = adapter.mock.calls[1][0]
+    expect(replay.headers.Authorization).toBe("Bearer jwt-baru")
+    expect(replay.headers["X-Client-Request-Id"]).toBe("aksi-dari-antrean")
+
+    // Dan tidak ikut diantre ulang sebagai mutasi yang gagal.
+    expect(mockOfflineQueue.enqueueOfflineRequest).not.toHaveBeenCalled()
+  })
+
+  it("tidak menukar token saat login sendiri yang ditolak", async () => {
+    // 401 di sini berarti PIN atau password salah, bukan sesi basi.
+    localStorage.setItem(config.auth.tokenKey, "jwt-lama")
+
+    const error = axiosErrorWith({
+      config: { method: "post", url: "/login-pin", headers: {}, skipOfflineQueue: true },
+      response: { status: 401, data: {} },
+    })
+
+    await expect(responseInterceptor.rejected(error)).rejects.toBe(error)
+
+    expect(mockAuthService.refreshToken).not.toHaveBeenCalled()
+    expect(mockAuthStore.clearSession).not.toHaveBeenCalled()
+    expect(localStorage.getItem(config.auth.tokenKey)).toBeNull()
   })
 })
 

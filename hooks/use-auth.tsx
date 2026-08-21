@@ -6,6 +6,7 @@ import { getAuthToken, removeAuthToken } from "@/lib/config"
 import { isAuthInvalidError, isTransientApiError } from "@/services/api-errors"
 import { logOperationalError } from "@/services/error-logger"
 import { useAuthStore } from "@/stores/auth-store"
+import { useOutletStore } from "@/stores/outlet-store"
 import type { User } from "@/lib/types"
 
 interface AuthContextType {
@@ -80,14 +81,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void refreshUser()
   }, [refreshUser, setStatus])
 
+  /**
+   * Outlet yang terpilih milik orang yang memilihnya, bukan milik tabletnya.
+   *
+   * `selectedOutletId` persist di localStorage dan tidak ikut dibersihkan
+   * `clearSession()`. Di tablet dapur yang dipakai bergantian, pengguna
+   * berikutnya mewarisi pilihan pengguna sebelumnya. `OutletProvider` menolak
+   * outlet yang bukan milik user ini, tapi kalau keduanya sama-sama memegang
+   * outlet itu tidak ada yang janggal untuk ditolak — dan orang berikutnya
+   * diam-diam bekerja di outlet yang salah.
+   *
+   * Direset saat login, bukan saat logout: hanya login yang pasti dilewati
+   * setiap sesi baru. Tab yang ditutup tanpa logout, atau sesi yang diakhiri
+   * `endSession()` dari interceptor, tidak pernah melewati jalur logout.
+   */
+  const startFreshOutletSelection = () => {
+    useOutletStore.getState().setSelectedOutletId("")
+  }
+
   const login = async (credentials: LoginCredentials): Promise<User> => {
     const { user: loggedInUser } = await authService.login(credentials)
+    startFreshOutletSelection()
     setSession(loggedInUser, "authenticated")
     return loggedInUser
   }
 
   const pinLogin = async (credentials: PinLoginCredentials): Promise<User> => {
     const { user: loggedInUser } = await authService.pinLogin(credentials)
+    startFreshOutletSelection()
     setSession(loggedInUser, "authenticated")
     return loggedInUser
   }
