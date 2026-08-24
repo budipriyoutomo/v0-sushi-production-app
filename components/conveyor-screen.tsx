@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import Image from "next/image"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -83,30 +83,33 @@ export function ConveyorScreen() {
     isSubmitting: boolean
   }>({ open: false, itemId: "", menuId: "", menuName: "", plateColorName: "", producedAt: null, reason: "", isSubmitting: false })
 
-  // Map conveyor items to include local state
-  const items: ItemWithWasteReason[] = conveyorItems.map((item) => ({
-    ...item,
-    producedAt: new Date(item.producedAt),
-    expiresAt: new Date(item.expiresAt),
-    soldAt: item.soldAt ? new Date(item.soldAt) : null,
-    wastedAt: item.wastedAt ? new Date(item.wastedAt) : null,
-  }))
+  // Dihitung sekali per perubahan data, bukan tiap render. Selain memotong
+  // map/filter/sort yang berulang, ini juga membuat objek `Date` di bawah stabil
+  // — kartu turunannya tidak lagi melihat prop "baru" setiap induk render.
+  const items: ItemWithWasteReason[] = useMemo(
+    () =>
+      conveyorItems.map((item) => ({
+        ...item,
+        producedAt: new Date(item.producedAt),
+        expiresAt: new Date(item.expiresAt),
+        soldAt: item.soldAt ? new Date(item.soldAt) : null,
+        wastedAt: item.wastedAt ? new Date(item.wastedAt) : null,
+      })),
+    [conveyorItems]
+  )
 
-  // Filter out expired items (time remaining <= 0)
-/* const activeItems = items.filter((item) => {
-  return new Date(item.expiresAt).getTime() > Date.now()
-})*/
-  
-const activeItems = items.filter(
-  (item) => item.finalStatus === null
-)
+  // Plate yang belum difinalisasi. Plate expired tetap ikut — expired bukan
+  // berarti terbuang, dan operator masih harus menutupnya.
+  const activeItems = useMemo(() => items.filter((item) => item.finalStatus === null), [items])
 
-  const filteredItems = selectedColorId ? activeItems.filter((item) => item.plateColor === selectedColorId) : activeItems
+  // Urut dari yang paling cepat expired.
+  const sortedItems = useMemo(() => {
+    const filtered = selectedColorId
+      ? activeItems.filter((item) => item.plateColor === selectedColorId)
+      : activeItems
 
-  // Sort by time remaining (expiring soon first)
- const sortedItems = [...filteredItems].sort(
-  (a, b) => a.expiresAt.getTime() - b.expiresAt.getTime()
-)
+    return [...filtered].sort((a, b) => a.expiresAt.getTime() - b.expiresAt.getTime())
+  }, [activeItems, selectedColorId])
 
   const handleCloseDay = async () => {
     // Guard against double submits: menutup dua kali memang no-op di backend,

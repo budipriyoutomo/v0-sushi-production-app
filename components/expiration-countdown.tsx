@@ -1,8 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Progress } from "@/components/ui/progress"
 import { cn } from "@/lib/utils"
+import { useNow } from "@/hooks/use-now"
 
 interface ExpirationCountdownProps {
   productionTime: Date
@@ -11,26 +10,21 @@ interface ExpirationCountdownProps {
 }
 
 export function ExpirationCountdown({ productionTime, shelfLifeMinutes, className }: ExpirationCountdownProps) {
-  const [timeRemaining, setTimeRemaining] = useState(0)
-  const [percentage, setPercentage] = useState(100)
+  // Jam datang dari satu ticker bersama, bukan `setInterval` per kartu — lihat
+  // hooks/use-now.ts. Sisa waktu dihitung saat render, tanpa state lokal, jadi
+  // `productionTime` yang dibuat ulang tiap render induk tidak lagi
+  // membongkar-pasang timer.
+  const now = useNow()
 
-  useEffect(() => {
-    const updateCountdown = () => {
-      const now = new Date().getTime()
-      const production = productionTime.getTime()
-      const expiration = production + shelfLifeMinutes * 60 * 1000
-      const remaining = Math.max(0, expiration - now)
-      const totalTime = shelfLifeMinutes * 60 * 1000
+  const totalTime = shelfLifeMinutes * 60 * 1000
+  const expiration = productionTime.getTime() + totalTime
 
-      setTimeRemaining(remaining)
-      setPercentage(Math.max(0, (remaining / totalTime) * 100))
-    }
-
-    updateCountdown()
-    const interval = setInterval(updateCountdown, 1000)
-
-    return () => clearInterval(interval)
-  }, [productionTime, shelfLifeMinutes])
+  // Sebelum mount `now` masih null. Tampilkan 0:00 dengan bar penuh — persis
+  // state awal versi lama — supaya render server dan render pertama klien sama
+  // dan tidak ada kedipan merah sekejap sebelum detak pertama.
+  const timeRemaining = now === null ? 0 : Math.max(0, expiration - now)
+  const percentage =
+    now === null ? 100 : totalTime > 0 ? Math.max(0, (timeRemaining / totalTime) * 100) : 0
 
   const minutes = Math.floor(timeRemaining / 60000)
   const seconds = Math.floor((timeRemaining % 60000) / 1000)
