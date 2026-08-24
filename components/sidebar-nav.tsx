@@ -11,8 +11,9 @@ import {
   Users,
   Layers,
   FileQuestion, 
-  UtensilsCrossed, 
-  CalendarDays, 
+  UtensilsCrossed,
+  Upload,
+  CalendarDays,
   Trash2, 
   Calculator, 
   FileSpreadsheet, 
@@ -56,6 +57,7 @@ export function SidebarNav({ role }: SidebarNavProps) {
     { label: 'Plate Colors', href: '/admin/plate-colors', icon: Layers },
     { label: 'Waste Reasons', href: '/admin/reason-waste', icon: FileQuestion },
     { label: 'Menus', href: '/admin/menus', icon: UtensilsCrossed },
+    { label: 'Import Backdate', href: '/admin/production-import', icon: Upload },
   ]
 
   const productionItems: NavItem[] = [

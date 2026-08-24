@@ -22,6 +22,15 @@ export {
   type ExpiredItem,
 } from './services/production'
 export {
+  productionImportService,
+  BACKDATE_TEMPLATE_CSV,
+  type BackdateFinalStatus,
+  type BackdateImportRow,
+  type BackdateImportSummary,
+  type BackdateImportPreview,
+  type BackdateImportResult,
+} from './services/production-import'
+export {
   reportsService,
   type SalesData,
   type POSData,

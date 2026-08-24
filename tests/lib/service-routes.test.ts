@@ -30,6 +30,7 @@ import { menusService } from "@/lib/api/services/menus"
 import { plateColorsService } from "@/lib/api/services/plate-colors"
 import { wasteReasonsService } from "@/lib/api/services/waste-reasons"
 import { usersService } from "@/lib/api/services/users"
+import { productionImportService } from "@/lib/api/services/production-import"
 
 describe("service paths match routes that actually exist", () => {
   beforeEach(() => {
@@ -48,6 +49,37 @@ describe("service paths match routes that actually exist", () => {
     await outletsService.toggleStatus("o-1", false)
 
     expect(mockClient.put).toHaveBeenCalledWith("/master/outlet/o-1", { is_active: true })
+  })
+})
+
+/**
+ * Import backdate punya dua route yang mirip namanya — `/preview` yang tidak
+ * menulis apa pun dan induknya yang menulis. Tertukar berarti preview yang
+ * ternyata mengimpor, dan itu tidak bisa dibatalkan.
+ */
+describe("backdate import hits the dry-run route for preview and the write route for commit", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockClient.post.mockResolvedValue({ data: { data: {} } })
+  })
+
+  it("previews against /production/import-backdate/preview", async () => {
+    await productionImportService.preview(new File(["x"], "a.csv"), "outlet-1")
+
+    const [path, body] = mockClient.post.mock.calls[0]
+    expect(path).toBe("/production/import-backdate/preview")
+    // Preview tidak boleh membawa izin duplikat — kalau ikut terkirim, tombol
+    // pengaman di layar tidak lagi mencerminkan apa yang dinilai server.
+    expect((body as FormData).get("allowDuplicate")).toBeNull()
+    expect((body as FormData).get("outletId")).toBe("outlet-1")
+  })
+
+  it("commits against /production/import-backdate", async () => {
+    await productionImportService.commit(new File(["x"], "a.csv"), "outlet-1", true)
+
+    const [path, body] = mockClient.post.mock.calls[0]
+    expect(path).toBe("/production/import-backdate")
+    expect((body as FormData).get("allowDuplicate")).toBe("1")
   })
 })
 
