@@ -1,32 +1,28 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 
 // Shared mock handles, hoisted so the vi.mock factories below can reference them.
 const mocks = vi.hoisted(() => ({
   closeDay: vi.fn(),
-  markWaste: vi.fn(),
-  recordWaste: vi.fn(),
+  wasteItems: vi.fn(),
   refresh: vi.fn().mockResolvedValue(undefined),
   toast: vi.fn(),
   user: { id: "u1", role: "kitchen" } as { id: string; role: string },
-  conveyorItems: [] as Array<Record<string, unknown>>,
+  conveyorGroups: [] as Array<Record<string, unknown>>,
 }))
 
 vi.mock("@/lib/api", () => ({
-  productionService: {
-    markWaste: mocks.markWaste,
-    recordWaste: mocks.recordWaste,
-  },
   getApiError: (e: unknown) => ({ message: e instanceof Error ? e.message : String(e), status: 500 }),
 }))
 
 vi.mock("@/hooks/use-production", () => ({
-  useConveyorItems: () => ({
-    items: mocks.conveyorItems,
+  useConveyorGroups: () => ({
+    groups: mocks.conveyorGroups,
     isLoading: false,
     refresh: mocks.refresh,
     closeDay: mocks.closeDay,
+    wasteItems: mocks.wasteItems,
   }),
 }))
 vi.mock("@/hooks/use-plate-colors", () => ({
@@ -40,7 +36,9 @@ vi.mock("@/hooks/use-menus", () => ({
   }),
 }))
 vi.mock("@/hooks/use-waste-reasons", () => ({
-  useActiveWasteReasons: () => ({ wasteReasons: [] }),
+  useActiveWasteReasons: () => ({
+    wasteReasons: [{ id: "r-1", reason_name: "Jatuh" }],
+  }),
 }))
 vi.mock("@/hooks/use-toast", () => ({
   useToast: () => ({ toast: mocks.toast }),
@@ -60,21 +58,30 @@ vi.mock("@/components/plate-color-badge", () => ({ PlateColorBadge: () => null }
 
 import { ConveyorScreen } from "@/components/conveyor-screen"
 
-function makeItem() {
+function makeGroup(overrides: Record<string, unknown> = {}) {
+  const producedAt = new Date(Date.now() - 60_000).toISOString()
+  const expiresAt = new Date(Date.now() + 3_600_000).toISOString()
+
   return {
-    id: "item-1",
+    groupKey: `menu-1|${producedAt}|${expiresAt}`,
     menuId: "menu-1",
     menuName: "Salmon",
     plateColor: "color-1",
     plateColorName: "Merah",
-    producedAt: new Date(Date.now() - 60_000).toISOString(),
-    expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
-    soldAt: null,
-    wastedAt: null,
-    finalStatus: null,
-    quantity: 1,
+    producedAt,
+    expiresAt,
     beltStatus: "fresh",
+    quantity: 1,
+    itemIds: ["item-1"],
+    ...overrides,
   }
+}
+
+/** Buka dialog waste dan pilih alasannya, karena Confirm terkunci tanpa itu. */
+async function openWasteDialogWithReason(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("button", { name: /waste/i }))
+  await user.click(await screen.findByRole("combobox"))
+  await user.click(await screen.findByRole("option", { name: "Jatuh" }))
 }
 
 describe("ConveyorScreen — no per-plate Sold action", () => {
@@ -82,16 +89,95 @@ describe("ConveyorScreen — no per-plate Sold action", () => {
     vi.clearAllMocks()
     mocks.refresh.mockResolvedValue(undefined)
     mocks.closeDay.mockResolvedValue(1)
+    mocks.wasteItems.mockResolvedValue(undefined)
     mocks.user = { id: "u1", role: "kitchen" }
-    mocks.conveyorItems = [makeItem()]
+    mocks.conveyorGroups = [makeGroup()]
   })
 
   it("renders no Sold button on a plate card", () => {
     render(<ConveyorScreen />)
 
-    // Waste tetap satu-satunya aksi per plate.
+    // Waste tetap satu-satunya aksi per batch.
     expect(screen.getByRole("button", { name: /waste/i })).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: /^sold$/i })).not.toBeInTheDocument()
+  })
+})
+
+describe("ConveyorScreen — batch produksi", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.refresh.mockResolvedValue(undefined)
+    mocks.closeDay.mockResolvedValue(1)
+    mocks.wasteItems.mockResolvedValue(undefined)
+    mocks.user = { id: "u1", role: "kitchen" }
+    mocks.conveyorGroups = [
+      makeGroup({ quantity: 8, itemIds: ["a", "b", "c", "d", "e", "f", "g", "h"] }),
+    ]
+  })
+
+  it("renders one card per batch with its plate count", () => {
+    render(<ConveyorScreen />)
+
+    // Satu batch delapan piring = satu kartu, bukan delapan.
+    expect(screen.getAllByRole("button", { name: /waste/i })).toHaveLength(1)
+    expect(screen.getByLabelText("8 plate")).toHaveTextContent("×8")
+  })
+
+  it("counts plates rather than batches in the header", () => {
+    mocks.conveyorGroups = [
+      makeGroup({ groupKey: "g1", quantity: 8, itemIds: ["a", "b", "c", "d", "e", "f", "g", "h"] }),
+      makeGroup({ groupKey: "g2", quantity: 3, itemIds: ["i", "j", "k"] }),
+    ]
+
+    render(<ConveyorScreen />)
+
+    expect(screen.getByText("11")).toBeInTheDocument()
+  })
+
+  it("wastes only the chosen number of plates, defaulting to one", async () => {
+    const user = userEvent.setup()
+    render(<ConveyorScreen />)
+
+    await openWasteDialogWithReason(user)
+    await user.click(screen.getByRole("button", { name: /confirm waste/i }))
+
+    // Default satu piring: membuang lebih banyak dari yang dimaksud tidak bisa
+    // dibatalkan, membuang kurang tinggal diulang.
+    await waitFor(() => expect(mocks.wasteItems).toHaveBeenCalledWith(["a"], "Jatuh"))
+  })
+
+  it("sends exactly the ids the stepper selected", async () => {
+    const user = userEvent.setup()
+    render(<ConveyorScreen />)
+
+    await openWasteDialogWithReason(user)
+
+    const dialog = screen.getByRole("dialog")
+    const plus = within(dialog).getByRole("button", { name: /tambah jumlah/i })
+    await user.click(plus)
+    await user.click(plus)
+
+    await user.click(screen.getByRole("button", { name: /confirm waste/i }))
+
+    // Id yang dikirim, bukan sekadar jumlahnya — dua tablet yang menekan
+    // bersamaan harus bertabrakan di server, bukan diambilkan piring berbeda.
+    await waitFor(() => expect(mocks.wasteItems).toHaveBeenCalledWith(["a", "b", "c"], "Jatuh"))
+  })
+
+  it("cannot select more plates than the batch holds", async () => {
+    mocks.conveyorGroups = [makeGroup({ quantity: 2, itemIds: ["a", "b"] })]
+
+    const user = userEvent.setup()
+    render(<ConveyorScreen />)
+
+    await openWasteDialogWithReason(user)
+
+    const dialog = screen.getByRole("dialog")
+    const plus = within(dialog).getByRole("button", { name: /tambah jumlah/i })
+    await user.click(plus)
+
+    expect(plus).toBeDisabled()
+    expect(within(dialog).getByRole("button", { name: /kurangi jumlah/i })).toBeEnabled()
   })
 })
 
@@ -100,8 +186,9 @@ describe("ConveyorScreen — Tutup Hari", () => {
     vi.clearAllMocks()
     mocks.refresh.mockResolvedValue(undefined)
     mocks.closeDay.mockResolvedValue(1)
+    mocks.wasteItems.mockResolvedValue(undefined)
     mocks.user = { id: "u1", role: "kitchen" }
-    mocks.conveyorItems = [makeItem()]
+    mocks.conveyorGroups = [makeGroup()]
   })
 
   it("closes the day only after the confirmation dialog is accepted", async () => {
@@ -159,7 +246,7 @@ describe("ConveyorScreen — Tutup Hari", () => {
   })
 
   it("disables Tutup Hari when no plate is left on the belt", () => {
-    mocks.conveyorItems = []
+    mocks.conveyorGroups = []
 
     render(<ConveyorScreen />)
 

@@ -31,6 +31,7 @@ import { plateColorsService } from "@/lib/api/services/plate-colors"
 import { wasteReasonsService } from "@/lib/api/services/waste-reasons"
 import { usersService } from "@/lib/api/services/users"
 import { productionImportService } from "@/lib/api/services/production-import"
+import { productionService } from "@/lib/api/services/production"
 
 describe("service paths match routes that actually exist", () => {
   beforeEach(() => {
@@ -84,6 +85,50 @@ describe("backdate import hits the dry-run route for preview and the write route
 })
 
 /**
+ * Layar conveyor dan expired sekarang membaca bentuk ter-group. Path-nya
+ * bertetangga dengan versi per-piring yang masih hidup, dan tertukar tidak
+ * memunculkan error apa pun — layarnya cuma menerima objek tanpa `itemIds`,
+ * lalu setiap tombol Waste mengirim `undefined`.
+ */
+describe("belt screens read the grouped endpoints", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockClient.get.mockResolvedValue({ data: { data: [] } })
+    mockClient.post.mockResolvedValue({ data: { data: { updated: 0, skipped: 0 } } })
+  })
+
+  it("reads the conveyor from /production/conveyor-grouped", async () => {
+    await productionService.getConveyorGroups("outlet-1")
+
+    expect(mockClient.get).toHaveBeenCalledWith("/production/conveyor-grouped", {
+      params: { outletId: "outlet-1" },
+    })
+  })
+
+  it("reads expired items from /production/expired-grouped", async () => {
+    await productionService.getExpiredGroups("outlet-1")
+
+    expect(mockClient.get).toHaveBeenCalledWith("/production/expired-grouped", {
+      params: { outletId: "outlet-1" },
+    })
+  })
+
+  it("closes a batch with one POST to /production/expired/bulk", async () => {
+    await productionService.updateExpiredBulk(["a", "b"], "waste", "Kering")
+
+    // Satu request untuk seluruh batch. Versi per-piring akan memakai
+    // PUT /production/expired/{id} sekali per piring.
+    expect(mockClient.post).toHaveBeenCalledTimes(1)
+    expect(mockClient.post).toHaveBeenCalledWith("/production/expired/bulk", {
+      itemIds: ["a", "b"],
+      status: "waste",
+      notes: "Kering",
+    })
+    expect(mockClient.put).not.toHaveBeenCalled()
+  })
+})
+
+/**
  * Backend `Route::crud` hanya membuat index/store/show/update/destroy, dan
  * prefix `/users` hanya punya empat route. Setiap method di bawah pernah ada
  * dan memanggil sub-path yang tidak pernah dibuat.
@@ -96,6 +141,13 @@ describe("ghost methods stay deleted", () => {
     ["usersService.toggleStatus", usersService, "toggleStatus"],
     ["usersService.updatePin", usersService, "updatePin"],
     ["usersService.verifyPin", usersService, "verifyPin"],
+
+    // Bentuk per-piring dari belt. Route-nya sudah dibuang di backend, jadi
+    // method yang tertinggal di sini akan berujung 404 — persis gejala yang
+    // berkas ini dibuat untuk mencegah.
+    ["productionService.getConveyorItems", productionService, "getConveyorItems"],
+    ["productionService.getExpiredItems", productionService, "getExpiredItems"],
+    ["productionService.updateExpiredItem", productionService, "updateExpiredItem"],
   ]
 
   it.each(ghosts)("%s no longer exists", (_label, service, method) => {

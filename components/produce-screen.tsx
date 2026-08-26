@@ -10,7 +10,7 @@ import { QuantityCalculator } from "@/components/quantity-calculator"
 import { useOutlet } from "@/lib/outlet-context"
 import { useMenus } from "@/hooks/use-menus"
 import { usePlateColorsSortedByPrice } from "@/hooks/use-plate-colors"
-import { useConveyorItems } from "@/hooks/use-production"
+import { useConveyorGroups } from "@/hooks/use-production"
 import { getApiError } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import type { SushiMenu } from "@/lib/types"
@@ -22,7 +22,11 @@ export function ProduceScreen() {
   const { selectedOutletId } = useOutlet()
   const { menus, isLoading: menusLoading } = useMenus(selectedOutletId)
   const { plateColors, isLoading: plateColorsLoading } = usePlateColorsSortedByPrice(selectedOutletId)
-  const { produceItem } = useConveyorItems(selectedOutletId)
+  // Layar ini hanya butuh mutasinya, tapi hook-nya membawa serta cache SWR
+  // conveyor — jadi ambil dari yang ter-group. Versi per-piring akan menarik
+  // seluruh belt di layar yang tidak pernah menampilkannya, dan cache yang
+  // disegarkan setelah produce pun cache yang salah.
+  const { produceItem } = useConveyorGroups(selectedOutletId)
   const [producing, setProducing] = useState<string | null>(null)
   const [selectedColorId, setSelectedColorId] = useState<string | null>(null)
   const [calculatorOpen, setCalculatorOpen] = useState(false)

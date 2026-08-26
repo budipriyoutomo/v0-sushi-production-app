@@ -13,7 +13,7 @@ vi.mock("@/lib/api", () => ({
   getApiError: (e: unknown) => ({ message: e instanceof Error ? e.message : String(e), status: 500 }),
 }))
 vi.mock("@/hooks/use-production", () => ({
-  useConveyorItems: () => ({ produceItem: mocks.produceItem }),
+  useConveyorGroups: () => ({ produceItem: mocks.produceItem }),
 }))
 vi.mock("@/hooks/use-menus", () => ({
   useMenus: () => ({ menus: mocks.menus, isLoading: false }),

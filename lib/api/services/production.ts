@@ -25,10 +25,6 @@ export interface ProductionItem {
   outletId: string
 }
 
-export interface ConveyorItem extends ProductionItem {
-  timeOnBelt: number // minutes
-}
-
 export interface WasteRecord {
   id: string
   menuId: string
@@ -40,17 +36,37 @@ export interface WasteRecord {
   outletId: string
 }
 
-export interface ExpiredItem {
-  id: string
+/**
+ * Satu batch produksi, bukan satu piring.
+ *
+ * Backend membuat satu baris per piring, jadi belt seribu piring dulu terkirim
+ * sebagai seribu objek tiap 30 detik per tablet. Piring dalam satu batch identik
+ * — menu, `producedAt` dan `expiresAt`-nya sama persis — jadi menggabungkannya
+ * tidak membuang informasi apa pun.
+ *
+ * `itemIds` ikut dibawa supaya setiap mutasi tetap berbasis id. Mengirim
+ * "buang 3 dari batch ini" akan membuat dua tablet yang menekan bersamaan
+ * membuang enam piring; mengirim tiga id yang dipilih di layar tidak bisa.
+ *
+ * Bentuknya sama untuk conveyor maupun expired — yang membedakan hanya endpoint
+ * asalnya, jadi keduanya berbagi satu tipe.
+ */
+export interface ProductionItemGroup {
+  groupKey: string
   menuId: string
   menuName: string
   plateColor: string
   plateColorName: string
-  producedAt: Date
-  expiresAt: Date
-  status?: 'sold' | 'waste'
-  notes?: string
-  outletId: string
+  producedAt: string
+  expiresAt: string
+  beltStatus: 'fresh' | 'warning' | 'expired'
+  quantity: number
+  itemIds: string[]
+}
+
+export interface BulkExpiredResult {
+  updated: number
+  skipped: number
 }
 
 export interface ProductionStats {
@@ -177,11 +193,12 @@ class ProductionService {
     })
   }
 
-  // Get conveyor items (currently on belt)
-  async getConveyorItems(outletId: string): Promise<ConveyorItem[]> {
-    const response = await apiClient.get<{ data: ConveyorItem[] }>(`${this.endpoint}/conveyor`, {
-      params: { outletId },
-    })
+  // Conveyor, dikelompokkan per batch produksi.
+  async getConveyorGroups(outletId: string): Promise<ProductionItemGroup[]> {
+    const response = await apiClient.get<{ data: ProductionItemGroup[] }>(
+      `${this.endpoint}/conveyor-grouped`,
+      { params: { outletId } }
+    )
     return response.data.data
   }
 
@@ -226,22 +243,34 @@ class ProductionService {
     return response.data.data
   }
 
-  // Get expired items
-  async getExpiredItems(outletId: string): Promise<ExpiredItem[]> {
-    const response = await apiClient.get<{ data: ExpiredItem[] }>(`${this.endpoint}/expired`, {
-      params: { outletId },
-    })
+  // Expired items, dikelompokkan per batch produksi.
+  async getExpiredGroups(outletId: string): Promise<ProductionItemGroup[]> {
+    const response = await apiClient.get<{ data: ProductionItemGroup[] }>(
+      `${this.endpoint}/expired-grouped`,
+      { params: { outletId } }
+    )
     return response.data.data
   }
 
-  // Update expired item status
-  async updateExpiredItem(
-    itemId: string,
-    data: { status: 'sold' | 'waste'; notes: string }
-  ): Promise<ExpiredItem> {
-    const response = await apiClient.put<{ data: ExpiredItem }>(
-      `${this.endpoint}/expired/${itemId}`,
-      data
+  /**
+   * Tutup banyak piring expired sekaligus.
+   *
+   * Menggantikan `PUT /expired/{id}` per piring: satu batch bisa berisi puluhan
+   * piring, dan di jaringan dapur itu berarti puluhan request yang masing-masing
+   * bisa gagal dan masing-masing mengantre offline sendiri. Satu POST membawa
+   * satu `X-Client-Request-Id`, jadi kirim-ulangnya juga satu.
+   *
+   * `skipped` bukan error: piring yang keburu ditutup tablet lain dilewati
+   * server, dan pemanggil menampilkannya sebagai keterangan, bukan kegagalan.
+   */
+  async updateExpiredBulk(
+    itemIds: string[],
+    status: 'sold' | 'waste',
+    notes?: string
+  ): Promise<BulkExpiredResult> {
+    const response = await apiClient.post<{ data: BulkExpiredResult }>(
+      `${this.endpoint}/expired/bulk`,
+      { itemIds, status, notes }
     )
     return response.data.data
   }

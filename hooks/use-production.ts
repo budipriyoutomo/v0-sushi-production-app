@@ -2,10 +2,10 @@ import useSWR from 'swr'
 import {
   productionService,
   type ProductionPlanRow,
-  type ConveyorItem,
   type WasteRecord,
   type ProductionStats,
-  type ExpiredItem,
+  type ProductionItemGroup,
+  type BulkExpiredResult,
 } from '@/lib/api'
 
 const PRODUCTION_KEY = '/production'
@@ -74,16 +74,22 @@ export function useProductionPlan(outletId: string | null, date: string | null) 
   }
 }
 
-export function useConveyorItems(outletId: string | null) {
-  const { data, error, isLoading, mutate } = useSWR<ConveyorItem[]>(
-    outletId ? `${PRODUCTION_KEY}/conveyor/${outletId}` : null,
+/**
+ * Conveyor sebagai batch produksi.
+ *
+ * Satu piring adalah satu baris di backend, jadi bentuk per-piring berarti
+ * seribu objek tiap 30 detik per tablet. Bentuk itu sudah dibuang; ini
+ * satu-satunya cara membaca belt.
+ */
+export function useConveyorGroups(outletId: string | null) {
+  const { data, error, isLoading, mutate } = useSWR<ProductionItemGroup[]>(
+    outletId ? `${PRODUCTION_KEY}/conveyor-grouped/${outletId}` : null,
     async () => {
       if (!outletId) return []
-      const items = await productionService.getConveyorItems(outletId)
-      return items
+      return await productionService.getConveyorGroups(outletId)
     },
     {
-      refreshInterval: 30000, // Refresh every 30 seconds
+      refreshInterval: 30000,
     }
   )
 
@@ -100,12 +106,67 @@ export function useConveyorItems(outletId: string | null) {
     return closed
   }
 
+  /**
+   * Buang sebagian piring dari satu batch.
+   *
+   * Dua panggilan berurutan karena backend memang memisahkannya: `/waste`
+   * menulis alasannya ke `waste_records`, `mark-waste` menutup piringnya.
+   * Keduanya sudah menerima array id, jadi satu batch tetap dua request —
+   * bukan dua request per piring.
+   */
+  const wasteItems = async (itemIds: string[], reason: string): Promise<void> => {
+    if (itemIds.length === 0) return
+    await productionService.recordWaste({ itemIds, reason })
+    await productionService.markWaste(itemIds)
+    await mutate()
+  }
+
   return {
-    items: data || [],
+    groups: data || [],
     isLoading,
     error,
     produceItem,
     closeDay,
+    wasteItems,
+    refresh: mutate,
+  }
+}
+
+/**
+ * Expired items sebagai batch produksi.
+ *
+ * Daftar inilah yang paling menumpuk: conveyor hanya menahan piring dalam shelf
+ * life, sedangkan expired terus bertambah sepanjang hari sampai operator
+ * menutupnya.
+ */
+export function useExpiredGroups(outletId: string | null) {
+  const { data, error, isLoading, mutate } = useSWR<ProductionItemGroup[]>(
+    outletId ? `${PRODUCTION_KEY}/expired-grouped/${outletId}` : null,
+    async () => {
+      if (!outletId) return []
+      return await productionService.getExpiredGroups(outletId)
+    },
+    {
+      refreshInterval: 30000,
+      revalidateOnFocus: false,
+    }
+  )
+
+  const updateItems = async (
+    itemIds: string[],
+    status: 'sold' | 'waste',
+    notes?: string
+  ): Promise<BulkExpiredResult> => {
+    const result = await productionService.updateExpiredBulk(itemIds, status, notes)
+    await mutate()
+    return result
+  }
+
+  return {
+    groups: data || [],
+    isLoading,
+    error,
+    updateItems,
     refresh: mutate,
   }
 }
@@ -136,39 +197,3 @@ export function useWasteRecords(outletId: string | null, startDate: string | nul
   }
 }
 
-export function useExpiredItems(outletId: string | null) {
-  const { data, error, isLoading, mutate } = useSWR<ExpiredItem[]>(
-    outletId ? `${PRODUCTION_KEY}/expired/${outletId}` : null,
-    async () => {
-      if (!outletId) return []
-      const items = await productionService.getExpiredItems(outletId)
-      return items
-    },
-    {
-      refreshInterval: 30000, // Refresh every 30 seconds
-      revalidateOnFocus: false,
-    }
-  )
-
-  const updateExpiredItem = async (
-    itemId: string,
-    status: 'sold' | 'waste',
-    notes: string
-  ): Promise<ExpiredItem | null> => {
-    try {
-      const item = await productionService.updateExpiredItem(itemId, { status, notes })
-      await mutate()
-      return item
-    } catch (err) {
-      throw err
-    }
-  }
-
-  return {
-    expiredItems: data || [],
-    isLoading,
-    error,
-    updateExpiredItem,
-    refresh: mutate,
-  }
-}

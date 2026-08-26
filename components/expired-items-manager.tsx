@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import Image from 'next/image'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -22,15 +22,21 @@ import {
 } from '@/components/ui/dialog'
 import { PlateColorBadge } from '@/components/plate-color-badge'
 import { OutletSelector } from '@/components/outlet-selector'
+import { PlateQuantityStepper } from '@/components/plate-quantity-stepper'
 import { useOutlet } from '@/lib/outlet-context'
 import { useMenus } from '@/hooks/use-menus'
 import { usePlateColorsSortedByPrice } from '@/hooks/use-plate-colors'
-import { useExpiredItems } from '@/hooks/use-production'
+import { useExpiredGroups } from '@/hooks/use-production'
 import { useToast } from '@/hooks/use-toast'
-import { CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
-import type { SushiMenu } from "@/lib/types"
-import { formatRupiah, lowercase } from "@/lib/utils"
 import { useActiveWasteReasons } from '@/hooks/use-waste-reasons'
+import { getApiError, type ProductionItemGroup } from '@/lib/api'
+import { CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
+import { lowercase } from '@/lib/utils'
+
+// Ukuran gambar per breakpoint, mengikuti kolom grid di bawah. Lihat catatan
+// yang sama di conveyor-screen.tsx.
+const CARD_IMAGE_SIZES =
+  '(min-width: 1280px) 16vw, (min-width: 1024px) 20vw, (min-width: 768px) 25vw, (min-width: 640px) 33vw, 50vw'
 
 // Siklus warna penanda waktu sesuai production-planning: Biru → Hitam → Merah → Kuning → Hijau
 const TIME_SLOT_COLORS = [
@@ -56,42 +62,92 @@ function getTimeSlotColor(producedAt: Date) {
   return TIME_SLOT_COLORS[idx % TIME_SLOT_COLORS.length]
 }
 
+/** Satu batch dengan tanggalnya sudah diurai, dihitung sekali per perubahan data. */
+interface ExpiredBatch extends ProductionItemGroup {
+  producedAtDate: Date
+  expiresAtDate: Date
+}
+
+interface UpdateDialogState {
+  open: boolean
+  group: ExpiredBatch | null
+  quantity: number
+  status: 'sold' | 'waste'
+  wasteReason: string
+  isSubmitting: boolean
+}
+
+const CLOSED_UPDATE_DIALOG: UpdateDialogState = {
+  open: false,
+  group: null,
+  quantity: 1,
+  status: 'sold',
+  wasteReason: '',
+  isSubmitting: false,
+}
+
 export function ExpiredItemsManager() {
-  const { toast } = useToast() 
+  const { toast } = useToast()
   const { selectedOutletId } = useOutlet()
   const { menus, isLoading: menusLoading } = useMenus(selectedOutletId)
   const { plateColors, isLoading: plateColorsLoading } = usePlateColorsSortedByPrice(selectedOutletId)
-  const {
-    expiredItems,
-    isLoading: expiredLoading,
-    updateExpiredItem,
-    refresh,
-  } = useExpiredItems(selectedOutletId)
-
+  const { groups, isLoading: expiredLoading, updateItems } = useExpiredGroups(selectedOutletId)
   const { wasteReasons } = useActiveWasteReasons()
 
   const [selectedColor, setSelectedColor] = useState<string | null>(null)
-  const [updateDialogOpen, setUpdateDialogOpen] = useState(false)
-  const [selectedItem, setSelectedItem] = useState<typeof expiredItems[0] | null>(null)
-  const [newStatus, setNewStatus] = useState<'sold' | 'waste'>('sold')
-  const [wasteReason, setWasteReason] = useState('')
-  const [isUpdating, setIsUpdating] = useState(false)
+  const [dialog, setDialog] = useState<UpdateDialogState>(CLOSED_UPDATE_DIALOG)
 
   const isLoading = menusLoading || plateColorsLoading || expiredLoading
 
-  const filteredItems = selectedColor
-    ? expiredItems.filter((item) => item.plateColor === selectedColor)
-    : expiredItems
+  // Peta sekali, bukan `menus.find()` per kartu di tiap render.
+  const menuById = useMemo(() => new Map(menus.map((menu) => [menu.id, menu])), [menus])
 
-  const handleOpenUpdateDialog = (item: typeof expiredItems[0]) => {
-    setSelectedItem(item)
-    setNewStatus(item.status || 'sold')
-    setWasteReason(item.notes || '')
-    setUpdateDialogOpen(true)
+  const batches: ExpiredBatch[] = useMemo(
+    () =>
+      groups.map((group) => ({
+        ...group,
+        producedAtDate: new Date(group.producedAt),
+        expiresAtDate: new Date(group.expiresAt),
+      })),
+    [groups]
+  )
+
+  const visibleBatches = useMemo(
+    () =>
+      selectedColor ? batches.filter((batch) => batch.plateColor === selectedColor) : batches,
+    [batches, selectedColor]
+  )
+
+  // Piring, bukan batch — ini angka yang berarti buat operator.
+  const expiredPlateCount = useMemo(
+    () => batches.reduce((total, batch) => total + batch.quantity, 0),
+    [batches]
+  )
+
+  const handleOpenUpdateDialog = (group: ExpiredBatch) => {
+    // Default seluruh batch: tidak seperti waste di conveyor, halaman ini
+    // menutup sisa hari dan yang lazim adalah menutup semuanya sekaligus.
+    setDialog({
+      open: true,
+      group,
+      quantity: group.quantity,
+      status: 'sold',
+      wasteReason: '',
+      isSubmitting: false,
+    })
+  }
+
+  const handleCloseDialog = () => {
+    if (!dialog.isSubmitting) {
+      setDialog(CLOSED_UPDATE_DIALOG)
+    }
   }
 
   const handleConfirmUpdate = async () => {
-    if (newStatus === 'waste' && !wasteReason.trim()) {
+    const group = dialog.group
+    if (!group) return
+
+    if (dialog.status === 'waste' && !dialog.wasteReason.trim()) {
       toast({
         title: 'Required Field',
         description: 'Please select a waste reason',
@@ -100,34 +156,41 @@ export function ExpiredItemsManager() {
       return
     }
 
-    if (!selectedItem) return
     // Guard against double-clicks while the update request is in flight.
-    if (isUpdating) return
+    if (dialog.isSubmitting) return
 
-    setIsUpdating(true)
+    setDialog((prev) => ({ ...prev, isSubmitting: true }))
     try {
-      await updateExpiredItem(selectedItem.id, newStatus, newStatus === 'waste' ? wasteReason : '')
+      const result = await updateItems(
+        group.itemIds.slice(0, dialog.quantity),
+        dialog.status,
+        dialog.status === 'waste' ? dialog.wasteReason : undefined
+      )
+
+      setDialog(CLOSED_UPDATE_DIALOG)
       toast({
         title: 'Status Updated',
-        description: `${selectedItem.menuName} marked as ${newStatus}`,
-        variant: newStatus === 'waste' ? 'destructive' : 'default',
+        description:
+          // `skipped` bukan kegagalan: piring itu sudah ditutup tablet lain.
+          // Tetap disebut supaya angka di layar tidak terlihat "kurang".
+          result.skipped > 0
+            ? `${result.updated} × ${group.menuName} → ${dialog.status}. ${result.skipped} sudah ditutup di tempat lain.`
+            : `${result.updated} × ${group.menuName} → ${dialog.status}`,
+        variant: dialog.status === 'waste' ? 'destructive' : 'default',
       })
-      setUpdateDialogOpen(false)
     } catch (error) {
+      const apiError = getApiError(error)
+      setDialog((prev) => ({ ...prev, isSubmitting: false }))
       toast({
         title: 'Error',
-        description: 'Failed to update item status',
+        description: apiError.message,
         variant: 'destructive',
       })
-    } finally {
-      setIsUpdating(false)
     }
   }
 
-  const calculateExpiredTime = (item: typeof expiredItems[0]) => {
-    return new Date(item.expiresAt)
-  }
-   
+  const dialogMenu = dialog.group ? menuById.get(dialog.group.menuId) : undefined
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -136,7 +199,7 @@ export function ExpiredItemsManager() {
           <h1 className="text-3xl md:text-4xl font-bold">Expired Items</h1>
           <p className="text-muted-foreground mt-1">
             Manage items that have exceeded their shelf life:{' '}
-            <span className="font-semibold text-foreground">{expiredItems.length}</span>
+            <span className="font-semibold text-foreground">{expiredPlateCount}</span>
           </p>
         </div>
         <OutletSelector />
@@ -167,7 +230,7 @@ export function ExpiredItemsManager() {
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
         </div>
-      ) : filteredItems.length === 0 ? (
+      ) : visibleBatches.length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center">
             <p className="text-muted-foreground text-lg">No expired items</p>
@@ -175,22 +238,22 @@ export function ExpiredItemsManager() {
         </Card>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-          {filteredItems.map((item) => {
-            const menuItem = menus.find((m) => m.id === item.menuId)
-            const productionTime = new Date(item.producedAt)
-            const expiredTime = calculateExpiredTime(item)
+          {visibleBatches.map((batch) => {
+            const menuItem = menuById.get(batch.menuId)
+            const slotColor = getTimeSlotColor(batch.producedAtDate)
 
             return (
               <Card
-                key={item.id}
+                key={batch.groupKey}
                 className="relative h-56 overflow-hidden group ring-1 ring-gray-200"
               >
                 {/* FULL IMAGE */}
                 {menuItem?.image && (
                   <Image
                     src={menuItem.image}
-                    alt={item.menuName}
+                    alt={batch.menuName}
                     fill
+                    sizes={CARD_IMAGE_SIZES}
                     className="object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                 )}
@@ -201,37 +264,44 @@ export function ExpiredItemsManager() {
                 <div className="absolute inset-0 p-3 flex flex-col justify-between text-gray-900">
                   {/* TOP */}
                   <div className="flex justify-between items-start">
-                    <PlateColorBadge color={lowercase(item.plateColorName) || "white"} />
-                    {/* Penanda waktu produksi */}
-                    {(() => {
-                      const slotColor = getTimeSlotColor(productionTime)
-                      return (
-                        <span
-                          className={`inline-flex items-center justify-center w-6 h-6 rounded-full ${slotColor.bg} text-white text-[10px] font-bold ring-2 ${slotColor.ring} shadow-md`}
-                          title={`${slotColor.label} — ${productionTime.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}`}
-                        >
-                          {slotColor.label[0]}
-                        </span>
-                      )
-                    })()}
+                    <PlateColorBadge color={lowercase(batch.plateColorName) || 'white'} />
+
+                    <div className="flex items-center gap-1">
+                      <span
+                        className="inline-flex items-center justify-center min-w-7 h-6 px-1.5 rounded-full bg-black/70 text-white text-xs font-bold ring-1 ring-white/40 shadow-md"
+                        aria-label={`${batch.quantity} plate`}
+                      >
+                        ×{batch.quantity}
+                      </span>
+
+                      {/* Penanda waktu produksi */}
+                      <span
+                        className={`inline-flex items-center justify-center w-6 h-6 rounded-full ${slotColor.bg} text-white text-[10px] font-bold ring-2 ${slotColor.ring} shadow-md`}
+                        title={`${slotColor.label} — ${batch.producedAtDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`}
+                      >
+                        {slotColor.label[0]}
+                      </span>
+                    </div>
                   </div>
 
                   {/* BOTTOM */}
                   <div className="space-y-2">
                     {/* Name */}
-                    <h3 className="text-sm font-semibold ">{item.menuName}</h3>
+                    <h3 className="text-sm font-semibold ">{batch.menuName}</h3>
 
                     {/* Production Details */}
                     <div className="text-xs space-y-1 bg-white/70 backdrop-blur-sm p-2 rounded-md border border-gray-200">
                       <p>
                         Prod:{' '}
-                        <span className="font-medium">{productionTime.toLocaleTimeString()}</span>
+                        <span className="font-medium">
+                          {batch.producedAtDate.toLocaleTimeString()}
+                        </span>
                       </p>
 
                       <p>
                         Exp:{' '}
                         <span className="font-medium text-red-600">
-                          {expiredTime.toLocaleTimeString()}
+                          {batch.expiresAtDate.toLocaleTimeString()}
                         </span>
                       </p>
 
@@ -244,7 +314,7 @@ export function ExpiredItemsManager() {
                     {/* Update Button */}
                     <Button
                       size="sm"
-                      onClick={() => handleOpenUpdateDialog(item)}
+                      onClick={() => handleOpenUpdateDialog(batch)}
                       className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs h-8"
                     >
                       <CheckCircle className="w-3 h-3 mr-1" />
@@ -259,36 +329,58 @@ export function ExpiredItemsManager() {
       )}
 
       {/* Update Dialog */}
-      {selectedItem && (
-        <Dialog open={updateDialogOpen} onOpenChange={setUpdateDialogOpen}>
+      {dialog.group && (
+        <Dialog open={dialog.open} onOpenChange={handleCloseDialog}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Update Expired Item</DialogTitle>
               <DialogDescription>
                 Update the status and add notes for:{' '}
-                <span className="font-semibold">{selectedItem.menuName}</span>
+                <span className="font-semibold">{dialog.group.menuName}</span>
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4">
               {/* Menu Details */}
-              <div className="bg-muted/30 border rounded-lg p-3 space-y-2">
-                <h3 className="font-semibold text-sm">{selectedItem.menuName}</h3>
-                <div className="text-xs text-muted-foreground space-y-1">
-                  <p>
-                    <span className="font-medium">Production:</span>{' '}
-                    {new Date(selectedItem.producedAt).toLocaleString()}
-                  </p>
-                  <p>
-                    <span className="font-medium">Expired:</span>{' '}
-                    {calculateExpiredTime(selectedItem).toLocaleString()}
-                  </p>
-                  <p className="flex items-center gap-1 text-red-600 font-medium">
-                    <AlertCircle className="w-3 h-3" />
-                    Time Expired
-                  </p>
+              <div className="bg-muted/30 border rounded-lg p-3 flex items-center gap-3">
+                {dialogMenu?.image && (
+                  <div className="relative w-14 h-14 rounded-md overflow-hidden flex-shrink-0">
+                    <Image
+                      src={dialogMenu.image}
+                      alt={dialog.group.menuName}
+                      fill
+                      sizes="56px"
+                      className="object-cover"
+                    />
+                  </div>
+                )}
+                <div className="min-w-0 space-y-1">
+                  <h3 className="font-semibold text-sm">{dialog.group.menuName}</h3>
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <p>
+                      <span className="font-medium">Production:</span>{' '}
+                      {dialog.group.producedAtDate.toLocaleString()}
+                    </p>
+                    <p>
+                      <span className="font-medium">Expired:</span>{' '}
+                      {dialog.group.expiresAtDate.toLocaleString()}
+                    </p>
+                    <p className="flex items-center gap-1 text-red-600 font-medium">
+                      <AlertCircle className="w-3 h-3" />
+                      {dialog.group.quantity} plate di batch ini
+                    </p>
+                  </div>
                 </div>
               </div>
+
+              {/* Berapa piring dari batch ini yang ditutup */}
+              <PlateQuantityStepper
+                value={dialog.quantity}
+                max={dialog.group.quantity}
+                disabled={dialog.isSubmitting}
+                label="Jumlah diproses"
+                onChange={(quantity) => setDialog((prev) => ({ ...prev, quantity }))}
+              />
 
               {/* Status Selection */}
               <div className="space-y-2">
@@ -296,8 +388,10 @@ export function ExpiredItemsManager() {
                   Status
                 </Label>
                 <Select
-                  value={newStatus}
-                  onValueChange={(value) => setNewStatus(value as 'sold' | 'waste')}
+                  value={dialog.status}
+                  onValueChange={(value) =>
+                    setDialog((prev) => ({ ...prev, status: value as 'sold' | 'waste' }))
+                  }
                 >
                   <SelectTrigger id="status">
                     <SelectValue />
@@ -310,14 +404,16 @@ export function ExpiredItemsManager() {
               </div>
 
               {/* Waste Reason Dropdown - only shown when status is waste */}
-              {newStatus === 'waste' && (
+              {dialog.status === 'waste' && (
                 <div className="space-y-2">
                   <Label htmlFor="waste-reason" className="font-medium">
                     Waste Reason <span className="text-red-500">*</span>
                   </Label>
                   <Select
-                    value={wasteReason}
-                    onValueChange={setWasteReason}
+                    value={dialog.wasteReason}
+                    onValueChange={(value) =>
+                      setDialog((prev) => ({ ...prev, wasteReason: value }))
+                    }
                   >
                     <SelectTrigger id="waste-reason">
                       <SelectValue placeholder="Select a waste reason..." />
@@ -338,15 +434,15 @@ export function ExpiredItemsManager() {
             </div>
 
             <DialogFooter className="flex gap-2">
-              <Button variant="outline" onClick={() => setUpdateDialogOpen(false)}>
+              <Button variant="outline" onClick={handleCloseDialog} disabled={dialog.isSubmitting}>
                 Cancel
               </Button>
               <Button
                 onClick={handleConfirmUpdate}
-                disabled={isUpdating}
-                className={`${newStatus === 'waste' ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+                disabled={dialog.isSubmitting}
+                className={`${dialog.status === 'waste' ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}
               >
-                {isUpdating && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                {dialog.isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Update Status
               </Button>
             </DialogFooter>

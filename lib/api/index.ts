@@ -16,10 +16,10 @@ export {
   productionService,
   type ProductionPlanRow,
   type ProductionItem,
-  type ConveyorItem,
   type WasteRecord,
   type ProductionStats,
-  type ExpiredItem,
+  type ProductionItemGroup,
+  type BulkExpiredResult,
 } from './services/production'
 export {
   productionImportService,

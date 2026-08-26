@@ -10,16 +10,22 @@ import { Label } from "@/components/ui/label"
 import { PlateColorBadge } from "@/components/plate-color-badge"
 import { OutletSelector } from "@/components/outlet-selector"
 import { ExpirationCountdown } from "@/components/expiration-countdown"
+import { PlateQuantityStepper } from "@/components/plate-quantity-stepper"
 import { useOutlet } from "@/lib/outlet-context"
-import { useConveyorItems } from "@/hooks/use-production"
+import { useConveyorGroups } from "@/hooks/use-production"
 import { usePlateColorsSortedByPrice } from "@/hooks/use-plate-colors"
 import { useMenus } from "@/hooks/use-menus"
 import { useActiveWasteReasons } from "@/hooks/use-waste-reasons"
 import { useToast } from "@/hooks/use-toast"
-import { productionService, getApiError } from "@/lib/api"
+import { getApiError, type ProductionItemGroup } from "@/lib/api"
 import { XCircle, Loader2, PackageCheck } from "lucide-react"
-import { formatRupiah, lowercase } from "@/lib/utils"
-import type { SushiMenu } from "@/lib/types"
+import { lowercase } from "@/lib/utils"
+
+// Ukuran gambar per breakpoint, mengikuti kolom grid di bawah. Tanpa ini
+// `<Image fill>` menganggap kartunya selebar layar dan Next mengirim berkas
+// beberapa kali lebih besar dari yang muat di kotak selebar seperenam layar.
+const CARD_IMAGE_SIZES =
+  "(min-width: 1280px) 16vw, (min-width: 1024px) 20vw, (min-width: 768px) 25vw, (min-width: 640px) 33vw, 50vw"
 
 // Siklus warna penanda waktu sesuai production-planning: Biru → Hitam → Merah → Kuning → Hijau
 const TIME_SLOT_COLORS = [
@@ -45,71 +51,85 @@ function getTimeSlotColor(producedAt: Date) {
   return TIME_SLOT_COLORS[idx % TIME_SLOT_COLORS.length]
 }
 
-interface ItemWithWasteReason {
-  id: string
-  menuId: string
-  menuName: string
-  plateColor: string
-  plateColorName: string
-  producedAt: Date
-  expiresAt: Date
-  finalStatus: 'sold' | 'waste' | null
-  soldAt: Date | null
-  wastedAt: Date | null
-  beltStatus: 'fresh' | 'warning' | 'expired'
+/** Satu batch dengan tanggalnya sudah diurai, dihitung sekali per perubahan data. */
+interface ConveyorBatch extends ProductionItemGroup {
+  producedAtDate: Date
+  expiresAtDate: Date
+  shelfLifeMinutes: number
+}
+
+interface WasteDialogState {
+  open: boolean
+  group: ConveyorBatch | null
+  quantity: number
+  reason: string
+  isSubmitting: boolean
+}
+
+const CLOSED_WASTE_DIALOG: WasteDialogState = {
+  open: false,
+  group: null,
+  quantity: 1,
+  reason: "",
+  isSubmitting: false,
 }
 
 export function ConveyorScreen() {
   const { toast } = useToast()
   const { selectedOutletId } = useOutlet()
-  
-  const { items: conveyorItems, isLoading, refresh, closeDay } = useConveyorItems(selectedOutletId)
+
+  const { groups, isLoading, closeDay, wasteItems } = useConveyorGroups(selectedOutletId)
   const { plateColors } = usePlateColorsSortedByPrice(selectedOutletId)
   const { menus } = useMenus(selectedOutletId)
   const { wasteReasons } = useActiveWasteReasons()
+
   const [selectedColorId, setSelectedColorId] = useState<string | null>(null)
   const [closeDayDialog, setCloseDayDialog] = useState<{ open: boolean; isSubmitting: boolean }>({
     open: false,
     isSubmitting: false,
   })
-  const [wasteDialog, setWasteDialog] = useState<{
-    open: boolean
-    itemId: string
-    menuId: string
-    menuName: string
-    plateColorName: string
-    producedAt: Date | null
-    reason: string
-    isSubmitting: boolean
-  }>({ open: false, itemId: "", menuId: "", menuName: "", plateColorName: "", producedAt: null, reason: "", isSubmitting: false })
+  const [wasteDialog, setWasteDialog] = useState<WasteDialogState>(CLOSED_WASTE_DIALOG)
+
+  // Peta sekali, bukan `menus.find()` di dalam map: yang kedua berarti satu
+  // pemindaian seluruh master per kartu, di tiap render.
+  const menuById = useMemo(() => new Map(menus.map((menu) => [menu.id, menu])), [menus])
 
   // Dihitung sekali per perubahan data, bukan tiap render. Selain memotong
-  // map/filter/sort yang berulang, ini juga membuat objek `Date` di bawah stabil
-  // — kartu turunannya tidak lagi melihat prop "baru" setiap induk render.
-  const items: ItemWithWasteReason[] = useMemo(
+  // map/filter yang berulang, ini juga membuat objek `Date` di bawah stabil —
+  // kartu turunannya tidak lagi melihat prop "baru" setiap induk render.
+  const batches: ConveyorBatch[] = useMemo(
     () =>
-      conveyorItems.map((item) => ({
-        ...item,
-        producedAt: new Date(item.producedAt),
-        expiresAt: new Date(item.expiresAt),
-        soldAt: item.soldAt ? new Date(item.soldAt) : null,
-        wastedAt: item.wastedAt ? new Date(item.wastedAt) : null,
-      })),
-    [conveyorItems]
+      groups.map((group) => {
+        const producedAtDate = new Date(group.producedAt)
+        const expiresAtDate = new Date(group.expiresAt)
+
+        return {
+          ...group,
+          producedAtDate,
+          expiresAtDate,
+          shelfLifeMinutes: Math.floor(
+            (expiresAtDate.getTime() - producedAtDate.getTime()) / 60000
+          ),
+        }
+      }),
+    [groups]
   )
 
-  // Plate yang belum difinalisasi. Plate expired tetap ikut — expired bukan
-  // berarti terbuang, dan operator masih harus menutupnya.
-  const activeItems = useMemo(() => items.filter((item) => item.finalStatus === null), [items])
+  // Backend sudah mengurutkan dari yang paling cepat expired, jadi di sini
+  // hanya menyaring — mengurutkan ulang cuma menduplikasi aturan yang sama.
+  const visibleBatches = useMemo(
+    () =>
+      selectedColorId
+        ? batches.filter((batch) => batch.plateColor === selectedColorId)
+        : batches,
+    [batches, selectedColorId]
+  )
 
-  // Urut dari yang paling cepat expired.
-  const sortedItems = useMemo(() => {
-    const filtered = selectedColorId
-      ? activeItems.filter((item) => item.plateColor === selectedColorId)
-      : activeItems
-
-    return [...filtered].sort((a, b) => a.expiresAt.getTime() - b.expiresAt.getTime())
-  }, [activeItems, selectedColorId])
+  // Piring, bukan batch. Ini yang dilihat operator dan yang ditutup Tutup Hari.
+  const activePlateCount = useMemo(
+    () => batches.reduce((total, batch) => total + batch.quantity, 0),
+    [batches]
+  )
 
   const handleCloseDay = async () => {
     // Guard against double submits: menutup dua kali memang no-op di backend,
@@ -134,26 +154,22 @@ export function ConveyorScreen() {
     }
   }
 
-  const handleWasteClick = (item: ItemWithWasteReason) => {
-    setWasteDialog({
-      open: true,
-      itemId: item.id,
-      menuId: item.menuId,
-      menuName: item.menuName,
-      plateColorName: item.plateColorName,
-      producedAt: item.producedAt,
-      reason: "",
-      isSubmitting: false,
-    })
+  const handleWasteClick = (group: ConveyorBatch) => {
+    // Default satu piring, bukan seluruh batch. Membuang lebih banyak dari yang
+    // dimaksud tidak bisa dibatalkan; membuang kurang tinggal diulang.
+    setWasteDialog({ open: true, group, quantity: 1, reason: "", isSubmitting: false })
   }
 
   const handleWasteDialogClose = () => {
     if (!wasteDialog.isSubmitting) {
-      setWasteDialog((prev) => ({ ...prev, open: false, reason: "" }))
+      setWasteDialog(CLOSED_WASTE_DIALOG)
     }
   }
 
   const handleConfirmWaste = async () => {
+    const group = wasteDialog.group
+    if (!group) return
+
     if (!wasteDialog.reason.trim()) {
       toast({
         title: "Error",
@@ -162,15 +178,20 @@ export function ConveyorScreen() {
       })
       return
     }
+
+    if (wasteDialog.isSubmitting) return
+
     setWasteDialog((prev) => ({ ...prev, isSubmitting: true }))
     try {
-      await productionService.recordWaste({ itemIds: [wasteDialog.itemId], reason: wasteDialog.reason })
-      await productionService.markWaste([wasteDialog.itemId])
-      await refresh()
-      setWasteDialog({ open: false, itemId: "", menuId: "", menuName: "", plateColorName: "", producedAt: null, reason: "", isSubmitting: false })
+      // Id yang dipilih di layar, bukan "sekian dari batch itu". Dua tablet yang
+      // menekan bersamaan akan mengirim id yang sama, dan server menolak yang
+      // kedua — mengirim jumlah saja membuat keduanya diambilkan piring berbeda.
+      await wasteItems(group.itemIds.slice(0, wasteDialog.quantity), wasteDialog.reason)
+
+      setWasteDialog(CLOSED_WASTE_DIALOG)
       toast({
         title: "Marked as Waste",
-        description: `${wasteDialog.menuName} - Reason: ${wasteDialog.reason}`,
+        description: `${wasteDialog.quantity} × ${group.menuName} — Reason: ${wasteDialog.reason}`,
         variant: "destructive",
       })
     } catch (error) {
@@ -184,20 +205,25 @@ export function ConveyorScreen() {
     }
   }
 
+  const wasteDialogMenu = wasteDialog.group ? menuById.get(wasteDialog.group.menuId) : undefined
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl md:text-4xl font-bold">Conveyor Management</h1>
-          <p className="text-muted-foreground mt-1">Monitor and manage active production</p>
+          <p className="text-muted-foreground mt-1">
+            Monitor and manage active production:{" "}
+            <span className="font-semibold text-foreground">{activePlateCount}</span> plate
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <OutletSelector />
           <Button
             className="bg-emerald-600 hover:bg-emerald-700 text-white"
             onClick={() => setCloseDayDialog({ open: true, isSubmitting: false })}
-            disabled={!selectedOutletId || activeItems.length === 0}
+            disabled={!selectedOutletId || activePlateCount === 0}
           >
             <PackageCheck className="w-4 h-4 mr-2" />
             Tutup Hari
@@ -215,46 +241,45 @@ export function ConveyorScreen() {
           All Colors
         </Button>
         {plateColors.map((plate) => (
-            <Button
-              key={plate.id}
-              variant={selectedColorId === plate.id ? "default" : "outline"}
-              onClick={() => setSelectedColorId(plate.id)}
-              className="px-4 py-2 capitalize"
-            >
-              {plate.platename}
-            </Button>
-          ))}
+          <Button
+            key={plate.id}
+            variant={selectedColorId === plate.id ? "default" : "outline"}
+            onClick={() => setSelectedColorId(plate.id)}
+            className="px-4 py-2 capitalize"
+          >
+            {plate.platename}
+          </Button>
+        ))}
       </div>
 
-      {/* Items Grid */}  
+      {/* Items Grid */}
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
         </div>
-      ) : sortedItems.length === 0 ? (
+      ) : visibleBatches.length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center">
             <p className="text-muted-foreground text-lg">
-              {items.length === 0 ? "No active plates on conveyor" : "No plates with selected color"}
+              {batches.length === 0 ? "No active plates on conveyor" : "No plates with selected color"}
             </p>
           </CardContent>
         </Card>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-          {sortedItems.map((item) => {
-            const menuItem = menus.find((m) => m.id === item.menuId)
-            const shelfLifeMinutes = Math.floor((item.expiresAt.getTime() - item.producedAt.getTime()) / 60000)
+          {visibleBatches.map((batch) => {
+            const menuItem = menuById.get(batch.menuId)
+            const slotColor = getTimeSlotColor(batch.producedAtDate)
+
             return (
-              <Card
-                key={item.id}
-                className="relative h-56 overflow-hidden group cursor-pointer"
-              >
+              <Card key={batch.groupKey} className="relative h-56 overflow-hidden group">
                 {/* FULL IMAGE */}
                 {menuItem?.image && (
                   <Image
                     src={menuItem.image}
-                    alt={item.menuName}
+                    alt={batch.menuName}
                     fill
+                    sizes={CARD_IMAGE_SIZES}
                     className="object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                 )}
@@ -267,19 +292,25 @@ export function ConveyorScreen() {
 
                   {/* TOP SECTION */}
                   <div className="flex justify-between items-start">
-                    <PlateColorBadge color={lowercase(item.plateColorName) || "white"} />
-                    {/* Penanda waktu produksi */}
-                    {(() => {
-                      const slotColor = getTimeSlotColor(item.producedAt)
-                      return (
-                        <span
-                          className={`inline-flex items-center justify-center w-6 h-6 rounded-full ${slotColor.bg} text-white text-[10px] font-bold ring-2 ${slotColor.ring} shadow-md`}
-                          title={`${slotColor.label} — ${item.producedAt.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}`}
-                        >
-                          {slotColor.label[0]}
-                        </span>
-                      )
-                    })()}
+                    <PlateColorBadge color={lowercase(batch.plateColorName) || "white"} />
+
+                    <div className="flex items-center gap-1">
+                      {/* Jumlah piring di batch ini. */}
+                      <span
+                        className="inline-flex items-center justify-center min-w-7 h-6 px-1.5 rounded-full bg-black/70 text-white text-xs font-bold ring-1 ring-white/40 shadow-md"
+                        aria-label={`${batch.quantity} plate`}
+                      >
+                        ×{batch.quantity}
+                      </span>
+
+                      {/* Penanda waktu produksi */}
+                      <span
+                        className={`inline-flex items-center justify-center w-6 h-6 rounded-full ${slotColor.bg} text-white text-[10px] font-bold ring-2 ${slotColor.ring} shadow-md`}
+                        title={`${slotColor.label} — ${batch.producedAtDate.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}`}
+                      >
+                        {slotColor.label[0]}
+                      </span>
+                    </div>
                   </div>
 
                   {/* BOTTOM SECTION */}
@@ -287,27 +318,28 @@ export function ConveyorScreen() {
 
                     {/* Name */}
                     <h3 className="text-sm font-semibold leading-tight line-clamp-2">
-                      {item.menuName}  
+                      {batch.menuName}
                     </h3>
 
-                    {/* Countdown */}
+                    {/* Countdown — satu per batch. Seluruh anggotanya punya
+                        `expiresAt` yang sama persis, jadi tidak ada yang hilang. */}
                     <div className="text-xs">
                       <ExpirationCountdown
-                        productionTime={item.producedAt}
-                        shelfLifeMinutes={shelfLifeMinutes}
+                        productionTime={batch.producedAtDate}
+                        shelfLifeMinutes={batch.shelfLifeMinutes}
                       />
                     </div>
 
                     {/* ACTIONS */}
                     <div className="space-y-1">
 
-                      {/* WASTE BUTTON — satu-satunya aksi per plate.
+                      {/* WASTE BUTTON — satu-satunya aksi per batch.
                           Plate yang tidak dibuang dianggap terjual saat Tutup Hari. */}
                       <Button
                         size="sm"
                         variant="destructive"
                         className="w-full h-8 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                        onClick={() => handleWasteClick(item)}
+                        onClick={() => handleWasteClick(batch)}
                       >
                         <XCircle className="w-3 h-3 mr-1" />
                         Waste
@@ -333,7 +365,7 @@ export function ConveyorScreen() {
           <DialogHeader>
             <DialogTitle>Tutup Hari</DialogTitle>
             <DialogDescription>
-              {activeItems.length} plate masih di belt dan belum ditandai waste. Menutup hari
+              {activePlateCount} plate masih di belt dan belum ditandai waste. Menutup hari
               menandai semuanya sebagai terjual. Buang dulu plate yang tidak laku — aksi ini tidak
               bisa dibatalkan.
             </DialogDescription>
@@ -364,59 +396,73 @@ export function ConveyorScreen() {
           <DialogHeader>
             <DialogTitle>Mark as Waste</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            {/* Item Details */}
-            <div className="flex items-center gap-4 p-3 bg-muted rounded-lg">
-              {(() => {
-                const menuItem = menus.find((m) => m.id === wasteDialog.menuId)
-                return menuItem?.image ? (
+
+          {wasteDialog.group && (
+            <div className="space-y-4 py-2">
+              {/* Item Details */}
+              <div className="flex items-center gap-4 p-3 bg-muted rounded-lg">
+                {wasteDialogMenu?.image && (
                   <div className="relative w-16 h-16 rounded-md overflow-hidden flex-shrink-0">
                     <Image
-                      src={menuItem.image}
-                      alt={wasteDialog.menuName}
+                      src={wasteDialogMenu.image}
+                      alt={wasteDialog.group.menuName}
                       fill
+                      sizes="64px"
                       className="object-cover"
                     />
                   </div>
-                ) : null
-              })()}
-              <div className="flex-1 min-w-0">
-                <h4 className="font-semibold text-foreground truncate">{wasteDialog.menuName}</h4>
-                <div className="mt-1 flex items-center gap-2">
-                  <PlateColorBadge color={lowercase(wasteDialog.plateColorName) || "white"} />
-                </div>
-                {wasteDialog.producedAt && (
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Prod: {wasteDialog.producedAt.toLocaleDateString("id-ID")} {wasteDialog.producedAt.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
-                  </p>
                 )}
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-semibold text-foreground truncate">
+                    {wasteDialog.group.menuName}
+                  </h4>
+                  <div className="mt-1 flex items-center gap-2">
+                    <PlateColorBadge color={lowercase(wasteDialog.group.plateColorName) || "white"} />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Prod: {wasteDialog.group.producedAtDate.toLocaleDateString("id-ID")}{" "}
+                    {wasteDialog.group.producedAtDate.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
+                    {" · "}
+                    {wasteDialog.group.quantity} plate di batch ini
+                  </p>
+                </div>
+              </div>
+
+              {/* Berapa piring dari batch ini yang dibuang */}
+              <PlateQuantityStepper
+                value={wasteDialog.quantity}
+                max={wasteDialog.group.quantity}
+                disabled={wasteDialog.isSubmitting}
+                label="Jumlah dibuang"
+                onChange={(quantity) => setWasteDialog((prev) => ({ ...prev, quantity }))}
+              />
+
+              {/* Waste Reason */}
+              <div>
+                <Label htmlFor="waste-reason" className="mb-2 block">
+                  Reason for Waste
+                </Label>
+                <Select
+                  value={wasteDialog.reason}
+                  onValueChange={(value) => setWasteDialog((prev) => ({ ...prev, reason: value }))}
+                >
+                  <SelectTrigger id="waste-reason">
+                    <SelectValue placeholder="Select a reason..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {wasteReasons
+                      .filter((reason) => reason && reason.reason_name)
+                      .map((reason) => (
+                        <SelectItem key={reason.id} value={reason.reason_name}>
+                          {reason.reason_name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
+          )}
 
-            {/* Waste Reason */}
-            <div>
-              <Label htmlFor="waste-reason" className="mb-2 block">
-                Reason for Waste
-              </Label>
-              <Select
-                value={wasteDialog.reason}
-                onValueChange={(value) => setWasteDialog((prev) => ({ ...prev, reason: value }))}
-              >
-                <SelectTrigger id="waste-reason">
-                  <SelectValue placeholder="Select a reason..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {wasteReasons
-                    .filter((reason) => reason && reason.reason_name)
-                    .map((reason) => (
-                      <SelectItem key={reason.id} value={reason.reason_name}>
-                        {reason.reason_name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
           <DialogFooter className="gap-2">
             <Button
               variant="outline"
