@@ -134,6 +134,15 @@ Catatan penting: **401 bukan error transien** (`isTransientApiError`), jadi muta
 
 `components/auth-guard.tsx` melakukan tiga pemeriksaan: terautentikasi → `allowedRoles` (opsional) → akses modul.
 
+**Tujuan redirect hidup di satu tempat: `landingRouteFor()` di [lib/constants/access.ts](lib/constants/access.ts).** Dipakai tiga pemanggil — layar login admin, pantulan `AuthGuard`, dan `app/page.tsx`. Jangan tulis peta tujuan kedua.
+
+Dua jebakan yang sudah pernah menggigit:
+
+1. **Prioritas, bukan urutan array.** Versi lama mengiterasi `module_app` milik user, jadi pemenangnya adalah modul yang kebetulan tercatat paling awal — dan urutan itu mengikuti urutan kotak dicentang di layar User Management. Dua user dengan izin identik mendarat di halaman berbeda. Urutannya sekarang di `MODULE_PRIORITY`.
+2. **Setiap modul butuh halaman index.** `AuthGuard` dulu memantulkan ke `/${modul}`, dan tidak satu pun modul punya `page.tsx` — jadi setiap pantulan mendarat di 404. Sekarang tiap modul punya index yang meneruskan ke layar pertamanya.
+
+`landingRouteFor()` mengembalikan `null` kalau user tidak punya modul berhalaman. Itu disengaja — pemanggil harus mengirimnya ke `/login`, bukan menebak. Cadangan lamanya `/admin/plate-colors`, halaman yang justru paling tidak boleh dibuka user tanpa modul.
+
 Akses modul diambil dari `user.module_app`. Kalau prop `allowedModules` diberikan, itu yang berlaku; kalau tidak, segmen pertama pathname dipakai (`/kitchen/conveyor` → modul `kitchen`). Gagal → dialihkan ke modul pertama yang dimiliki user, atau `/login`.
 
 `components/sidebar-nav.tsx` memfilter section navigasi dengan `module_app` yang sama. Kalau menambah halaman baru, daftarkan di kedua tempat.

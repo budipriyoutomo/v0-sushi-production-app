@@ -11,29 +11,7 @@ import { useToast } from '@/hooks/use-toast'
 import { getApiError } from '@/lib/api'
 import { useAuth } from '@/hooks/use-auth'
 import { Loader2 } from 'lucide-react'
-
-// Get first available route based on user's module_app
-function getFirstAvailableRoute(moduleApp: string[]): string {
-  // Priority order for routing
-  const moduleRoutes: Record<string, string> = {
-    'admin': '/admin/plate-colors',
-    'production': '/production/planning',
-    'operation': '/operation/sales-input',
-    'report': '/report/production-item-list',
-    'kitchen': '/kitchen/dashboard',
-    'service': '/kitchen/dashboard',
-  }
-
-  // Find first available module (excluding 'app')
-  for (const mod of moduleApp) {
-    if (mod !== 'app' && moduleRoutes[mod]) {
-      return moduleRoutes[mod]
-    }
-  }
-
-  // Default fallback
-  return '/admin/plate-colors'
-}
+import { landingRouteFor } from '@/lib/constants/access'
 
 export function AdminRoleLogin() {
   const router = useRouter()
@@ -56,8 +34,10 @@ export function AdminRoleLogin() {
         description: `Welcome, ${user.name}!`,
       })
       // Redirect based on user's module_app access
-      const route = getFirstAvailableRoute(user.module_app || [])
-      router.push(route)
+      // Tujuan ditentukan `MODULE_PRIORITY`, bukan urutan `module_app` user.
+      // Cadangan lamanya `/admin/plate-colors` — halaman yang justru paling
+      // tidak boleh dibuka user tanpa modul.
+      router.push(landingRouteFor(user.module_app) ?? '/login')
     } catch (error) {
       const apiError = getApiError(error)
       toast({

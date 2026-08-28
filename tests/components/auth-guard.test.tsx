@@ -65,14 +65,30 @@ describe("AuthGuard", () => {
     expect(mocks.replace).not.toHaveBeenCalled()
   })
 
-  it("redirects to the first non-app module when the path module is not granted", () => {
+  it("redirects to the landing page of a module the user actually holds", () => {
     mocks.pathname = "/admin/users"
     mocks.auth.user = { id: "1", name: "Chef", role: "kitchen", module_app: ["app", "kitchen"] }
 
     renderGuard()
 
     expect(screen.queryByText("halaman rahasia")).toBeNull()
-    expect(mocks.replace).toHaveBeenCalledWith("/kitchen")
+    // Dulu `/kitchen` — dan tidak satu pun modul punya halaman index, jadi
+    // setiap pantulan AuthGuard mendarat di 404.
+    expect(mocks.replace).toHaveBeenCalledWith("/kitchen/dashboard")
+  })
+
+  it("picks by priority, not by the order the modules were ticked", () => {
+    mocks.pathname = "/admin/users"
+    mocks.auth.user = {
+      id: "1",
+      name: "Ops",
+      role: "operation",
+      module_app: ["app", "kitchen", "operation"],
+    }
+
+    renderGuard()
+
+    expect(mocks.replace).toHaveBeenCalledWith("/operation/sales-input")
   })
 
   it("sends a user holding only 'app' to login, since app has no page", () => {

@@ -3,6 +3,7 @@
 import { useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/hooks/use-auth"
+import { landingRouteFor } from "@/lib/constants/access"
 
 interface AuthGuardProps {
   children: React.ReactNode
@@ -66,14 +67,10 @@ export function AuthGuard({ children, allowedRoles, allowedModules }: AuthGuardP
     // to several modules); otherwise fall back to the module from the path.
     const currentModule = getModuleFromPath(pathname)
     if (currentModule && !hasModuleAccess(user?.module_app, currentModule, allowedModules)) {
-      // Redirect to first available module or login. `app` is skipped: it is a
-      // base module with no page of its own.
-      const firstModule = modulesOf(user?.module_app).find(m => m !== 'app')
-      if (firstModule) {
-        router.replace(`/${firstModule}`)
-      } else {
-        router.replace("/login")
-      }
+      // Dulu ini memantulkan ke `/${firstModule}` — dan tidak satu pun modul
+      // punya halaman index, jadi setiap pantulan mendarat di 404. Sekarang
+      // ke halaman pertama modul itu, lewat prioritas yang sama dengan login.
+      router.replace(landingRouteFor(user?.module_app) ?? "/login")
       return
     }
   }, [isLoading, isAuthenticated, user, allowedRoles, allowedModules, pathname, router])
