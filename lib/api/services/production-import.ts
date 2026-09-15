@@ -1,10 +1,11 @@
 import apiClient from '../client'
 
 /**
- * Import produksi backdate (CSV).
+ * Import produksi backdate (.xlsx / CSV).
  *
- * Dua panggilan ke berkas yang sama: `preview()` hanya membaca dan menghitung,
- * `commit()` menulis. Berkasnya dikirim ulang, bukan baris hasil parse klien —
+ * Tiga panggilan: `downloadTemplate()` mengambil workbook berisi menu aktif
+ * outlet plus sheet panduannya, lalu `preview()` membaca dan menghitung berkas
+ * isiannya, dan `commit()` menulis. Berkasnya dikirim ulang, bukan baris hasil parse klien —
  * validasi brand, tabrakan tanggal, dan resolusi kode menu semuanya aturan
  * bisnis, dan aturan bisnis tidak boleh punya versi di browser.
  *
@@ -52,17 +53,34 @@ export interface BackdateImportResult {
   summary: BackdateImportSummary
 }
 
+export interface BackdateTemplateFile {
+  blob: Blob
+  filename: string
+}
+
 /**
- * Header pakai nama kanonik. Backend juga menerima judul berbahasa Indonesia
- * (`tanggal`, `kode_menu`, `jumlah`, `status`), tapi contoh yang diunduh
- * operator sebaiknya satu bentuk saja.
+ * Nama berkas cadangan kalau `Content-Disposition` tidak sampai — di balik
+ * proxy yang menyaring header, unduhan tetap harus punya nama yang masuk akal.
  */
-export const BACKDATE_TEMPLATE_CSV = [
-  'date,menu_code,quantity,final_status,time,notes',
-  '2026-01-15,SUS-001,12,sold,09:30,',
-  '2026-01-15,SUS-002,3,waste,,rusak saat plating',
-  '2026-01-16,SUS-001,8,sold,,',
-].join('\n')
+const FALLBACK_TEMPLATE_NAME = 'template-import-produksi.xlsx'
+
+function filenameFrom(disposition: string | undefined): string {
+  if (!disposition) return FALLBACK_TEMPLATE_NAME
+
+  // `filename*=UTF-8''...` didahulukan: itu bentuk yang membawa karakter non-ASCII.
+  const encoded = /filename\*=UTF-8''([^;]+)/i.exec(disposition)
+  if (encoded) {
+    try {
+      return decodeURIComponent(encoded[1].trim())
+    } catch {
+      // Header rusak — pakai cadangan, bukan nama setengah ter-decode.
+    }
+  }
+
+  const plain = /filename="?([^"';]+)"?/i.exec(disposition)
+
+  return plain ? plain[1].trim() : FALLBACK_TEMPLATE_NAME
+}
 
 class ProductionImportService {
   private endpoint = '/production/import-backdate'
@@ -78,6 +96,25 @@ class ProductionImportService {
     }
 
     return formData
+  }
+
+  /**
+   * Template .xlsx milik outlet ini.
+   *
+   * Berkasnya dirakit server, bukan dirakit di sini: isinya menu aktif brand
+   * outlet dan aturan yang dijalankan importer, dan keduanya tidak boleh punya
+   * salinan di browser yang bisa basi tanpa ada yang tahu.
+   */
+  async downloadTemplate(outletId: string): Promise<BackdateTemplateFile> {
+    const response = await apiClient.get<Blob>(`${this.endpoint}/template`, {
+      params: { outletId },
+      responseType: 'blob',
+    })
+
+    return {
+      blob: response.data,
+      filename: filenameFrom(response.headers['content-disposition'] as string | undefined),
+    }
   }
 
   async preview(file: File, outletId: string): Promise<BackdateImportPreview> {

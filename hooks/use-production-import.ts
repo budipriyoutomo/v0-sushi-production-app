@@ -27,8 +27,34 @@ export function useProductionImport(outletId: string) {
   const [preview, setPreview] = useState<BackdateImportPreview | null>(null)
   const [isPreviewing, setIsPreviewing] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
+  const [isDownloadingTemplate, setIsDownloadingTemplate] = useState(false)
 
   const reset = useCallback(() => setPreview(null), [])
+
+  /**
+   * Unduh template lalu serahkan berkasnya ke browser.
+   *
+   * Blob-nya dibuang lagi setelah tautan diklik: satu objek URL per unduhan
+   * yang tidak pernah dilepas menahan seluruh isi berkas di memori tab selama
+   * halaman terbuka, dan layar ini memang dipakai berulang kali per hari.
+   */
+  const downloadTemplate = useCallback(async (): Promise<void> => {
+    setIsDownloadingTemplate(true)
+
+    try {
+      const { blob, filename } = await productionImportService.downloadTemplate(outletId)
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+
+      link.href = url
+      link.download = filename
+      link.click()
+
+      URL.revokeObjectURL(url)
+    } finally {
+      setIsDownloadingTemplate(false)
+    }
+  }, [outletId])
 
   const runPreview = useCallback(
     async (file: File): Promise<BackdateImportPreview> => {
@@ -70,8 +96,10 @@ export function useProductionImport(outletId: string) {
     preview,
     isPreviewing,
     isImporting,
+    isDownloadingTemplate,
     runPreview,
     runImport,
+    downloadTemplate,
     reset,
   }
 }

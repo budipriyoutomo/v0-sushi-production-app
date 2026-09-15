@@ -34,7 +34,7 @@ import { OutletSelector } from "@/components/outlet-selector"
 import { useOutlet } from "@/lib/outlet-context"
 import { useProductionImport } from "@/hooks/use-production-import"
 import { useToast } from "@/hooks/use-toast"
-import { getApiError, BACKDATE_TEMPLATE_CSV } from "@/lib/api"
+import { getApiError } from "@/lib/api"
 
 /**
  * Import produksi backdate.
@@ -46,8 +46,16 @@ import { getApiError, BACKDATE_TEMPLATE_CSV } from "@/lib/api"
 export function ProductionImportAdmin() {
   const { toast } = useToast()
   const { selectedOutletId, outlets } = useOutlet()
-  const { preview, isPreviewing, isImporting, runPreview, runImport, reset } =
-    useProductionImport(selectedOutletId)
+  const {
+    preview,
+    isPreviewing,
+    isImporting,
+    isDownloadingTemplate,
+    runPreview,
+    runImport,
+    downloadTemplate,
+    reset,
+  } = useProductionImport(selectedOutletId)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
@@ -69,16 +77,29 @@ export function ProductionImportAdmin() {
     reset()
   }
 
-  const downloadTemplate = () => {
-    const blob = new Blob([BACKDATE_TEMPLATE_CSV], { type: "text/csv;charset=utf-8" })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement("a")
+  /**
+   * Template ikut outlet yang sedang dipilih: isinya menu aktif brand outlet
+   * itu. Tanpa outlet tidak ada yang bisa diunduh — bukan template kosong,
+   * karena template kosong tetap terlihat seperti template yang benar.
+   */
+  const handleDownloadTemplate = async () => {
+    if (isDownloadingTemplate) return
 
-    link.href = url
-    link.download = "template-import-produksi-backdate.csv"
-    link.click()
+    if (!selectedOutletId) {
+      toast({ title: "Error", description: "Pilih outlet dulu", variant: "destructive" })
+      return
+    }
 
-    URL.revokeObjectURL(url)
+    try {
+      await downloadTemplate()
+    } catch (error) {
+      const apiError = getApiError(error)
+      toast({
+        title: "Unduh template gagal",
+        description: apiError.message,
+        variant: "destructive",
+      })
+    }
   }
 
   const handlePreview = async () => {
@@ -148,14 +169,20 @@ export function ProductionImportAdmin() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Berkas CSV</CardTitle>
+            <CardTitle>Berkas Template</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="text-sm text-muted-foreground space-y-1">
               <p>
+                Mulai dari <strong>Unduh Template</strong>: berkasnya sudah berisi seluruh menu
+                aktif outlet ini, plus sheet <em>Panduan Pengisian</em> dan{" "}
+                <em>Daftar Menu Aktif</em>. Isi sheet <em>Import Produksi</em>, lalu unggah
+                kembali (.xlsx atau .csv).
+              </p>
+              <p>
                 Kolom wajib: <code>date</code>, <code>menu_code</code>, <code>quantity</code>,{" "}
                 <code>final_status</code>. Kolom opsional: <code>time</code> (HH:MM, default
-                12:00) dan <code>notes</code>.
+                12:00) dan <code>notes</code>. Baris menu yang tidak diisi dilewati.
               </p>
               <p>
                 Hanya tanggal <strong>sebelum hari ini</strong>. Setiap baris harus berstatus{" "}
@@ -169,8 +196,8 @@ export function ProductionImportAdmin() {
                 ref={fileInputRef}
                 id="backdate-file"
                 type="file"
-                aria-label="Berkas CSV"
-                accept=".csv,text/csv,text/plain"
+                aria-label="Berkas template"
+                accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/plain"
                 className="hidden"
                 onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)}
               />
@@ -178,8 +205,16 @@ export function ProductionImportAdmin() {
                 <FileSpreadsheet className="w-4 h-4 mr-2" />
                 Pilih Berkas
               </Button>
-              <Button variant="outline" onClick={downloadTemplate}>
-                <Download className="w-4 h-4 mr-2" />
+              <Button
+                variant="outline"
+                onClick={handleDownloadTemplate}
+                disabled={!selectedOutletId || isDownloadingTemplate}
+              >
+                {isDownloadingTemplate ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4 mr-2" />
+                )}
                 Unduh Template
               </Button>
 

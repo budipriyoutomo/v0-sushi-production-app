@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   preview: null as unknown,
   runPreview: vi.fn(),
   runImport: vi.fn(),
+  downloadTemplate: vi.fn(),
   reset: vi.fn(),
   toast: vi.fn(),
   selectedOutletId: "outlet-1",
@@ -26,8 +27,10 @@ vi.mock("@/hooks/use-production-import", () => ({
     preview: mocks.preview,
     isPreviewing: false,
     isImporting: false,
+    isDownloadingTemplate: false,
     runPreview: mocks.runPreview,
     runImport: mocks.runImport,
+    downloadTemplate: mocks.downloadTemplate,
     reset: mocks.reset,
   }),
 }))
@@ -48,7 +51,6 @@ vi.mock("@/lib/api", () => ({
     message: e instanceof Error ? e.message : String(e),
     status: 500,
   }),
-  BACKDATE_TEMPLATE_CSV: "date,menu_code,quantity,final_status",
 }))
 
 import { ProductionImportAdmin } from "@/components/production-import-admin"
@@ -86,7 +88,8 @@ function row(overrides: Record<string, unknown> = {}) {
 
 const csvFile = () => new File(["date,menu_code,quantity,final_status"], "backdate.csv", { type: "text/csv" })
 
-const fileInput = () => screen.getByLabelText("Berkas CSV")
+const fileInput = () => screen.getByLabelText("Berkas template")
+const templateButton = () => screen.getByRole("button", { name: /unduh template/i })
 const previewButton = () => screen.getByRole("button", { name: /^preview$/i })
 const importButton = () => screen.getByRole("button", { name: /import \d+ piring/i })
 
@@ -97,6 +100,42 @@ describe("ProductionImportAdmin", () => {
     mocks.selectedOutletId = "outlet-1"
     mocks.runPreview.mockResolvedValue({ summary: summary(), rows: [row()] })
     mocks.runImport.mockResolvedValue({ imported: 15, wasteRecords: 3, summary: summary() })
+    mocks.downloadTemplate.mockResolvedValue(undefined)
+  })
+
+  /**
+   * Template dirakit server dari menu aktif brand outlet, jadi tombolnya tidak
+   * boleh bisa ditekan sebelum outlet terpilih: yang terunduh akan jadi berkas
+   * yang tidak menunjuk brand mana pun, dan itu tidak kelihatan salah.
+   */
+  it("cannot download the template before an outlet is chosen", () => {
+    mocks.selectedOutletId = ""
+    render(<ProductionImportAdmin />)
+
+    expect(templateButton()).toBeDisabled()
+    expect(mocks.downloadTemplate).not.toHaveBeenCalled()
+  })
+
+  it("downloads the template for the selected outlet", async () => {
+    const user = userEvent.setup()
+    render(<ProductionImportAdmin />)
+
+    await user.click(templateButton())
+
+    expect(mocks.downloadTemplate).toHaveBeenCalledTimes(1)
+    expect(mocks.toast).not.toHaveBeenCalled()
+  })
+
+  it("tells the operator when the template cannot be built", async () => {
+    const user = userEvent.setup()
+    mocks.downloadTemplate.mockRejectedValue(new Error("Outlet tidak ditemukan"))
+    render(<ProductionImportAdmin />)
+
+    await user.click(templateButton())
+
+    expect(mocks.toast).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Unduh template gagal", variant: "destructive" })
+    )
   })
 
   it("cannot preview before a file is chosen", () => {

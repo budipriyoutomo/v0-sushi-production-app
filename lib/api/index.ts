@@ -23,8 +23,8 @@ export {
 } from './services/production'
 export {
   productionImportService,
-  BACKDATE_TEMPLATE_CSV,
   type BackdateFinalStatus,
+  type BackdateTemplateFile,
   type BackdateImportRow,
   type BackdateImportSummary,
   type BackdateImportPreview,
