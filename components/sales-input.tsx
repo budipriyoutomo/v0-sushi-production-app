@@ -84,7 +84,9 @@ export function SalesInput() {
     if (draft.items && draft.items.length > 0) {
       const entries: SalesEntry[] = draft.items.map((item, index) => ({
         id: `${draft.id}-${index}`,
-        plateColorId: item.platecolor,
+        // `platecolor` adalah nama warna. Dulu dipakai juga sebagai id, jadi
+        // draft yang dibuka ulang mengirim "Blue" sebagai plate_color_id.
+        plateColorId: item.plate_color_id,
         plateColorName: item.platecolor,
         posSold: item.pos,
         productionSold: item.sold,

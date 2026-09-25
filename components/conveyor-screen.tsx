@@ -13,6 +13,8 @@ import { ExpirationCountdown } from "@/components/expiration-countdown"
 import { PlateQuantityStepper } from "@/components/plate-quantity-stepper"
 import { useOutlet } from "@/lib/outlet-context"
 import { useConveyorGroups } from "@/hooks/use-production"
+import { useTimeSlots } from "@/hooks/use-time-slots"
+import { contrastTextColor, markerAt } from "@/lib/time-slot"
 import { usePlateColorsSortedByPrice } from "@/hooks/use-plate-colors"
 import { useMenus } from "@/hooks/use-menus"
 import { useActiveWasteReasons } from "@/hooks/use-waste-reasons"
@@ -27,29 +29,11 @@ import { lowercase } from "@/lib/utils"
 const CARD_IMAGE_SIZES =
   "(min-width: 1280px) 16vw, (min-width: 1024px) 20vw, (min-width: 768px) 25vw, (min-width: 640px) 33vw, 50vw"
 
-// Siklus warna penanda waktu sesuai production-planning: Biru → Hitam → Merah → Kuning → Hijau
-const TIME_SLOT_COLORS = [
-  { label: "Biru",   bg: "bg-blue-500",   ring: "ring-blue-300" },
-  { label: "Hitam",  bg: "bg-gray-800",   ring: "ring-gray-500" },
-  { label: "Merah",  bg: "bg-red-500",    ring: "ring-red-300" },
-  { label: "Kuning", bg: "bg-yellow-400", ring: "ring-yellow-300" },
-  { label: "Hijau",  bg: "bg-green-500",  ring: "ring-green-300" },
-]
-
-// Hitung index slot 30 menit dari jam produksi (slot 0 = 10:00)
-function getTimeSlotIndex(producedAt: Date): number {
-  const h = producedAt.getHours()
-  const m = producedAt.getMinutes()
-  const totalMinutes = h * 60 + m
-  const baseMinutes = 10 * 60 // 10:00
-  const slotIndex = Math.floor((totalMinutes - baseMinutes) / 30)
-  return Math.max(0, slotIndex)
-}
-
-function getTimeSlotColor(producedAt: Date) {
-  const idx = getTimeSlotIndex(producedAt)
-  return TIME_SLOT_COLORS[idx % TIME_SLOT_COLORS.length]
-}
+// Penanda waktu datang dari master brand (`/master/time-slot`), bukan dari
+// hitungan lokal. Versi sebelumnya menyalin lima warna dan rumus "jam dibagi 30
+// menit sejak 10:00" ke berkas ini DAN ke layar planning — dua perhitungan yang
+// harus selalu sepakat tanpa apa pun yang menjaganya. Sekarang keduanya membaca
+// baris slot yang sama.
 
 /** Satu batch dengan tanggalnya sudah diurai, dihitung sekali per perubahan data. */
 interface ConveyorBatch extends ProductionItemGroup {
@@ -79,8 +63,16 @@ export function ConveyorScreen() {
   const { selectedOutletId } = useOutlet()
 
   const { groups, isLoading, closeDay, wasteItems } = useConveyorGroups(selectedOutletId)
+  const { timeSlots } = useTimeSlots(selectedOutletId)
   const { plateColors } = usePlateColorsSortedByPrice(selectedOutletId)
   const { menus } = useMenus(selectedOutletId)
+
+  /** Warna badge dari master. Kosong = badge memakai palet cadangan lamanya. */
+  const hexByColorName = useMemo(
+    () => new Map(plateColors.map((pc) => [pc.platename.toLowerCase(), pc.colorHex])),
+    [plateColors]
+  )
+
   const { wasteReasons } = useActiveWasteReasons()
 
   const [selectedColorId, setSelectedColorId] = useState<string | null>(null)
@@ -269,7 +261,7 @@ export function ConveyorScreen() {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
           {visibleBatches.map((batch) => {
             const menuItem = menuById.get(batch.menuId)
-            const slotColor = getTimeSlotColor(batch.producedAtDate)
+            const marker = markerAt(timeSlots, batch.producedAtDate)
 
             return (
               <Card key={batch.groupKey} className="relative h-56 overflow-hidden group">
@@ -292,7 +284,7 @@ export function ConveyorScreen() {
 
                   {/* TOP SECTION */}
                   <div className="flex justify-between items-start">
-                    <PlateColorBadge color={lowercase(batch.plateColorName) || "white"} />
+                    <PlateColorBadge color={lowercase(batch.plateColorName) || "white"} colorHex={hexByColorName.get(lowercase(batch.plateColorName) || "white") ?? null} />
 
                     <div className="flex items-center gap-1">
                       {/* Jumlah piring di batch ini. */}
@@ -304,12 +296,28 @@ export function ConveyorScreen() {
                       </span>
 
                       {/* Penanda waktu produksi */}
-                      <span
-                        className={`inline-flex items-center justify-center w-6 h-6 rounded-full ${slotColor.bg} text-white text-[10px] font-bold ring-2 ${slotColor.ring} shadow-md`}
-                        title={`${slotColor.label} — ${batch.producedAtDate.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}`}
-                      >
-                        {slotColor.label[0]}
-                      </span>
+                      {marker ? (
+                        <span
+                          className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold ring-2 ring-white/40 shadow-md"
+                          style={{
+                            backgroundColor: marker.colorHex,
+                            color: contrastTextColor(marker.colorHex),
+                          }}
+                          title={`${marker.label} — ${batch.producedAtDate.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}`}
+                        >
+                          {marker.label[0]}
+                        </span>
+                      ) : (
+                        // Jamnya di luar semua slot. Versi lama memaksanya jadi
+                        // warna slot pertama — penanda yang terlihat sah padahal
+                        // tidak menunjuk apa pun.
+                        <span
+                          className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-black/50 text-white/80 text-[10px] ring-1 ring-white/30 shadow-md"
+                          title={`Di luar semua time slot — ${batch.producedAtDate.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}`}
+                        >
+                          –
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -417,7 +425,7 @@ export function ConveyorScreen() {
                     {wasteDialog.group.menuName}
                   </h4>
                   <div className="mt-1 flex items-center gap-2">
-                    <PlateColorBadge color={lowercase(wasteDialog.group.plateColorName) || "white"} />
+                    <PlateColorBadge color={lowercase(wasteDialog.group.plateColorName) || "white"} colorHex={hexByColorName.get(lowercase(wasteDialog.group.plateColorName) || "white") ?? null} />
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
                     Prod: {wasteDialog.group.producedAtDate.toLocaleDateString("id-ID")}{" "}

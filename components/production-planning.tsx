@@ -10,33 +10,35 @@ import { useToast } from "@/hooks/use-toast"
 import { useOutlet } from "@/lib/outlet-context"
 import { useProductionPlan } from "@/hooks/use-production"
 import { usePlateColorsSortedByPrice } from "@/hooks/use-plate-colors"
+import { useTimeSlots } from "@/hooks/use-time-slots"
+import { contrastTextColor, sortSlotsByTime } from "@/lib/time-slot"
+import Link from "next/link"
 import { Save, RotateCcw, TrendingUp, Loader2, RefreshCw } from "lucide-react"
-import type { ProductionPlanRow } from "@/lib/api"
+import { getApiError, type ProductionPlanRow, type TimeMarker, type TimeSlot } from "@/lib/api"
 
-// Generate 30-minute time slots from 10:00 to 20:30
-const generateTimeSlots = (): string[] => {
-  const slots: string[] = []
-  for (let hour = 10; hour <= 20; hour++) {
-    slots.push(`${String(hour).padStart(2, "0")}:00-${String(hour).padStart(2, "0")}:30`)
-    if (hour < 20) {
-      slots.push(`${String(hour).padStart(2, "0")}:30-${String(hour + 1).padStart(2, "0")}:00`)
-    } else {
-      slots.push(`${String(hour).padStart(2, "0")}:30-${String(hour + 1).padStart(2, "0")}:00`)
-    }
-  }
-  return slots
+/**
+ * Baris slot dan penandanya datang dari master brand.
+ *
+ * Sebelumnya keduanya dikunci mati di sini: 22 slot 10:00-21:00 yang sama untuk
+ * semua brand, dan lima warna yang dipilih dari SISA BAGI nomor baris. Dua hal
+ * yang membuatnya salah:
+ *
+ * - Nomor baris bukan jam. Begitu plan tersimpan dibuka lagi, urutan barisnya
+ *   ditentukan basis data, jadi warna yang muncul bisa bukan warna slot itu.
+ *   Layar conveyor sementara itu menghitung warna dari jam `produced_at` —
+ *   dua perhitungan berbeda yang harus selalu sepakat, tanpa apa pun yang
+ *   menjaganya.
+ * - Siklus lima warna x 30 menit = 150 menit, sementara sebagian besar menu
+ *   bertahan 180 menit. Dua batch berwarna sama ada di belt bersamaan.
+ *
+ * Sekarang warna baris diambil langsung dari baris slot yang sama dengan yang
+ * dibaca conveyor, jadi tidak ada yang perlu disepakati.
+ */
+
+/** Baris plan tersimpan yang slotnya sudah tidak ada di master. */
+function isUnknownSlot(slots: TimeSlot[], label: string): boolean {
+  return !slots.some((slot) => slot.label === label)
 }
-
-// Cycle: Biru → Hitam → Merah → Kuning → Hijau
-const TIME_SLOT_COLORS = [
-  { label: "Biru",   bg: "bg-blue-500",   ring: "ring-blue-400",   text: "text-blue-700",   rowBg: "bg-blue-50/60" },
-  { label: "Hitam",  bg: "bg-gray-800",   ring: "ring-gray-600",   text: "text-gray-800",   rowBg: "bg-gray-50/60" },
-  { label: "Merah",  bg: "bg-red-500",    ring: "ring-red-400",    text: "text-red-700",    rowBg: "bg-red-50/60" },
-  { label: "Kuning", bg: "bg-yellow-400", ring: "ring-yellow-300", text: "text-yellow-700", rowBg: "bg-yellow-50/60" },
-  { label: "Hijau",  bg: "bg-green-500",  ring: "ring-green-400",  text: "text-green-700",  rowBg: "bg-green-50/60" },
-]
-
-const getTimeSlotColor = (index: number) => TIME_SLOT_COLORS[index % TIME_SLOT_COLORS.length]
 
 export function ProductionPlanning() {
   const { toast } = useToast()
@@ -54,6 +56,31 @@ export function ProductionPlanning() {
     planDate
   )
 
+  // Slot milik brand outlet ini, beserta penandanya.
+  const { timeSlots, isLoading: isLoadingSlots } = useTimeSlots(selectedOutletId)
+
+  const sortedSlots = useMemo(() => sortSlotsByTime(timeSlots), [timeSlots])
+
+  /** Penanda yang benar-benar dipakai hari ini, untuk legenda di atas tabel. */
+  const usedMarkers = useMemo(() => {
+    const seen = new Map<string, TimeMarker>()
+
+    sortedSlots.forEach((slot) => {
+      if (slot.marker) seen.set(slot.marker.id, slot.marker)
+    })
+
+    return [...seen.values()].sort((a, b) => a.sortOrder - b.sortOrder)
+  }, [sortedSlots])
+
+  const markerByLabel = useMemo(() => {
+    return new Map(sortedSlots.map((slot) => [slot.label, slot.marker]))
+  }, [sortedSlots])
+
+  /** Warna badge per nama warna, dari master. Kosong = badge pakai palet cadangan. */
+  const hexByColorName = useMemo(() => {
+    return new Map(plateColors.map((pc) => [pc.platename.toLowerCase(), pc.colorHex]))
+  }, [plateColors])
+
   // Get color keys from API response
   const colorKeys = useMemo(() => {
     return plateColors
@@ -62,26 +89,45 @@ export function ProductionPlanning() {
   }, [plateColors])
  
 
-  // Generate default plan based on available colors
+  // Baris kosong untuk setiap slot milik brand, urut jam.
   const generateDefaultPlan = useMemo(() => {
-    const timeSlots = generateTimeSlots()
-    return timeSlots.map((timeSlot) => {
-      const row: ProductionPlanRow = { timeSlot }
+    return sortedSlots.map((slot) => {
+      const row: ProductionPlanRow = { timeSlot: slot.label }
       colorKeys.forEach(color => {
         row[color] = 0
       })
       return row
     })
-  }, [colorKeys])
+  }, [colorKeys, sortedSlots])
 
-  // Sync local plan with API data or generate default
+  /**
+   * Gabungkan master slot dengan angka yang sudah tersimpan.
+   *
+   * Barisnya selalu mengikuti master, urut jam — bukan urutan yang kebetulan
+   * dikembalikan basis data. Label tersimpan yang slotnya sudah tidak ada
+   * ditaruh di belakang apa adanya: mengubah jam slot tidak boleh mengubah plan
+   * yang sudah tersimpan, jadi baris seperti itu adalah keadaan yang sah.
+   */
   useEffect(() => {
-    if (apiPlan && apiPlan.length > 0) {
-      setLocalPlan(apiPlan)
-    } else if (colorKeys.length > 0) {
-      setLocalPlan(generateDefaultPlan)
-    }
-  }, [apiPlan, colorKeys, generateDefaultPlan])
+    if (colorKeys.length === 0) return
+
+    const saved = new Map((apiPlan ?? []).map((row) => [row.timeSlot, row]))
+
+    const rows: ProductionPlanRow[] = sortedSlots.map((slot) => {
+      const stored = saved.get(slot.label)
+      saved.delete(slot.label)
+
+      const row: ProductionPlanRow = { timeSlot: slot.label }
+      colorKeys.forEach((color) => {
+        row[color] = Number(stored?.[color] ?? 0)
+      })
+      return row
+    })
+
+    const orphans = [...saved.values()].sort((a, b) => a.timeSlot.localeCompare(b.timeSlot))
+
+    setLocalPlan([...rows, ...orphans])
+  }, [apiPlan, colorKeys, sortedSlots])
 
   const handleChange = (index: number, color: PlateColor, value: string) => {
     const newPlan = [...localPlan]
@@ -113,7 +159,14 @@ export function ProductionPlanning() {
 
     setIsSaving(true)
     try {
-      await savePlan(localPlan)
+      // Baris "slot tidak dikenal" tidak ikut dikirim: server menolak label di
+      // luar master, jadi menyertakannya membuat seluruh plan gagal disimpan.
+      // Konsekuensinya baris itu hilang setelah disimpan — dan itu memang yang
+      // diminta operator ketika ia menyimpan ulang hari ini dengan slot yang
+      // berlaku sekarang. Peringatannya ada di atas tabel, bukan diam-diam.
+      const rows = localPlan.filter((row) => !isUnknownSlot(sortedSlots, row.timeSlot))
+
+      await savePlan(rows)
       toast({
         title: "Production Plan Saved",
         description: `Daily target: ${getGrandTotal()} items across ${colorKeys.length} plate colors`,
@@ -121,7 +174,7 @@ export function ProductionPlanning() {
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to save production plan. Please try again.",
+        description: getApiError(error).message || "Failed to save production plan. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -153,7 +206,12 @@ export function ProductionPlanning() {
     }, colorKeys[0])
   }, [colorKeys, localPlan])
 
-  const isLoading = isLoadingColors || isLoadingPlan
+  const isLoading = isLoadingColors || isLoadingPlan || isLoadingSlots
+
+  const orphanCount = useMemo(
+    () => localPlan.filter((row) => isUnknownSlot(sortedSlots, row.timeSlot)).length,
+    [localPlan, sortedSlots]
+  )
 
   if (isLoading && localPlan.length === 0) {
     return (
@@ -187,6 +245,34 @@ export function ProductionPlanning() {
     )
   }
 
+  /**
+   * Brand belum punya slot. Gagal terang-terangan — tabel kosong tanpa
+   * penjelasan akan terbaca sebagai "plan hari ini memang kosong".
+   */
+  if (sortedSlots.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold">Production Planning</h1>
+            <p className="text-muted-foreground mt-1">Set production targets by plate color</p>
+          </div>
+          <OutletSelector />
+        </div>
+        <Card>
+          <CardContent className="pt-6 text-center space-y-3">
+            <p className="text-muted-foreground">
+              Brand outlet ini belum punya time slot, jadi belum ada baris yang bisa diisi.
+            </p>
+            <Link href="/admin/brand-settings" className="text-sm font-medium underline">
+              Atur time slot di Setelan Brand
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Header with Outlet Selector */}
@@ -212,7 +298,9 @@ export function ProductionPlanning() {
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">Top Producer</p>
             <div className="mt-2">
-              {topColor && <PlateColorBadge color={topColor} />}
+              {topColor && (
+                <PlateColorBadge color={topColor} colorHex={hexByColorName.get(topColor) ?? null} />
+              )}
             </div>
             <p className="text-xs text-orange-600 mt-2">
               {topColor ? `${getColumnTotal(topColor)} pieces` : 'No data'}
@@ -220,6 +308,14 @@ export function ProductionPlanning() {
           </CardContent>
         </Card>
       </div>
+
+      {orphanCount > 0 && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          {orphanCount} baris memakai time slot yang sudah tidak ada di setelan brand. Baris itu
+          ditampilkan apa adanya dan tidak bisa diubah — kalau plan ini disimpan ulang, baris
+          tersebut tidak ikut tersimpan.
+        </div>
+      )}
 
       {/* Production Schedule Table */}
       <Card className="shadow-lg">
@@ -253,12 +349,21 @@ export function ProductionPlanning() {
                   <th colSpan={colorKeys.length + 2} className="px-4 py-2">
                     <div className="flex flex-wrap items-center gap-3">
                       <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Penanda Waktu:</span>
-                      {TIME_SLOT_COLORS.map((c) => (
-                        <span key={c.label} className="flex items-center gap-1.5">
-                          <span className={`inline-block w-3 h-3 rounded-full ${c.bg}`} />
-                          <span className="text-xs text-slate-600">{c.label}</span>
+                      {usedMarkers.length === 0 ? (
+                        <span className="text-xs text-slate-500">
+                          Belum ada penanda yang dipasang ke slot.
                         </span>
-                      ))}
+                      ) : (
+                        usedMarkers.map((marker) => (
+                          <span key={marker.id} className="flex items-center gap-1.5">
+                            <span
+                              className="inline-block w-3 h-3 rounded-full"
+                              style={{ backgroundColor: marker.colorHex }}
+                            />
+                            <span className="text-xs text-slate-600">{marker.label}</span>
+                          </span>
+                        ))
+                      )}
                     </div>
                   </th>
                 </tr>
@@ -266,7 +371,7 @@ export function ProductionPlanning() {
                   <th className="text-left p-4 font-semibold text-slate-700">Time Slot</th>
                   {colorKeys.map((color) => (
                     <th key={color} className="text-center p-4 min-w-28">
-                      <PlateColorBadge color={color} />
+                      <PlateColorBadge color={color} colorHex={hexByColorName.get(color) ?? null} />
                     </th>
                   ))}
                   <th className="text-center p-4 font-semibold text-slate-700 min-w-20 bg-slate-50">Total</th>
@@ -274,20 +379,43 @@ export function ProductionPlanning() {
               </thead>
               <tbody>
                 {localPlan.map((row, index) => {
-                  const slotColor = getTimeSlotColor(index)
+                  const marker = markerByLabel.get(row.timeSlot) ?? null
+                  const unknown = isUnknownSlot(sortedSlots, row.timeSlot)
+
                   return (
-                    <tr key={row.timeSlot} className={`border-b transition-colors hover:brightness-95 ${slotColor.rowBg}`}>
+                    <tr
+                      key={row.timeSlot}
+                      className={`border-b transition-colors hover:brightness-95 ${unknown ? "bg-slate-100/70" : ""}`}
+                    >
                       <td className="p-3 bg-white/70 border-r border-slate-200">
                         <div className="flex items-center gap-2">
-                          <span
-                            className={`inline-flex items-center justify-center w-6 h-6 rounded-full ${slotColor.bg} text-white text-[10px] font-bold ring-2 ${slotColor.ring} shrink-0`}
-                            title={slotColor.label}
-                          >
-                            {slotColor.label[0]}
-                          </span>
-                          <span className={`font-semibold text-sm ${slotColor.text}`}>
+                          {marker ? (
+                            <span
+                              className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold ring-2 ring-black/10 shrink-0"
+                              style={{
+                                backgroundColor: marker.colorHex,
+                                color: contrastTextColor(marker.colorHex),
+                              }}
+                              title={marker.label}
+                            >
+                              {marker.label[0]}
+                            </span>
+                          ) : (
+                            <span
+                              className="inline-flex items-center justify-center w-6 h-6 rounded-full border border-dashed border-slate-300 text-[10px] text-slate-400 shrink-0"
+                              title={unknown ? "Slot tidak dikenal" : "Belum ada penanda"}
+                            >
+                              –
+                            </span>
+                          )}
+                          <span className="font-semibold text-sm text-slate-700">
                             {row.timeSlot.split("-")[0]}
                           </span>
+                          {unknown && (
+                            <span className="text-[10px] uppercase tracking-wide text-slate-500">
+                              tidak dikenal
+                            </span>
+                          )}
                         </div>
                       </td>
                       {colorKeys.map((color) => (
@@ -295,6 +423,7 @@ export function ProductionPlanning() {
                           <Input
                             type="number"
                             min={0}
+                            disabled={unknown}
                             value={row[color] ?? ""}
                             onChange={(e) => handleChange(index, color, e.target.value === "" ? "0" : e.target.value)}
                             className="w-20 text-center mx-auto h-9 text-sm font-medium"

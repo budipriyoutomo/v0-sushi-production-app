@@ -48,6 +48,11 @@ export interface Outlet {
 export interface PlateColorConfig {
   id: string
   platename: string
+  /**
+   * Warna tampil badge, '#RRGGBB'. `null` untuk baris lama yang namanya tidak
+   * dikenal peta warna lama — badge jatuh ke palet cadangan.
+   */
+  colorHex: string | null
   price: number
   description: string
   targetFoodCost: number

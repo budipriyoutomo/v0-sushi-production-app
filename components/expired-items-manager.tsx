@@ -24,6 +24,8 @@ import { PlateColorBadge } from '@/components/plate-color-badge'
 import { OutletSelector } from '@/components/outlet-selector'
 import { PlateQuantityStepper } from '@/components/plate-quantity-stepper'
 import { useOutlet } from '@/lib/outlet-context'
+import { useTimeSlots } from '@/hooks/use-time-slots'
+import { contrastTextColor, markerAt } from '@/lib/time-slot'
 import { useMenus } from '@/hooks/use-menus'
 import { usePlateColorsSortedByPrice } from '@/hooks/use-plate-colors'
 import { useExpiredGroups } from '@/hooks/use-production'
@@ -38,29 +40,11 @@ import { lowercase } from '@/lib/utils'
 const CARD_IMAGE_SIZES =
   '(min-width: 1280px) 16vw, (min-width: 1024px) 20vw, (min-width: 768px) 25vw, (min-width: 640px) 33vw, 50vw'
 
-// Siklus warna penanda waktu sesuai production-planning: Biru → Hitam → Merah → Kuning → Hijau
-const TIME_SLOT_COLORS = [
-  { label: "Biru",   bg: "bg-blue-500",   ring: "ring-blue-300" },
-  { label: "Hitam",  bg: "bg-gray-800",   ring: "ring-gray-500" },
-  { label: "Merah",  bg: "bg-red-500",    ring: "ring-red-300" },
-  { label: "Kuning", bg: "bg-yellow-400", ring: "ring-yellow-300" },
-  { label: "Hijau",  bg: "bg-green-500",  ring: "ring-green-300" },
-]
-
-// Hitung index slot 30 menit dari jam produksi (slot 0 = 10:00)
-function getTimeSlotIndex(producedAt: Date): number {
-  const h = producedAt.getHours()
-  const m = producedAt.getMinutes()
-  const totalMinutes = h * 60 + m
-  const baseMinutes = 10 * 60 // 10:00
-  const slotIndex = Math.floor((totalMinutes - baseMinutes) / 30)
-  return Math.max(0, slotIndex)
-}
-
-function getTimeSlotColor(producedAt: Date) {
-  const idx = getTimeSlotIndex(producedAt)
-  return TIME_SLOT_COLORS[idx % TIME_SLOT_COLORS.length]
-}
+// Penanda waktu datang dari master brand (`/master/time-slot`), bukan dari
+// hitungan lokal. Versi sebelumnya menyalin lima warna dan rumus "jam dibagi 30
+// menit sejak 10:00" ke berkas ini DAN ke layar planning — dua perhitungan yang
+// harus selalu sepakat tanpa apa pun yang menjaganya. Sekarang keduanya membaca
+// baris slot yang sama.
 
 /** Satu batch dengan tanggalnya sudah diurai, dihitung sekali per perubahan data. */
 interface ExpiredBatch extends ProductionItemGroup {
@@ -92,6 +76,13 @@ export function ExpiredItemsManager() {
   const { menus, isLoading: menusLoading } = useMenus(selectedOutletId)
   const { plateColors, isLoading: plateColorsLoading } = usePlateColorsSortedByPrice(selectedOutletId)
   const { groups, isLoading: expiredLoading, updateItems } = useExpiredGroups(selectedOutletId)
+  const { timeSlots } = useTimeSlots(selectedOutletId)
+  /** Warna badge dari master. Kosong = badge memakai palet cadangan lamanya. */
+  const hexByColorName = useMemo(
+    () => new Map(plateColors.map((pc) => [pc.platename.toLowerCase(), pc.colorHex])),
+    [plateColors]
+  )
+
   const { wasteReasons } = useActiveWasteReasons()
 
   const [selectedColor, setSelectedColor] = useState<string | null>(null)
@@ -240,7 +231,7 @@ export function ExpiredItemsManager() {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
           {visibleBatches.map((batch) => {
             const menuItem = menuById.get(batch.menuId)
-            const slotColor = getTimeSlotColor(batch.producedAtDate)
+            const marker = markerAt(timeSlots, batch.producedAtDate)
 
             return (
               <Card
@@ -264,7 +255,7 @@ export function ExpiredItemsManager() {
                 <div className="absolute inset-0 p-3 flex flex-col justify-between text-gray-900">
                   {/* TOP */}
                   <div className="flex justify-between items-start">
-                    <PlateColorBadge color={lowercase(batch.plateColorName) || 'white'} />
+                    <PlateColorBadge color={lowercase(batch.plateColorName) || 'white'} colorHex={hexByColorName.get(lowercase(batch.plateColorName) || 'white') ?? null} />
 
                     <div className="flex items-center gap-1">
                       <span
@@ -275,12 +266,27 @@ export function ExpiredItemsManager() {
                       </span>
 
                       {/* Penanda waktu produksi */}
-                      <span
-                        className={`inline-flex items-center justify-center w-6 h-6 rounded-full ${slotColor.bg} text-white text-[10px] font-bold ring-2 ${slotColor.ring} shadow-md`}
-                        title={`${slotColor.label} — ${batch.producedAtDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`}
-                      >
-                        {slotColor.label[0]}
-                      </span>
+                      {marker ? (
+                        <span
+                          className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold ring-2 ring-white/40 shadow-md"
+                          style={{
+                            backgroundColor: marker.colorHex,
+                            color: contrastTextColor(marker.colorHex),
+                          }}
+                          title={`${marker.label} — ${batch.producedAtDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`}
+                        >
+                          {marker.label[0]}
+                        </span>
+                      ) : (
+                        // Lihat alasannya di conveyor-screen: jam di luar semua
+                        // slot tidak punya penanda, dan itu harus terlihat.
+                        <span
+                          className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-black/50 text-white/80 text-[10px] ring-1 ring-white/30 shadow-md"
+                          title={`Di luar semua time slot — ${batch.producedAtDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`}
+                        >
+                          –
+                        </span>
+                      )}
                     </div>
                   </div>
 

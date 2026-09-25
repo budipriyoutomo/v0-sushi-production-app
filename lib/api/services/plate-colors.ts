@@ -4,6 +4,7 @@ import type { PlateColorConfig } from '@/lib/types'
 
 export interface CreatePlateColorDTO {
   platename: string
+  color_hex?: string | null
   price: number
   description: string
   target_foodcost: number
@@ -13,6 +14,7 @@ export interface CreatePlateColorDTO {
 
 export interface UpdatePlateColorDTO {
   platename?: string
+  color_hex?: string | null
   price?: number
   description?: string
   target_foodcost?: number
@@ -30,6 +32,7 @@ export interface UpdatePlateColorDTO {
 interface PlateColorApiResponse {
   id: string
   platename: string | number
+  color_hex?: string | null
   price: number
   description: string | number
   target_foodcost: number
@@ -44,6 +47,9 @@ function transformPlateColor(data: PlateColorApiResponse): PlateColorConfig {
   return {
     id: data.id,
     platename: text(data.platename),
+    // Respons dari backend versi lama tidak punya kolom ini, dan service worker
+    // menyimpannya sampai lima menit setelah deploy. `null` = pakai cadangan.
+    colorHex: data.color_hex ?? null,
     price: data.price,
     description: text(data.description),
     targetFoodCost: data.target_foodcost,

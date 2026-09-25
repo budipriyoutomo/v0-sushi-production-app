@@ -7,6 +7,7 @@ import {
   type ProductionItemGroup,
   type BulkExpiredResult,
 } from '@/lib/api'
+import { emptyArray } from '@/lib/empty'
 
 const PRODUCTION_KEY = '/production'
 
@@ -24,7 +25,7 @@ export function useProductionStats(outletId: string | null) {
   )
 
   return {
-    stats: data || [],
+    stats: data ?? emptyArray(),
     isLoading,
     error,
     refresh: mutate,
@@ -122,7 +123,7 @@ export function useConveyorGroups(outletId: string | null) {
   }
 
   return {
-    groups: data || [],
+    groups: data ?? emptyArray(),
     isLoading,
     error,
     produceItem,
@@ -163,7 +164,7 @@ export function useExpiredGroups(outletId: string | null) {
   }
 
   return {
-    groups: data || [],
+    groups: data ?? emptyArray(),
     isLoading,
     error,
     updateItems,
@@ -189,7 +190,7 @@ export function useWasteRecords(outletId: string | null, startDate: string | nul
   }
 
   return {
-    records: data || [],
+    records: data ?? emptyArray(),
     isLoading,
     error,
     recordWaste,

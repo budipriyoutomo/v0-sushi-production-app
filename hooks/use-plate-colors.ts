@@ -7,6 +7,7 @@ import {
 } from '@/lib/api'
 import type { PlateColorConfig } from '@/lib/types'
 import { outletScopedKey } from './use-outlet-scoped-key'
+import { emptyArray } from '@/lib/empty'
 
 const PLATE_COLORS_KEY = '/master/platecolor'
 
@@ -60,7 +61,7 @@ export function usePlateColors(outletId?: string | null) {
   // `updatePlateColor(id, { price })`.
 
   return {
-    plateColors: data || [],
+    plateColors: data ?? emptyArray(),
     isLoading,
     error,
     createPlateColor,
@@ -89,7 +90,7 @@ export function usePlateColorsSortedByPrice(outletId?: string | null) {
   })
 
   return {
-    plateColors: data || [],
+    plateColors: data ?? emptyArray(),
     isLoading,
     error,
     refresh: mutate,

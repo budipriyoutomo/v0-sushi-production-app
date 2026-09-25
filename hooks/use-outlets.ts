@@ -1,6 +1,7 @@
 import useSWR from 'swr'
 import { outletsService, type CreateOutletDTO, type UpdateOutletDTO } from '@/lib/api'
 import type { Outlet } from '@/lib/types'
+import { emptyArray } from '@/lib/empty'
 
 const OUTLETS_KEY = '/master/outlet'
 
@@ -43,7 +44,7 @@ export function useOutlets() {
   }
 
   return {
-    outlets: data || [],
+    outlets: data ?? emptyArray(),
     isLoading,
     error,
     createOutlet,
@@ -70,7 +71,7 @@ export function useActiveOutlets(key?: string | null) {
   )
 
   return {
-    outlets: data || [],
+    outlets: data ?? emptyArray(),
     isLoading,
     error,
     refresh: mutate,

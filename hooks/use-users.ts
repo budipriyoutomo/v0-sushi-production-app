@@ -1,6 +1,7 @@
 import useSWR from 'swr'
 import { usersService, type CreateUserDTO, type UpdateUserDTO } from '@/lib/api'
 import type { User, UserRole } from '@/lib/types'
+import { emptyArray } from '@/lib/empty'
 
 const USERS_KEY = '/users'
 
@@ -32,7 +33,7 @@ export function useUsers() {
   // lewat `updateUser(id, { pin })`.
 
   return {
-    users: data || [],
+    users: data ?? emptyArray(),
     isLoading,
     error,
     createUser,
@@ -49,7 +50,7 @@ export function useUsersByRole(role: UserRole) {
   })
 
   return {
-    users: data || [],
+    users: data ?? emptyArray(),
     isLoading,
     error,
     refresh: mutate,
@@ -67,7 +68,7 @@ export function useUsersByOutlet(outletId: string | null) {
   )
 
   return {
-    users: data || [],
+    users: data ?? emptyArray(),
     isLoading,
     error,
     refresh: mutate,

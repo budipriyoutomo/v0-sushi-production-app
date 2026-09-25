@@ -1,5 +1,6 @@
 import useSWR, { mutate } from 'swr'
 import { wasteReasonsService, type WasteReason, type CreateWasteReasonDTO, type UpdateWasteReasonDTO } from '@/lib/api/services/waste-reasons'
+import { emptyArray } from '@/lib/empty'
 
 const WASTE_REASONS_KEY = '/master/waste-reason'
 
@@ -30,7 +31,7 @@ export function useWasteReasons() {
   }
 
   return {
-    wasteReasons: data || [],
+    wasteReasons: data ?? emptyArray(),
     isLoading,
     error,
     createWasteReason,
@@ -49,7 +50,7 @@ export function useActiveWasteReasons() {
   )
 
   return {
-    wasteReasons: data || [],
+    wasteReasons: data ?? emptyArray(),
     isLoading,
     error,
     refresh:mutate,

@@ -36,6 +36,7 @@ export function PlateColorsAdmin() {
 
   const [formData, setFormData] = useState({
     platename: "",
+    color_hex: "",
     price: 0,
     description: "",
     target_foodcost: 0,
@@ -47,6 +48,7 @@ export function PlateColorsAdmin() {
     setEditingItem(null)
     setFormData({
       platename: "",
+      color_hex: "",
       price: 0,
       description: "",
       target_foodcost: 0,
@@ -62,6 +64,7 @@ export function PlateColorsAdmin() {
     setEditingItem(item)
     setFormData({
       platename: item.platename,
+      color_hex: item.colorHex ?? "",
       price: item.price,
       description: item.description,
       target_foodcost: item.targetFoodCost,
@@ -85,6 +88,7 @@ export function PlateColorsAdmin() {
       if (editingItem) {
         await updatePlateColor(editingItem.id, {
           platename: formData.platename,
+          color_hex: formData.color_hex || null,
           price: formData.price,
           description: formData.description,
           target_foodcost: formData.target_foodcost,
@@ -95,6 +99,7 @@ export function PlateColorsAdmin() {
       } else {
         await createPlateColor({
           platename: formData.platename,
+          color_hex: formData.color_hex || null,
           price: formData.price,
           description: formData.description,
           target_foodcost: formData.target_foodcost,
@@ -164,7 +169,7 @@ export function PlateColorsAdmin() {
                     className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50"
                   >
                     <div className="flex items-center gap-4 flex-1">
-                      <PlateColorBadge color={color.platename.toLowerCase() as "white" | "blue" | "pink" | "black" | "red" | "gold" | "choco motive" | "yellow" | "silver"} />
+                      <PlateColorBadge color={color.platename} colorHex={color.colorHex} />
                       <div className="flex-1">
                         <p className="font-medium capitalize">
                           {color.platename}
@@ -220,6 +225,23 @@ export function PlateColorsAdmin() {
                   value={formData.platename}
                   onChange={(e) => setFormData({ ...formData, platename: e.target.value })}
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="color_hex">Warna Badge</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="color_hex"
+                    type="color"
+                    className="w-16 p-1"
+                    value={formData.color_hex || "#9CA3AF"}
+                    onChange={(e) => setFormData({ ...formData, color_hex: e.target.value.toUpperCase() })}
+                  />
+                  <Input
+                    placeholder="#RRGGBB — kosongkan untuk pakai warna bawaan"
+                    value={formData.color_hex}
+                    onChange={(e) => setFormData({ ...formData, color_hex: e.target.value })}
+                  />
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="brand">Brand</Label>

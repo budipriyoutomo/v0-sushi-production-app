@@ -51,6 +51,14 @@ Contoh transformasi yang hidup di service: `productionService.savePlan()` memuat
 
 **Cache `colorMap` dikunci per outlet.** Sejak plate color jadi milik brand, dua brand boleh sama-sama punya "White" dengan id dan harga berbeda; satu peta global akan menyimpan salah satunya lalu memakainya untuk outlet mana pun — tanpa error, hanya target plan yang menempel ke piring brand lain. Peta itu dibuang oleh `productionService.invalidatePlateColors()`, yang dipanggil `usePlateColors()` setiap kali master berubah.
 
+### Penanda waktu: satu perhitungan, bukan dua
+
+`lib/time-slot.ts` memetakan waktu → slot → penanda, dan **hanya berkas itu** yang boleh melakukannya. Sebelumnya layar planning memilih warna dari nomor urut baris sementara conveyor dan expired menghitungnya dari jam `produced_at` — dua algoritma yang harus selalu sepakat, disalin di tiga berkas, tanpa apa pun yang menjaganya. Kalau butuh penanda di layar baru, panggil `markerAt()`; jangan hitung sendiri.
+
+`contrastTextColor()` menghitung warna teks dari kecerahan latar (luminansi WCAG, bukan rata-rata RGB). Warna teks sengaja **tidak** disimpan di basis data: dua nilai untuk hal yang sama akan menyimpang, dan yang muncul adalah badge kuning bertulisan putih.
+
+`useTimeSlots(outletId)` untuk layar dapur, `useTimeSlotsByBrand(brandId)` untuk halaman setelan admin. Keduanya gagal-tertutup saat penyaringnya kosong.
+
 ### Brand ikut ke cache key
 Satu outlet melayani satu brand, dan menu serta plate color menempel ke brand. Karena itu `useMenus(outletId)` dan `usePlateColors(outletId)` memasukkan `outletId` ke SWR key. Key statis adalah bug diam: berpindah outlet akan menampilkan data brand sebelumnya dari cache. Layar admin sengaja memanggilnya **tanpa** `outletId` — master menampilkan semua brand. Lihat [../docs/brand-feature-plan.md](../docs/brand-feature-plan.md).
 

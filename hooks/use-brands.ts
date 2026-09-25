@@ -1,6 +1,7 @@
 import useSWR from 'swr'
 import { brandsService, type CreateBrandDTO, type UpdateBrandDTO } from '@/lib/api'
 import type { Brand } from '@/lib/types'
+import { emptyArray } from '@/lib/empty'
 
 const BRANDS_KEY = '/master/brand'
 
@@ -28,7 +29,7 @@ export function useBrands() {
   }
 
   return {
-    brands: data || [],
+    brands: data ?? emptyArray(),
     isLoading,
     error,
     createBrand,

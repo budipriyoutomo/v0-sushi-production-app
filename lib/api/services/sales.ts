@@ -14,6 +14,9 @@ export interface SalesDraft {
 }
 
 export interface SalesDraftItem {
+  // Id master plate color — yang dikirim balik sebagai `plate_color_id`.
+  plate_color_id: string
+  // Nama warna, hanya untuk tampilan. Bukan id.
   platecolor: string
   price: number
   pos: number

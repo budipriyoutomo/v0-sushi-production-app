@@ -2,6 +2,7 @@ import useSWR from 'swr'
 import { menusService, type CreateMenuDTO, type UpdateMenuDTO } from '@/lib/api'
 import type { SushiMenu } from '@/lib/types'
 import { outletScopedKey } from './use-outlet-scoped-key'
+import { emptyArray } from '@/lib/empty'
 
 const MENUS_KEY = '/master/menu'
 
@@ -54,7 +55,7 @@ export function useMenus(outletId?: string | null) {
   // `updateMenu(id, { image })`.
 
   return {
-    menus: data || [],
+    menus: data ?? emptyArray(),
     isLoading,
     error,
     createMenu,
