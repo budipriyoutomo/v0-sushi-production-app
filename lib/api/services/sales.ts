@@ -26,6 +26,19 @@ export interface SalesDraftItem {
   adjustment: number
   compensation: number
   selisih: number
+  // Rincian per menu. Harus dikirim balik saat draft disimpan lagi — server
+  // membuat ulang item beserta rinciannya dari payload.
+  details?: SalesDraftItemDetail[]
+}
+
+export interface SalesDraftItemDetail {
+  menu_id: string
+  menu_name: string
+  total_produced: number
+  total_sold: number
+  total_wasted: number
+  adjustment: number
+  compensation: number
 }
 
 class SalesService {

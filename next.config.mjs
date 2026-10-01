@@ -51,7 +51,13 @@ const withPWA = withPWAInit({
       },
     },
     {
-      urlPattern: ({ url }) => url.pathname.startsWith("/api/") || url.href.includes("/api/"),
+      // `/reports/pos-data` sengaja tidak lewat cache: angkanya dipakai untuk
+      // rekonsiliasi, dan endpoint itu cukup berat untuk melewati timeout 3s —
+      // operator lalu menerima angka request sebelumnya tanpa tanda apa pun.
+      // Lebih baik gagal terlihat daripada basi diam-diam.
+      urlPattern: ({ url }) =>
+        (url.pathname.startsWith("/api/") || url.href.includes("/api/")) &&
+        !url.pathname.includes("/reports/pos-data"),
       handler: "NetworkFirst",
       method: "GET",
       options: {

@@ -15,6 +15,7 @@ export interface POSData {
   plateColorName: string
   posSold: number
   productionSold: number
+  productionWaste: number
   selisih: number
 }
 

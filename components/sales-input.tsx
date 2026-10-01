@@ -10,6 +10,13 @@ import { OutletSelector } from '@/components/outlet-selector'
 import { useToast } from '@/hooks/use-toast'
 import { useOutlet } from '@/lib/outlet-context'
 import { reportsService, salesService, getApiError, type POSData, type ProductionMenuDetailItem, type SalesDraft } from '@/lib/api'
+import {
+  computeSelisih,
+  clearSalesDetails,
+  readSalesDetails,
+  salesDetailKey,
+  type StoredMenuDetail,
+} from '@/lib/sales-reconciliation'
 import type { PlateColor } from '@/components/plate-color-badge'
 import { PlateColorBadge } from '@/components/plate-color-badge'
 import { Textarea } from '@/components/ui/textarea'
@@ -30,11 +37,23 @@ interface SalesEntry {
 export function SalesInput() {
   const { toast } = useToast()
   const { selectedOutletId } = useOutlet()
-  const [salesEntries, setSalesEntries] = useState<SalesEntry[]>([])
   const [selectedDate, setSelectedDate] = useState(() => {
     const today = new Date()
     return today.toISOString().split('T')[0]
   })
+
+  // Entri selalu milik satu outlet + tanggal: yang aktif saat entri itu dimuat.
+  // Kalau pilihan berganti, entri tidak ditampilkan — dan karena itu tidak bisa
+  // ter-submit ke outlet/tanggal lain. Respons POS yang datang setelah operator
+  // pindah tanggal juga tertahan di scope lamanya.
+  const currentScope = `${selectedOutletId}|${selectedDate}`
+  const [entriesState, setEntriesState] = useState<{ scope: string; entries: SalesEntry[] }>({
+    scope: '',
+    entries: [],
+  })
+  const salesEntries = entriesState.scope === currentScope ? entriesState.entries : []
+  const setSalesEntries = (update: (prev: SalesEntry[]) => SalesEntry[]) =>
+    setEntriesState((prev) => ({ ...prev, entries: update(prev.entries) }))
   const [isLoadingPOS, setIsLoadingPOS] = useState(false)
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
   const [selectedEntryDetail, setSelectedEntryDetail] = useState<SalesEntry | null>(null)
@@ -50,12 +69,22 @@ export function SalesInput() {
 
   // Get Sales Drafts from API
   const handleGetSalesDrafts = async () => {
+    // Daftar sales wajib satu outlet — tanpa outlet, server menolak (422).
+    if (!selectedOutletId) {
+      toast({
+        title: 'Error',
+        description: 'Please select an outlet first',
+        variant: 'destructive',
+      })
+      return
+    }
+
     setDraftDialogOpen(true)
     setIsLoadingDrafts(true)
     try {
       const drafts = await salesService.getAll({
-        outletId: selectedOutletId || undefined,
-        date: selectedDate ,
+        outletId: selectedOutletId,
+        date: selectedDate,
         status: 'draft',
       })
       setSalesDrafts(drafts)
@@ -95,7 +124,37 @@ export function SalesInput() {
         compensation: item.compensation,
         selisih: item.selisih,
       }))
-      setSalesEntries(entries)
+
+      // Rincian per menu ikut dipulihkan ke localStorage — dari sanalah
+      // Save Draft/Submit membacanya. Tanpa ini, menyimpan draft yang dibuka
+      // ulang mengirim item tanpa `details`, dan server menghapus rinciannya.
+      clearSalesDetails(selectedOutletId, draft.date)
+      draft.items.forEach((item) => {
+        if (!item.details?.length) return
+        localStorage.setItem(
+          salesDetailKey(selectedOutletId, draft.date, item.plate_color_id),
+          JSON.stringify({
+            plateColorId: item.plate_color_id,
+            plateColorName: item.platecolor,
+            outletId: selectedOutletId,
+            date: draft.date,
+            totalAdjustment: item.adjustment,
+            totalCompensation: item.compensation,
+            menuDetails: item.details.map((d): StoredMenuDetail => ({
+              menuId: d.menu_id,
+              menuName: d.menu_name,
+              totalProduced: d.total_produced,
+              totalSold: d.total_sold,
+              totalWasted: d.total_wasted,
+              adjustment: d.adjustment,
+              compensation: d.compensation,
+            })),
+            savedAt: new Date().toISOString(),
+          })
+        )
+      })
+
+      setEntriesState({ scope: `${selectedOutletId}|${draft.date}`, entries })
       setSelectedDate(draft.date)
       setDraftDialogOpen(false)
       toast({
@@ -122,10 +181,13 @@ export function SalesInput() {
       return
     }
 
+    const outletId = selectedOutletId
+    const date = selectedDate
+
     setIsLoadingPOS(true)
     try {
-      const posData = await reportsService.getPOSData(selectedOutletId, selectedDate)
-      
+      const posData = await reportsService.getPOSData(outletId, date)
+
       // Convert POS data to sales entries
       const newEntries: SalesEntry[] = posData.map((pos: POSData) => ({
         id: pos.plateColorId,
@@ -133,13 +195,16 @@ export function SalesInput() {
         plateColorName: pos.plateColorName,
         posSold: pos.posSold,
         productionSold: pos.productionSold,
-        productionWaste: (pos as POSData & { productionWaste?: number }).productionWaste || 0,
+        productionWaste: pos.productionWaste ?? 0,
         adjustment: 0,
         compensation: 0,
-        selisih: pos.selisih,
+        selisih: computeSelisih(pos.posSold, pos.productionSold, 0, 0),
       }))
 
-      setSalesEntries(newEntries)
+      // Entri kembali ke adjustment 0, jadi rincian per menu yang tersimpan
+      // untuk tanggal ini sudah tidak berlaku.
+      clearSalesDetails(outletId, date)
+      setEntriesState({ scope: `${outletId}|${date}`, entries: newEntries })
       toast({
         title: 'Success',
         description: `Loaded ${posData.length} entries from POS`,
@@ -160,7 +225,7 @@ export function SalesInput() {
     setSalesEntries((prev) =>
       prev.map((entry) => {
         if (entry.id !== id) return entry
-        const selisih = entry.posSold - entry.productionSold + value + entry.compensation
+        const selisih = computeSelisih(entry.posSold, entry.productionSold, value, entry.compensation)
         return { ...entry, adjustment: value, selisih }
       })
     )
@@ -170,7 +235,7 @@ export function SalesInput() {
     setSalesEntries((prev) =>
       prev.map((entry) => {
         if (entry.id !== id) return entry
-        const selisih = entry.posSold - entry.productionSold + entry.adjustment + value
+        const selisih = computeSelisih(entry.posSold, entry.productionSold, entry.adjustment, value)
         return { ...entry, compensation: value, selisih }
       })
     )
@@ -192,11 +257,16 @@ export function SalesInput() {
         entry.plateColorId
       )
       setProductionDetail(detail)
-      // Initialize editable detail with current values
+      // Nilai yang sudah disimpan (dari dialog ini atau dari draft yang
+      // dibuka ulang) menang atas nol dari server — kalau tidak, membuka
+      // dialog lalu menekan Save menimpa rincian dengan nol.
+      const stored = new Map(
+        readSalesDetails(selectedOutletId, selectedDate, entry.plateColorId).map((d) => [d.menuId, d])
+      )
       setEditableDetail(detail.map(item => ({
         ...item,
-        adjustment: item.adjustment || 0,
-        compensation: item.compensation || 0,
+        adjustment: stored.get(item.menuId)?.adjustment ?? (item.adjustment || 0),
+        compensation: stored.get(item.menuId)?.compensation ?? (item.compensation || 0),
       })))
     } catch (error) {
       toast({
@@ -262,11 +332,11 @@ export function SalesInput() {
       ...prev,
       adjustment: totalAdjustment,
       compensation: totalCompensation,
-      selisih: prev.posSold - prev.productionSold + totalAdjustment + totalCompensation,
+      selisih: computeSelisih(prev.posSold, prev.productionSold, totalAdjustment, totalCompensation),
     } : null)
 
     // Save to localStorage
-    const storageKey = `sales-input-detail-${selectedOutletId}-${selectedDate}-${selectedEntryDetail.plateColorId}`
+    const storageKey = salesDetailKey(selectedOutletId, selectedDate, selectedEntryDetail.plateColorId)
     const dataToStore = {
       plateColorId: selectedEntryDetail.plateColorId,
       plateColorName: selectedEntryDetail.plateColorName,
@@ -294,6 +364,32 @@ export function SalesInput() {
 
     setDetailDialogOpen(false)
   }
+
+  // Item untuk `POST /sales`, dengan rincian per menu dari localStorage.
+  const buildSalesItems = (outletId: string) =>
+    salesEntries.map((entry) => {
+      const details = readSalesDetails(outletId, selectedDate, entry.plateColorId)
+
+      return {
+        plate_color_id: entry.plateColorId,
+        pos_sold: entry.posSold,
+        production_sold: entry.productionSold,
+        production_waste: entry.productionWaste,
+        adjustment: entry.adjustment,
+        compensation: entry.compensation,
+        ...(details.length > 0 && {
+          details: details.map((d) => ({
+            menu_id: d.menuId,
+            menu_name: d.menuName,
+            total_produced: d.totalProduced,
+            total_sold: d.totalSold,
+            total_wasted: d.totalWasted,
+            adjustment: d.adjustment,
+            compensation: d.compensation,
+          })),
+        }),
+      }
+    })
 
   const [isSavingDraft, setIsSavingDraft] = useState(false)
 
@@ -325,39 +421,7 @@ export function SalesInput() {
         outlet_id: selectedOutletId,
         date: selectedDate,
         status: 'draft',
-        items: salesEntries.map((entry) => {
-          const storageKey = `sales-input-detail-${selectedOutletId}-${selectedDate}-${entry.plateColorId}`
-          const stored = localStorage.getItem(storageKey)
-          const parsedDetail = stored ? JSON.parse(stored) : null
-
-          return {
-            plate_color_id: entry.plateColorId,
-            pos_sold: entry.posSold,
-            production_sold: entry.productionSold,
-            production_waste: entry.productionWaste,
-            adjustment: entry.adjustment,
-            compensation: entry.compensation,
-            ...(parsedDetail?.menuDetails?.length > 0 && {
-              details: parsedDetail.menuDetails.map((d: {
-                menuId: string
-                menuName: string
-                totalProduced: number
-                totalSold: number
-                totalWasted: number
-                adjustment: number
-                compensation: number
-              }) => ({
-                menu_id: d.menuId,
-                menu_name: d.menuName,
-                total_produced: d.totalProduced,
-                total_sold: d.totalSold,
-                total_wasted: d.totalWasted,
-                adjustment: d.adjustment,
-                compensation: d.compensation,
-              })),
-            }),
-          }
-        }),
+        items: buildSalesItems(selectedOutletId),
       })
 
       toast({
@@ -405,39 +469,7 @@ export function SalesInput() {
         outlet_id: selectedOutletId,
         date: selectedDate,
         status: 'submitted',
-        items: salesEntries.map((entry) => {
-          const storageKey = `sales-input-detail-${selectedOutletId}-${selectedDate}-${entry.plateColorId}`
-          const stored = localStorage.getItem(storageKey)
-          const parsedDetail = stored ? JSON.parse(stored) : null
-
-          return {
-            plate_color_id: entry.plateColorId,
-            pos_sold: entry.posSold,
-            production_sold: entry.productionSold,
-            production_waste: entry.productionWaste,
-            adjustment: entry.adjustment,
-            compensation: entry.compensation,
-            ...(parsedDetail?.menuDetails?.length > 0 && {
-              details: parsedDetail.menuDetails.map((d: {
-                menuId: string
-                menuName: string
-                totalProduced: number
-                totalSold: number
-                totalWasted: number
-                adjustment: number
-                compensation: number
-              }) => ({
-                menu_id: d.menuId,
-                menu_name: d.menuName,
-                total_produced: d.totalProduced,
-                total_sold: d.totalSold,
-                total_wasted: d.totalWasted,
-                adjustment: d.adjustment,
-                compensation: d.compensation,
-              })),
-            }),
-          }
-        }),
+        items: buildSalesItems(selectedOutletId),
       })
 
       toast({
@@ -447,10 +479,10 @@ export function SalesInput() {
 
       // Clear entries and localStorage after successful submit
       salesEntries.forEach((entry) => {
-        const storageKey = `sales-input-detail-${selectedOutletId}-${selectedDate}-${entry.plateColorId}`
+        const storageKey = salesDetailKey(selectedOutletId, selectedDate, entry.plateColorId)
         localStorage.removeItem(storageKey)
       })
-      setSalesEntries([])
+      setSalesEntries(() => [])
     } catch (error) {
       toast({
         title: 'Error',
@@ -514,6 +546,7 @@ export function SalesInput() {
                 <Button
                   onClick={handleGetSalesDrafts}
                   variant="outline"
+                  disabled={!selectedOutletId}
                 >
                   <FileText className="w-4 h-4 mr-2" />
                   Get Sales Draft
@@ -680,7 +713,7 @@ export function SalesInput() {
             {selectedEntryDetail && editableDetail && (() => {
               const totalAdj = editableDetail.reduce((s, i) => s + (i.adjustment || 0), 0)
               const totalComp = editableDetail.reduce((s, i) => s + (i.compensation || 0), 0)
-              const selisih = selectedEntryDetail.posSold - selectedEntryDetail.productionSold + totalAdj + totalComp
+              const selisih = computeSelisih(selectedEntryDetail.posSold, selectedEntryDetail.productionSold, totalAdj, totalComp)
 
               return (
                 <div className="space-y-2">
@@ -818,7 +851,7 @@ export function SalesInput() {
           {editableDetail && editableDetail.length > 0 && selectedEntryDetail && (() => {
             const totalAdj = editableDetail.reduce((s, i) => s + (i.adjustment || 0), 0)
             const totalComp = editableDetail.reduce((s, i) => s + (i.compensation || 0), 0)
-            const selisih = selectedEntryDetail.posSold - selectedEntryDetail.productionSold + totalAdj + totalComp
+            const selisih = computeSelisih(selectedEntryDetail.posSold, selectedEntryDetail.productionSold, totalAdj, totalComp)
             const isBalanced = selisih === 0
 
             return (
