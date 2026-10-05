@@ -68,8 +68,16 @@ export {
   closingReportService,
   type ClosingReportEntry,
   type ClosingReportSummary,
+  type ClosingReportPublishStatus,
   type ClosingReportParams,
   type ClosingReportListParams,
   type ClosingReportPayload,
   type SubmitClosingReportPayload,
 } from './services/closing-report'
+export {
+  closingReportOutboxService,
+  type ClosingReportOutboxRow,
+  type ClosingReportOutboxParams,
+  type ClosingReportOutboxList,
+  type ClosingReportOutboxStatusFilter,
+} from './services/closing-report-outbox'

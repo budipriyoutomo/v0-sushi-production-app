@@ -14,6 +14,7 @@ import {
   FileQuestion,
   UtensilsCrossed,
   Upload,
+  Send,
   CalendarDays,
   Trash2, 
   Calculator, 
@@ -60,6 +61,7 @@ export function SidebarNav({ role }: SidebarNavProps) {
     { label: 'Waste Reasons', href: '/admin/reason-waste', icon: FileQuestion },
     { label: 'Menus', href: '/admin/menus', icon: UtensilsCrossed },
     { label: 'Import Backdate', href: '/admin/production-import', icon: Upload },
+    { label: 'Kirim Ulang BI', href: '/admin/bi-sync', icon: Send },
   ]
 
   const productionItems: NavItem[] = [

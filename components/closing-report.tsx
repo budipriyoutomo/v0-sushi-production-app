@@ -13,7 +13,8 @@ import { useOutlet } from '@/lib/outlet-context'
 import { PlateColorBadge } from '@/components/plate-color-badge'
 import { Textarea } from '@/components/ui/textarea'
 import { CheckCircle, AlertCircle, Download, Upload, FileText, Loader2, MessageSquare, MessageSquarePlus } from 'lucide-react'
-import { closingReportService, type ClosingReportEntry, type ClosingReportSummary, getApiError } from '@/lib/api'
+import { closingReportService, type ClosingReportEntry, type ClosingReportSummary, type ClosingReportPublishStatus as PublishStatus, getApiError } from '@/lib/api'
+import { ClosingReportPublishStatus } from '@/components/closing-report-publish-status'
 
 interface MenuSalesEntry {
   menuId: string
@@ -46,6 +47,7 @@ export function ClosingReport() {
   const [isUploadingPhotos, setIsUploadingPhotos] = useState(false)
   const [currentReportId, setCurrentReportId] = useState<string | null>(null)
   const [status, setStatus] = useState<'draft' | 'submitted' | 'verified'>('draft')
+  const [publishStatus, setPublishStatus] = useState<PublishStatus | null>(null)
 
   // Compensation note dialog state
   const [noteDialogOpen, setNoteDialogOpen] = useState(false)
@@ -409,7 +411,7 @@ export function ClosingReport() {
 
     setIsSubmitting(true)
     try {
-      await closingReportService.submit({
+      const submitted = await closingReportService.submit({
         outletId: selectedOutletId,
         date: date,
         kitchenLeader: kitchenLeader,
@@ -418,6 +420,7 @@ export function ClosingReport() {
       })
 
       setStatus('submitted')
+      setPublishStatus(submitted?.publishStatus ?? null)
       setSubmittedDate(date)
       setSuccessDialogOpen(true)
     } catch (error) {
@@ -450,6 +453,9 @@ export function ClosingReport() {
             <div>
               <p className="font-semibold text-green-900">Report Submitted</p>
               <p className="text-sm text-green-700">This closing report has been submitted for verification</p>
+              <div className="mt-2">
+                <ClosingReportPublishStatus status={publishStatus} />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -688,6 +694,9 @@ export function ClosingReport() {
             <DialogDescription className="text-base text-muted-foreground">
               Sukses Closing Colorplate {submittedDate}
             </DialogDescription>
+            <div className="mt-3">
+              <ClosingReportPublishStatus status={publishStatus} />
+            </div>
           </div>
           <div className="flex justify-center pt-2">
             <Button onClick={handleReloadPage} className="w-full">

@@ -29,6 +29,10 @@ export interface ClosingReportEntry {
   revenue: number
 }
 
+// Status kirim ke BI lewat RabbitMQ. null = belum ada pesan (draft, atau
+// disubmit sebelum fitur publish ada).
+export type ClosingReportPublishStatus = 'pending' | 'published' | 'failed'
+
 // Closing Report Summary
 export interface ClosingReportSummary {
   id: string
@@ -60,6 +64,7 @@ export interface ClosingReportSummary {
   updatedAt: string
   submittedAt?: string
   submittedBy?: string
+  publishStatus?: ClosingReportPublishStatus | null
 }
 
 // Params for fetching closing report data
