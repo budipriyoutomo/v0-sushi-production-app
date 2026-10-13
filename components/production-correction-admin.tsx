@@ -31,8 +31,6 @@ import { useWasteReasons } from "@/hooks/use-waste-reasons"
 import { useToast } from "@/hooks/use-toast"
 import { getApiError, type CorrectionLine, type CorrectionPayload } from "@/lib/api"
 
-/** Sama dengan `ProductionStatusCorrectionService::MAX_DAYS_BACK`. Server tetap yang memutuskan. */
-const MAX_DAYS_BACK = 31
 const MIN_REASON_LENGTH = 10
 
 /** Tanggal lokal `YYYY-MM-DD` — `toISOString()` memakai UTC dan bisa mundur sehari. */
@@ -225,15 +223,14 @@ export function ProductionCorrectionAdmin() {
                       id="correction-date"
                       type="date"
                       value={date}
-                      min={localDate(-MAX_DAYS_BACK)}
                       max={localDate(0)}
                       onChange={(e) => handleDateChange(e.target.value)}
                       className="mt-1"
                     />
                   </div>
                   <p className="text-sm text-muted-foreground pb-2">
-                    Maksimal {MAX_DAYS_BACK} hari ke belakang. Tanggal yang Sales Input-nya sudah dibuat — draft
-                    sekalipun — terkunci.
+                    Tanggal berapa pun bisa dikoreksi selama Sales Input-nya belum dibuat. Draft Sales Input juga
+                    mengunci — batalkan dulu kalau perlu.
                   </p>
                 </div>
               </CardHeader>
