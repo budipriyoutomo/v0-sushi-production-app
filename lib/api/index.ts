@@ -44,6 +44,20 @@ export {
   type BackdateImportResult,
 } from './services/production-import'
 export {
+  productionCorrectionService,
+  type CorrectionStatus,
+  type CorrectionLock,
+  type CorrectionMenuRow,
+  type CancelledSalesDraftLog,
+  type CorrectionSummary,
+  type CorrectionLine,
+  type CorrectionPayload,
+  type CorrectionPreview,
+  type CorrectionRecord,
+  type CorrectionHistory,
+  type CorrectionHistoryParams,
+} from './services/production-correction'
+export {
   reportsService,
   type SalesData,
   type POSData,
@@ -56,6 +70,7 @@ export {
   salesService,
   type SalesDraft,
   type SalesDraftItem,
+  type CancelledSalesDraft,
 } from './services/sales'
 export {
   wasteService,

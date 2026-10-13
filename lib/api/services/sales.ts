@@ -41,6 +41,14 @@ export interface SalesDraftItemDetail {
   compensation: number
 }
 
+export interface CancelledSalesDraft {
+  id: string
+  outletId: string
+  date: string
+  deletionReason: string
+  deletedAt: string | null
+}
+
 class SalesService {
   private endpoint = '/sales'
 
@@ -87,11 +95,25 @@ class SalesService {
     return response.data.data
   }
 
-  // NOTE: there is deliberately no update/submit/delete here.
-  // The backend exposes no such routes — create() upserts on (outlet_id, date)
-  // and carries the draft/submitted status in its payload. The methods that
-  // used to live here called PUT /sales/{id}, POST /sales/{id}/submit and
-  // DELETE /sales/{id}, none of which exist; every one would have 404'd.
+  /**
+   * Membatalkan draft Sales Input (soft delete). Hanya admin, hanya draft —
+   * dipakai layar Koreksi Status Produksi, yang terkunci selama Sales Input
+   * tanggal itu ada. Alasan wajib dan tersimpan di `sales_headers.deletion_reason`.
+   *
+   * Tidak masuk antrean offline: menghapus pekerjaan operator diam-diam saat
+   * jaringan kembali adalah hal terakhir yang diinginkan.
+   */
+  async cancelDraft(id: string, reason: string): Promise<CancelledSalesDraft> {
+    const response = await apiClient.delete<{ data: CancelledSalesDraft }>(`${this.endpoint}/${id}`, {
+      data: { reason },
+      skipOfflineQueue: true,
+    })
+    return response.data.data
+  }
+
+  // NOTE: there is deliberately no update/submit here. create() upserts on
+  // (outlet_id, date) and carries the draft/submitted status in its payload.
+  // The only delete is cancelDraft() above — admin-only, draft-only.
 }
 
 export const salesService = new SalesService()

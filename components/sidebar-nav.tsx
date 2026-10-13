@@ -14,6 +14,7 @@ import {
   FileQuestion,
   UtensilsCrossed,
   Upload,
+  ArrowLeftRight,
   Send,
   CalendarDays,
   Trash2, 
@@ -60,6 +61,7 @@ export function SidebarNav({ role }: SidebarNavProps) {
     { label: 'Brand Settings', href: '/admin/brand-settings', icon: Clock },
     { label: 'Waste Reasons', href: '/admin/reason-waste', icon: FileQuestion },
     { label: 'Menus', href: '/admin/menus', icon: UtensilsCrossed },
+    { label: 'Koreksi Status', href: '/admin/production-correction', icon: ArrowLeftRight },
     { label: 'Import Backdate', href: '/admin/production-import', icon: Upload },
     { label: 'Kirim Ulang BI', href: '/admin/bi-sync', icon: Send },
   ]

@@ -431,7 +431,9 @@ export function SalesInput() {
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to save draft',
+        // Pesan server didahulukan: penolakan bisnis (mis. data produksi
+        // dikoreksi admin → Get Data POS ulang) harus terbaca operator.
+        description: getApiError(error).message || 'Failed to save draft',
         variant: 'destructive',
       })
     } finally {
@@ -486,7 +488,9 @@ export function SalesInput() {
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to submit sales data',
+        // Pesan server didahulukan: penolakan bisnis (mis. data produksi
+        // dikoreksi admin → Get Data POS ulang) harus terbaca operator.
+        description: getApiError(error).message || 'Failed to submit sales data',
         variant: 'destructive',
       })
     } finally {
