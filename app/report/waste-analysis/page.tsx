@@ -71,6 +71,7 @@ export default function WasteAnalysisPage() {
 
   const plateChartData = analysis?.byPlateColor.map((p) => ({ plate: p.plateColorName, waste: p.wasteCount })) ?? []
   const reasonChartData = analysis?.byReason ?? []
+  const categoryData = analysis?.byCategory ?? []
 
   return (
     <div className="space-y-6">
@@ -213,6 +214,35 @@ export default function WasteAnalysisPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Waste by Category */}
+          <Card>
+            <CardHeader><CardTitle>Waste by Category</CardTitle></CardHeader>
+            <CardContent>
+              {categoryData.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">No waste recorded for this period.</p>
+              ) : (
+                <div className="space-y-4">
+                  {categoryData.map((item) => (
+                    <div key={item.categoryCode} className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                      <div className="flex-1">
+                        <p className="font-medium">{item.categoryName}</p>
+                        <p className="text-sm text-muted-foreground">
+                          <span className="font-mono text-xs">{item.categoryCode}</span> · {item.count} items
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-lg tabular-nums">{item.percentage}%</p>
+                        <div className="w-24 bg-gray-300 rounded-full h-2 mt-1">
+                          <div className="bg-orange-500 h-2 rounded-full" style={{ width: `${Math.min(item.percentage, 100)}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Waste Details by Reason */}
           <Card>

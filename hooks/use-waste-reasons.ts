@@ -2,12 +2,20 @@ import useSWR, { mutate } from 'swr'
 import { wasteReasonsService, type WasteReason, type CreateWasteReasonDTO, type UpdateWasteReasonDTO } from '@/lib/api/services/waste-reasons'
 import { emptyArray } from '@/lib/empty'
 
-const WASTE_REASONS_KEY = '/master/waste-reason'
+export const WASTE_REASONS_KEY = '/master/waste-reason'
 
-export function useWasteReasons() {
+/**
+ * `withSystem` hanya untuk layar admin reason: ikut menampilkan reason sistem
+ * (Auto-waste, Import backdate). Pemanggil lain — termasuk koreksi status —
+ * tidak boleh menawarkannya, jadi default-nya tetap seperti dulu.
+ */
+export function useWasteReasons({ withSystem = false }: { withSystem?: boolean } = {}) {
   const { data, error, isLoading, mutate } = useSWR<WasteReason[]>(
-    WASTE_REASONS_KEY,
+    withSystem ? `${WASTE_REASONS_KEY}?with_system=1` : WASTE_REASONS_KEY,
     async () => {
+      if (withSystem) {
+        return wasteReasonsService.getAllWithSystem()
+      }
       const response = await wasteReasonsService.getAll()
       return response.data
     }

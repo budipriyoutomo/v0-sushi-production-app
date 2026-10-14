@@ -72,6 +72,18 @@ export interface WasteAnalysisReason {
   percentage: number
 }
 
+/**
+ * Waste per kategori, dari snapshot yang dibekukan saat waste dicatat.
+ * `categoryId` null = belum dikategorikan (`categoryCode` UNCATEGORIZED).
+ */
+export interface WasteAnalysisCategory {
+  categoryId: string | null
+  categoryCode: string
+  categoryName: string
+  count: number
+  percentage: number
+}
+
 export interface WasteAnalysis {
   period: { startDate: string; endDate: string }
   totalWaste: number
@@ -81,6 +93,8 @@ export interface WasteAnalysis {
   topReason: string | null
   byPlateColor: WasteAnalysisPlateColor[]
   byReason: WasteAnalysisReason[]
+  /** Opsional: respons dari backend sebelum fitur kategori tidak membawanya. */
+  byCategory?: WasteAnalysisCategory[]
   byDay: Array<{ date: string; quantity: number }>
 }
 

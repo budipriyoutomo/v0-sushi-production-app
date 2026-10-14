@@ -11,6 +11,12 @@ export { menusService, type CreateMenuDTO, type UpdateMenuDTO } from './services
 export { plateColorsService, type CreatePlateColorDTO, type UpdatePlateColorDTO } from './services/plate-colors'
 export { wasteReasonsService, type WasteReason, type CreateWasteReasonDTO, type UpdateWasteReasonDTO } from './services/waste-reasons'
 export {
+  wasteCategoriesService,
+  type WasteCategory,
+  type CreateWasteCategoryDTO,
+  type UpdateWasteCategoryDTO,
+} from './services/waste-categories'
+export {
   timeMarkersService,
   type TimeMarker,
   type CreateTimeMarkerDTO,

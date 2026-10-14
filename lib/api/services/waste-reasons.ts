@@ -5,24 +5,45 @@ export interface WasteReason {
   reason_name: string
   description: string
   is_active: boolean
+  /** `null` = belum dikategorikan (reason lama sebelum backfill). */
+  waste_category_id?: string | null
+  waste_category_code?: string | null
+  waste_category_name?: string | null
+  /**
+   * Reason yang ditulis kode (Auto-waste, Import backdate). Tidak bisa dihapus
+   * atau di-rename, dan hanya dikirim backend kalau diminta `with_system`.
+   */
+  is_system?: boolean
   created_at?: string
 }
 
 export interface CreateWasteReasonDTO {
   reason_name: string
   description: string
+  /** Wajib untuk reason baru. */
+  waste_category_id: string
   is_active: boolean
 }
 
 export interface UpdateWasteReasonDTO {
   reason_name?: string
   description?: string
+  waste_category_id?: string | null
   is_active?: boolean
 }
 
 class WasteReasonsService extends BaseService<WasteReason, CreateWasteReasonDTO, UpdateWasteReasonDTO> {
   constructor() {
     super('/master/waste-reason')
+  }
+
+  /**
+   * Semua reason termasuk reason sistem — untuk layar admin. Dropdown dapur
+   * tetap memakai `getAll()`/`getActive()`, yang tanpa reason sistem.
+   */
+  async getAllWithSystem(): Promise<WasteReason[]> {
+    const response = await this.getAll({ with_system: 1, per_page: 'all' })
+    return response.data
   }
 
   // Get only active waste reasons

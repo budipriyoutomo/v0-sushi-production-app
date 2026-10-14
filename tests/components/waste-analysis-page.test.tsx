@@ -85,4 +85,34 @@ describe("WasteAnalysisPage", () => {
     expect(screen.getByText("Expiration")).toBeInTheDocument()
     expect(screen.getByText("3 items")).toBeInTheDocument()
   })
+
+  it("renders the waste breakdown per category, including uncategorized waste", async () => {
+    mocks.analysis = {
+      ...fixture,
+      byCategory: [
+        { categoryId: "cat-1", categoryCode: "DEFAULT_WASTE", categoryName: "Default Waste", count: 4, percentage: 80 },
+        { categoryId: null, categoryCode: "UNCATEGORIZED", categoryName: "Belum dikategorikan", count: 1, percentage: 20 },
+      ],
+    }
+    const user = userEvent.setup()
+    render(<WasteAnalysisPage />)
+
+    await user.click(screen.getByRole("button", { name: /fetch data/i }))
+
+    expect(screen.getByText("Waste by Category")).toBeInTheDocument()
+    expect(screen.getByText("Default Waste")).toBeInTheDocument()
+    expect(screen.getByText("Belum dikategorikan")).toBeInTheDocument()
+    expect(screen.getByText("80%")).toBeInTheDocument()
+  })
+
+  it("tolerates a response without byCategory (backend before the category feature)", async () => {
+    mocks.analysis = fixture
+    const user = userEvent.setup()
+    render(<WasteAnalysisPage />)
+
+    await user.click(screen.getByRole("button", { name: /fetch data/i }))
+
+    expect(screen.getByText("Waste by Category")).toBeInTheDocument()
+    expect(screen.getAllByText("No waste recorded for this period.").length).toBeGreaterThan(0)
+  })
 })
