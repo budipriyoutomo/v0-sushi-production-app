@@ -1,9 +1,13 @@
 import useSWR from 'swr'
 import {
   reportsService,
+  type CloseDayLog,
+  type CloseDayLogPage,
+  type CloseDayLogParams,
   type DailySummary,
   type WasteAnalysis,
 } from '@/lib/api'
+import { emptyArray } from '@/lib/empty'
 
 const REPORTS_KEY = '/reports'
 
@@ -44,6 +48,28 @@ export function useWasteAnalysis(params: {
 
   return {
     analysis: data,
+    isLoading,
+    error,
+    refresh: mutate,
+  }
+}
+
+/**
+ * Audit Tutup Hari + auto-waste. `params` null (belum klik Fetch) atau outlet
+ * kosong → tidak fetch: gagal-tertutup, sama seperti `outletScopedKey`.
+ */
+export function useCloseDayLogs(params: CloseDayLogParams | null) {
+  const key = params?.outletId ? `${REPORTS_KEY}/close-day-logs?${JSON.stringify(params)}` : null
+
+  const { data, error, isLoading, mutate } = useSWR<CloseDayLogPage>(key, () =>
+    reportsService.getCloseDayLogs(params as CloseDayLogParams)
+  )
+
+  return {
+    logs: data?.rows ?? emptyArray<CloseDayLog>(),
+    total: data?.total ?? 0,
+    page: data?.page ?? 1,
+    lastPage: data?.lastPage ?? 1,
     isLoading,
     error,
     refresh: mutate,

@@ -98,6 +98,48 @@ export interface WasteAnalysis {
   byDay: Array<{ date: string; quantity: number }>
 }
 
+/** `close_day` = tombol Tutup Hari (sisa → sold), `auto_waste` = sisa hari lalu → waste. */
+export type CloseDayLogAction = 'close_day' | 'auto_waste'
+
+/** `button` (layar conveyor), `scheduler` (00:05), `command` (artisan manual), `get_data_pos`. */
+export type CloseDayLogTrigger = 'button' | 'scheduler' | 'command' | 'get_data_pos'
+
+export interface CloseDayLog {
+  id: string
+  outletId: string
+  outletCode: string | null
+  outletName: string | null
+  action: CloseDayLogAction
+  trigger: CloseDayLogTrigger
+  /** Hari produksi yang ditutup (Y-m-d), bukan hari eksekusinya. */
+  businessDate: string | null
+  closedCount: number
+  executedAt: string | null
+  clientRequestId: string | null
+  ipAddress: string | null
+  userAgent: string | null
+  /** null untuk auto-waste dari scheduler/artisan — tidak ada user login. */
+  executedBy: string | null
+  executedByName: string | null
+}
+
+export interface CloseDayLogParams {
+  outletId: string
+  startDate?: string
+  endDate?: string
+  action?: CloseDayLogAction
+  page?: number
+}
+
+export interface CloseDayLogPage {
+  rows: CloseDayLog[]
+  total: number
+  page: number
+  lastPage: number
+}
+
+const CLOSE_DAY_LOG_PER_PAGE = 25
+
 class ReportsService {
   private endpoint = '/reports'
 
@@ -122,6 +164,26 @@ class ReportsService {
   }): Promise<WasteAnalysis> {
     const response = await apiClient.get<{ data: WasteAnalysis }>(`${this.endpoint}/waste-analysis`, { params })
     return response.data.data
+  }
+
+  // Audit Tutup Hari + auto-waste, terbaru dulu
+  async getCloseDayLogs(params: CloseDayLogParams): Promise<CloseDayLogPage> {
+    const response = await apiClient.get<{
+      data: CloseDayLog[]
+      meta?: { total: number; current_page: number; last_page: number }
+    }>(`${this.endpoint}/close-day-logs`, {
+      params: { ...params, per_page: CLOSE_DAY_LOG_PER_PAGE },
+    })
+
+    const rows = response.data.data
+    const meta = response.data.meta
+
+    return {
+      rows,
+      total: meta?.total ?? rows.length,
+      page: meta?.current_page ?? 1,
+      lastPage: meta?.last_page ?? 1,
+    }
   }
 
   // Get POS data for a specific outlet and date

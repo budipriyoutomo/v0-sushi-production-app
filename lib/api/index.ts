@@ -71,6 +71,11 @@ export {
   type DailySummary,
   type WasteAnalysis,
   type ProductionMenuDetailItem,
+  type CloseDayLog,
+  type CloseDayLogAction,
+  type CloseDayLogTrigger,
+  type CloseDayLogParams,
+  type CloseDayLogPage,
 } from './services/reports'
 export {
   salesService,

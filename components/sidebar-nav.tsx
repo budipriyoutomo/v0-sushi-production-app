@@ -24,6 +24,7 @@ import {
   ClipboardList, 
   BarChart3, 
   TrendingUp,
+  History,
   User as UserIcon,
   ChevronLeft,  
   ChevronRight
@@ -83,6 +84,7 @@ export function SidebarNav({ role }: SidebarNavProps) {
     { label: 'Daily Summary', href: '/report/daily-summary', icon: BarChart3 },
     { label: 'Closing Reports', href: '/report/closing-reports', icon: FileSpreadsheet },
     { label: 'Waste Analysis', href: '/report/waste-analysis', icon: TrendingUp },
+    { label: 'Close Day Log', href: '/report/close-day-logs', icon: History },
   ]
 
   const allSections: NavSection[] = [

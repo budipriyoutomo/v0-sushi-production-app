@@ -16,7 +16,7 @@ app/            # App Router — hanya routing + layout, isinya tipis
   kitchen/      # conveyor, produce, expired, dashboard  (layar tablet)
   production/   # planning, waste
   operation/    # sales-input, closing-report
-  report/       # daily-summary, waste-analysis, closing-reports, production-item-list
+  report/       # daily-summary, waste-analysis, close-day-logs, closing-reports, production-item-list
   login/        # /login, /login/admin (email+password), /login/kitchen (PIN)
   offline/      # fallback dokumen untuk service worker
 components/     # SEMUA layar sebenarnya ada di sini, flat, satu file per layar
